@@ -1,0 +1,7 @@
+*.py[cod]
+.suexecd
+lib/
+*.swp
+*.dat
+*.db
+

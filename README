@@ -1,0 +1,5 @@
+Game of Assassin
+
+1. run install.sh
+2. edit .htaccess and change RewriteBase to the correct path
+

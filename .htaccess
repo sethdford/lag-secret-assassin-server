@@ -1,0 +1,8 @@
+RewriteEngine On
+RewriteBase /~jcx/cgi-bin/assassin/
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^(.*)$ app.cgi/$1 [L,QSA]
+
+AuthType WebAuth
+Require valid-user
+
