@@ -1,5 +1,8 @@
 Game of Assassin
 
-1. run install.sh
-2. edit .htaccess and change RewriteBase to the correct path
-
+1. checkout to ~/cgi-bin on Stanford AFS
+2. run install.sh
+3. edit .htaccess and change RewriteBase to the correct path
+4. populate db/names and db/words with actual game data
+5. run new_game.sh
+6. go to http://web.stanford.edu/~sunetid/cgi-bin/assassin
