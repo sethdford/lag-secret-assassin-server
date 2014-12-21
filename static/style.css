@@ -6,10 +6,19 @@
   margin-right: 6px;
 }
 
+a {
+  transition-duration: 0.3s;
+}
+
 footer {
   margin-top: 100px;
   text-align: right;
   padding-bottom: 30px;
+  color: #888;
+}
+
+footer a {
+  color: #333;
 }
 
 .kill-button {
