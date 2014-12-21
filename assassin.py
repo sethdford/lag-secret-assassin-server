@@ -36,23 +36,32 @@ def inject_user():
 
 @app.context_processor
 def utility_processor():
+
   def print_alive(num_alive):
     if num_alive > 1:
       return "<strong>%i</strong> players are alive." % num_alive
     else:
       return "Only the winner remains."
+
   def row_class(alive):
     if alive:
       return 'default'
     else:
       return 'danger'
+
   def print_time(dt):
     return dt.strftime('%a, %b %d at %I:%M:%S %p')
+
+  def special_url_for(endpoint, **values):
+    url = url_for(endpoint, **values)
+    return url.replace('/app.cgi', '')
+
   return dict(len=len,
               enumerate=enumerate,
               print_alive=print_alive,
               row_class=row_class,
-              print_time=print_time)
+              print_time=print_time,
+              url_for=special_url_for)
 
 # ============================================================================
 # Routes
