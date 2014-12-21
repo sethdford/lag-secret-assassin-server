@@ -14,8 +14,9 @@ CREATE TABLE Players (
 CREATE TABLE Kills (
   KillerID    TEXT,
   VictimID    TEXT,
-  Time        TEXT,
-  Location    TEXT,
+  Time        DATE,
+  Latitude    REAL,
+  Longitude   REAL,
   FOREIGN KEY (KillerID) REFERENCES Players(PlayerID),
   FOREIGN KEY (VictimID) REFERENCES Players(PlayerID),
   PRIMARY KEY (KillerID, VictimID)

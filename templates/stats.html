@@ -1,0 +1,62 @@
+{% extends "layout.html" %}
+{% block body %}
+<div class="row">
+  <div class="col-sm-6">
+    <div class="panel panel-default">
+      <div class="panel-heading">Top Scorers</div>
+      <table class="table">
+        <tr><th>Rank</th><th>Name</th><th>Score</th></tr>
+        {% for count, scorer in enumerate(top_scores) %}
+          <tr class="{{ row_class(scorer['Alive']) }}"><td>{{ count+1 }}</td><td>{{ scorer['Name'] }}</td><td>{{ scorer['Count'] }}</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+  <div class="col-sm-6">
+    <div class="panel panel-default">
+      <div class="panel-heading">Recent Assassinations</div>
+      <table class="table">
+        <tr><th>Name</th><th>Time</th></tr>
+        {% for death in recent_deaths %}
+          <tr><td>{{ death['Name'] }}</td><td>{{ print_time(death['Time']) }}</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-sm-6">
+    <div class="panel panel-default">
+      <div class="panel-heading">Survivors</div>
+      <div class="panel-body chart-box" data-chart></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function drawChart() {
+  var data = google.visualization.arrayToDataTable([
+    ['State', 'Players'],
+    ['Alive', {{ num_alive }}],
+    ['Dead', {{ num_dead }}],
+  ]);
+
+  var options = {
+    pieHole: 0.4,
+    legend: 'none',
+    chartArea: { width: '80%', height: '80%' },
+    slices: {
+      0: { color: '#428bca' },
+      1: { color: '#d9534f' }
+    }
+  };
+
+  var chart = new google.visualization.PieChart($('[data-chart]')[0]);
+  chart.draw(data, options);
+}
+google.load("visualization", "1", {packages:["corechart"]});
+google.setOnLoadCallback(drawChart);
+</script>
+
+{% endblock %}

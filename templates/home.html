@@ -1,0 +1,60 @@
+{% extends "layout.html" %}
+{% block body %}
+  <div class="row">
+    <div class="col-sm-6">
+      <p>You are logged in as <strong>{{ id }}</strong>.</p>
+    </div>
+    <div class="col-sm-6">
+      <p>{{ print_alive(num_alive) | safe}}</p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-sm-6">
+
+    {% if player == None %}
+      <p class="alert alert-warning">You are not in the game.</p>
+    {% elif not player['Alive'] %}
+      <p class="alert alert-danger">You are dead.</p>
+    {% elif player['PlayerID'] == player['TargetID'] %}
+      <p class="alert alert-info">You are the winner!</p>
+    {% else %}
+
+      <div class="panel panel-info">
+        <div class="panel-heading">Next Target</div>
+        <table class="table">
+          <tr><th>Name</th><td>{{ player['TargetName'] }}</td></tr>
+          <tr><th>Secret</th><td>{{ player['TargetSecret'] }}</td></tr>
+        </table>
+      </div>
+
+      <div class="kill-button">
+        <form action="{{ url_for('die') }}" method="post">
+        <input type="hidden" name="latitude" value="">
+        <input type="hidden" name="longitude" value="">
+        <input type="submit" title="Click if you just died" value="I have been killed" class="btn btn-danger">
+        </form>
+      </div>
+
+      <div class="panel panel-default">
+        <div class="panel-heading">Your Location</div>
+        <div class="panel-body map-box" data-map></div>
+      </div>
+
+    {% endif %}
+    </div>
+
+    <div class="col-sm-6">
+      <div class="panel panel-default">
+        <div class="panel-heading">Your Kills</div>
+        <table class="table table-striped">
+          <tr><th>#</th><th>Name</th><th>Time</th></tr>
+          {% for count, kill in enumerate(kills) %}
+            <tr><td>{{ len(kills) - count }}</td><td>{{ kill['Name'] }}</td><td>{{ print_time(kill['Time']) }}</td></tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+  </div>
+
+
+{% endblock %}

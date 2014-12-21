@@ -1,0 +1,22 @@
+.nav {
+  margin-bottom: 20px;
+}
+
+.fa {
+  margin-right: 6px;
+}
+
+footer {
+  margin-top: 100px;
+  text-align: right;
+  padding-bottom: 30px;
+}
+
+.kill-button {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.map-box, .chart-box {
+  height: 300px;
+}
