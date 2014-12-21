@@ -21,11 +21,11 @@ INSERT INTO Players VALUES ('19', 'Joyce', '20', '19 word', 'False');
 INSERT INTO Players VALUES ('20', 'Rock', '21', '20 word', 'False');
 INSERT INTO Players VALUES ('21', 'Wendy', '22', '21 word', 'False');
 INSERT INTO Players VALUES ('22', 'Orlando', '23', '22 word', 'False');
-INSERT INTO Players VALUES ('23', '23 name', '24', '23 word', 'True');
-INSERT INTO Players VALUES ('24', '24 name', '25', '24 word', 'True');
-INSERT INTO Players VALUES ('25', '25 name', '26', '25 word', 'True');
-INSERT INTO Players VALUES ('26', '26 name', '27', '26 word', 'True');
-INSERT INTO Players VALUES ('27', '27 name', '28', '27 word', 'True');
+INSERT INTO Players VALUES ('23', 'Mitchell', '24', '23 word', 'False');
+INSERT INTO Players VALUES ('24', 'Rawr', '25', '24 word', 'False');
+INSERT INTO Players VALUES ('25', 'Paula', '26', '25 word', 'False');
+INSERT INTO Players VALUES ('26', 'Diane', '27', '26 word', 'False');
+INSERT INTO Players VALUES ('27', 'Norman', '28', '27 word', 'False');
 INSERT INTO Players VALUES ('28', '28 name', '29', '28 word', 'True');
 INSERT INTO Players VALUES ('29', '29 name', '30', '29 word', 'True');
 INSERT INTO Players VALUES ('30', '30 name', '31', '30 word', 'True');
@@ -81,4 +81,8 @@ INSERT INTO Kills VALUES ('dev_user', '20', '2012-12-21T23:41:21.794784', -10000
 INSERT INTO Kills VALUES ('dev_user', '21', '2012-12-21T23:40:22.794784', -10000, -10000);
 INSERT INTO Kills VALUES ('dev_user', '22', '2013-12-21T23:40:21.794784', -10000, -10000);
 INSERT INTO Kills VALUES ('dev_user', '1', '2014-12-21T23:40:20.794784', -10000, -10000);
-
+INSERT INTO Kills VALUES ('justinez', '23', '2012-12-21T23:40:21.794784', -10000, -10000);
+INSERT INTO Kills VALUES ('justinez', '24', '2012-12-21T23:40:21.794784', -10000, -10000);
+INSERT INTO Kills VALUES ('justinez', '25', '2012-12-21T23:40:21.794784', -10000, -10000);
+INSERT INTO Kills VALUES ('jcx', '26', '2013-12-21T23:40:21.794784', -10000, -10000);
+INSERT INTO Kills VALUES ('jcx', '27', '2012-12-21T23:40:21.794784', -10000, -10000);
