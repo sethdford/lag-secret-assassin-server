@@ -18,7 +18,8 @@ $(document).ready(function() {
 
       var map = new google.maps.Map($('[data-map]')[0], {
         center: loc,
-        zoom: 18
+        zoom: 18,
+        draggable: false
       });
 
       var marker = new google.maps.Marker({
