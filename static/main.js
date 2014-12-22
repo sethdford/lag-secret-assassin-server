@@ -24,7 +24,7 @@ $(document).ready(function() {
 
         var map = new google.maps.Map(box[0], {
           center: loc,
-          zoom: 18
+          zoom: 17
         });
 
         var marker = new google.maps.Marker({
