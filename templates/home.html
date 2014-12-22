@@ -17,7 +17,7 @@
       <p class="alert alert-danger">You are dead.</p>
     {% elif player['PlayerID'] == player['TargetID'] %}
       <p class="alert alert-info">You are the winner!</p>
-    {% else %}
+    {% elif num_alive > 1 %}
 
       <div class="panel panel-info">
         <div class="panel-heading">Next Target</div>
