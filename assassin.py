@@ -35,11 +35,11 @@ def inject_user():
 @app.context_processor
 def utility_processor():
 
-  def print_alive(num_alive):
+  def print_alive_alert(num_alive, victor_name):
     if num_alive > 1:
-      return "<strong>%i</strong> players are alive." % num_alive
+      return "<p class=\"alert\"><strong>%i</strong> players are alive.</p>" % num_alive
     else:
-      return "Only the winner remains."
+      return "<p class=\"alert alert-success\">Game over. Only <strong>%s</strong> remains.</p>" % victor_name
 
   def row_class(alive):
     if alive:
@@ -56,7 +56,7 @@ def utility_processor():
 
   return dict(len=len,
               enumerate=enumerate,
-              print_alive=print_alive,
+              print_alive_alert=print_alive_alert,
               row_class=row_class,
               url_for=special_url_for,
               show_secret_word=show_secret_word,
@@ -92,8 +92,8 @@ def home():
     ON p1.TargetID = p2.PlayerID
     WHERE p1.PlayerID = ?""", (sunetid,))
   player = cursor.fetchone()
-  cursor.execute("SELECT COUNT(*) FROM Players WHERE Alive = 'True'")
-  num_alive = cursor.fetchone()[0]
+  cursor.execute("SELECT Players.Name, COUNT(*) FROM Players WHERE Alive = 'True'")
+  victor_name, num_alive = cursor.fetchone()
 
   kills = None
   if player != None:
@@ -105,7 +105,11 @@ def home():
       WHERE KillerID = ? ORDER BY Time DESC""", (sunetid,))
     kills = cursor.fetchall()
 
-  return render_template('home.html', player=player, num_alive=num_alive, kills=kills)
+  return render_template('home.html',
+                         player=player,
+                         num_alive=num_alive,
+                         kills=kills,
+                         victor_name =victor_name)
 
 @app.route('/die', methods=['POST'])
 def die():

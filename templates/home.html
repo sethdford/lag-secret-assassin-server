@@ -5,7 +5,7 @@
       <p class="alert">You are logged in as <strong>{{ id }}</strong>.</p>
     </div>
     <div class="col-sm-6">
-      <p class="alert">{{ print_alive(num_alive) | safe}}</p>
+      {{ print_alive_alert(num_alive, victor_name) | safe}}
     </div>
   </div>
   <div class="row">
