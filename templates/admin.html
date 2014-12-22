@@ -1,4 +1,4 @@
-{% extends "layout.html" %}
+{% extends "layout_full.html" %}
 {% block body %}
 
 <div class="row">
@@ -10,12 +10,13 @@
           <tr>
             <th>Name</th>
             {% if show_secret_word() %}
-            <th>Secret</th>
+            <th class="{sorter: false}">Secret</th>
             {% endif %}
             <th>Score</th>
-            <th>Next Target</th>
-            <th>Last Target</th>
-            <th>Last Activity</th>
+            <th class="{sorter: false}">Next Target</th>
+            <th class="{sorter: false}">Prev Target</th>
+            <th>Prev Time</th>
+            <th>Last Will</th>
           </tr>
           </thead>
           <tbody>
@@ -27,8 +28,9 @@
             {% endif %}
             <td>{{ player['Score'] | default_blank }}</td>
             <td>{{ player['Target'] if player['Alive'] else None | default_blank }}</td>
-            <td>{{ player['Last Victim'] | default_blank }}</td>
-            <td>{{ player['Last Activity'] | datetime }}</td>
+            <td>{{ player['Prev Victim'] | default_blank }}</td>
+            <td><small>{{ player['Prev Activity'] | default_blank }}</small></td>
+            <td>{{ player['Last Will'] | default_blank }}</td>
           </tr>
           {% endfor %}
           </tbody>

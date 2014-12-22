@@ -183,8 +183,9 @@ def admin():
   cursor.execute("""
     SELECT Players.PlayerID PlayerID, Players.Name Name, Targets.Name Target,
       Players.Secret Secret, Players.Alive Alive, Scores.Count Score,
-      Recent.Victim "Last Victim", Recent.Time "Last Activity",
-      Recent.Latitude Latitude, Recent.Longitude Longitude
+      Recent.Victim "Prev Victim", Recent.Time "Prev Activity",
+      Recent.Latitude Latitude, Recent.Longitude Longitude,
+      Players.LastWill "Last Will"
     FROM Players
     LEFT JOIN Players Targets
     ON Players.TargetID = Targets.PlayerID
@@ -222,12 +223,12 @@ def forbidden(e):
 def notify_victory(victor_id):
   send_email([victor_id + '@stanford.edu'],
              'Congratulations!',
-             render_template('victory.html'))
+             render_template('mail/victory.html'))
 
 def notify_death(killer_id, victim, secret):
   send_email([killer_id + '@stanford.edu'],
              'Target Successfully Eliminated',
-             render_template('notify.html', victim=victim, secret=secret))
+             render_template('mail/notify.html', victim=victim, secret=secret))
 
 def send_email(receivers, subject, message):
   if not isinstance(receivers, list):

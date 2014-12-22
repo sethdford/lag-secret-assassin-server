@@ -1,11 +1,11 @@
-{% extends "layout.html" %}
+{% extends "layout_narrow.html" %}
 {% block body %}
   <div class="row">
     <div class="col-sm-6">
-      <p>You are logged in as <strong>{{ id }}</strong>.</p>
+      <p class="alert">You are logged in as <strong>{{ id }}</strong>.</p>
     </div>
     <div class="col-sm-6">
-      <p>{{ print_alive(num_alive) | safe}}</p>
+      <p class="alert">{{ print_alive(num_alive) | safe}}</p>
     </div>
   </div>
   <div class="row">

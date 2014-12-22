@@ -7,6 +7,7 @@ CREATE TABLE Players (
   TargetID    TEXT,
   Secret      TEXT,
   Alive       BOOLEAN,
+  LastWill    TEXT,
   FOREIGN KEY (TargetID) REFERENCES Players(PlayerID),
   PRIMARY KEY (PlayerID)
 );

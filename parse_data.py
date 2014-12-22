@@ -33,5 +33,5 @@ with open(os.path.join(folder, 'players.dat'), 'wb') as output:
     name = names[i]
     target = ids[i+1]
     word = words[i] if import_words else ''
-    writer.writerow([sunetid, name, target, word, True])
+    writer.writerow([sunetid, name, target, word, True, ''])
 

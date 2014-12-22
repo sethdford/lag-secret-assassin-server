@@ -12,25 +12,21 @@
 <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA8e-5QjRiqSIb1tfPowj3v_-MHmP1nyck"></script>
 <script type="text/javascript" src="https://www.google.com/jsapi"></script>
 <script type="text/javascript" src="{{ url_for('static', filename='main.js') }}"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='jquery.metadata.js') }}"></script>
 <script type="text/javascript" src="{{ url_for('static', filename='jquery.tablesorter.min.js') }}"></script>
 </head>
 
 <body>
 <div class="container">
-  <div class="row">
-  <div class="col-md-8 col-md-offset-2">
-  <h1>Assassin<i class="fa fa-crosshairs"></i></h1>
-
-  {% include "nav.html" %}
+  {% include "parts/header.html" %}
 
   {% for message in get_flashed_messages() %}
     <div class="flash">{{ message }}</div>
   {% endfor %}
-  {% block body %}{% endblock %}
 
-  {% include "footer.html" %}
-  </div>
-  </div>
+  {% block container %}{% endblock %}
+
+  {% include "parts/footer.html" %}
 </div>
 </body>
 </html>
