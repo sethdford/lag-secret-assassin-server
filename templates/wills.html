@@ -13,15 +13,18 @@
           <tr>
             <th>Name</th>
             <th class="{sorter: false}">Last Will</th>
-            <th class="{sorter: false}">Time Assassinated</th>
           </tr>
           </thead>
           <tbody>
           {% for will in wills %}
-          <tr>
+          <tr data-location data-lat="{{ will['Latitude'] }}" data-long="{{ will['Longitude'] }}">
             <td>{{ will['Name'] }}</td>
-            <td>{{ will['LastWill'] | default_blank }}</td>
-            <td>{{ will['Time'] | datetime }}</td>
+            <td>
+              <div  class="pull-right"><button data-map-toggle class="btn btn-sm btn-default"><i class="fa fa-map-marker"></i>Map</button></div>
+              {{ will['LastWill'] | default_blank }}<br>
+              <small class="text-muted">{{ will['Time'] | datetime }}</small>
+              <div class="map-box"></div>
+            </td>
           </tr>
           {% endfor %}
           </tbody>

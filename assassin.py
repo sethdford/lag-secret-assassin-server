@@ -184,7 +184,8 @@ def wills():
   conn = connect_db()
   cursor = conn.cursor()
   cursor.execute("""
-    SELECT Players.PlayerID, Players.Name, Players.LastWill, Kills.Time
+    SELECT Players.PlayerID, Players.Name, Players.LastWill, Kills.Time,
+           Kills.Latitude, Kills.Longitude
     FROM Players
     LEFT JOIN Kills
     ON Players.PlayerID = Kills.VictimID
