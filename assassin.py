@@ -112,7 +112,7 @@ def die():
   conn = connect_db()
   cursor = conn.cursor()
   cursor.execute("""
-    SELECT killer.PlayerID, dead.TargetID, next.Name, next.Secret
+    SELECT killer.PlayerID, dead.Name, dead.TargetID, next.Name NextTarget, next.Secret
     FROM Players killer
     JOIN Players dead
     ON dead.PlayerID = killer.TargetID
@@ -134,9 +134,9 @@ def die():
   conn.commit()
 
   if killer_id == target_id:
-    notify_victory(killer_id)
+    notify_victory(killer_id, row['Name'], last_will)
   else:
-    notify_death(killer_id, row['Name'], row['Secret'])
+    notify_death(killer_id, row['NextTarget'], row['Secret'], row['Name'], last_will)
 
   return redirect(url_for('home'))
 
@@ -237,15 +237,21 @@ def forbidden(e):
 # Utility Functions
 # ============================================================================
 
-def notify_victory(victor_id):
+def notify_victory(victor_id, victim, last_will):
   send_email([victor_id + '@stanford.edu'],
              'Congratulations!',
-             render_template('mail/victory.html'))
+             render_template('mail/victory.html',
+                             victim=victim,
+                             last_will=last_will))
 
-def notify_death(killer_id, victim, secret):
+def notify_death(killer_id, next_target, secret, victim, last_will):
   send_email([killer_id + '@stanford.edu'],
              'Target Successfully Eliminated',
-             render_template('mail/notify.html', victim=victim, secret=secret))
+             render_template('mail/notify.html',
+                             next_target=next_target,
+                             secret=secret,
+                             victim=victim,
+                             last_will=last_will))
 
 def send_email(receivers, subject, message):
   if not isinstance(receivers, list):
