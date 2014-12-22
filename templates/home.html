@@ -53,7 +53,7 @@
         <table class="table table-striped">
           <tr><th>#</th><th>Name</th><th>Time</th></tr>
           {% for count, kill in enumerate(kills) %}
-            <tr><td>{{ len(kills) - count }}</td><td>{{ kill['Name'] }}</td><td>{{ print_time(kill['Time']) }}</td></tr>
+            <tr><td>{{ len(kills) - count }}</td><td>{{ kill['Name'] }}</td><td>{{ kill['Time'] | datetime }}</td></tr>
           {% endfor %}
         </table>
       </div>

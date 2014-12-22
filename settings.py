@@ -5,7 +5,7 @@ WORD_ASSASSIN = 'Word'
 game_mode = WORD_ASSASSIN
 
 # Player IDs of gamemasters allowed to access to /admin
-admins = ['jcx', 'dev_user']
+admins = ['jcx', 'dev_user', 'justinez']
 
 # Sendmail on Stanford clusters will only deliver to @stanford.edu addresses
 sendmail = '/usr/sbin/sendmail'
@@ -16,7 +16,7 @@ email_reply_to = 'Raven <jcx@stanford.edu>'
 dev_id = 'dev_user'
 
 # Number of rows to display on /stats
-stats_row = 5
+stats_row_limit = 5
 
 # Path to generated game database
 db_path = 'db/game.db'

@@ -18,7 +18,7 @@
       <table class="table">
         <tr><th>Name</th><th>Time</th></tr>
         {% for death in recent_deaths %}
-          <tr><td>{{ death['Name'] }}</td><td>{{ print_time(death['Time']) }}</td></tr>
+          <tr><td>{{ death['Name'] }}</td><td>{{ death['Time'] | datetime }}</td></tr>
         {% endfor %}
       </table>
     </div>

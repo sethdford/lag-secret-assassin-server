@@ -28,3 +28,22 @@ footer a {
 .map-box, .chart-box {
   height: 300px;
 }
+
+th.header {
+  cursor: pointer;
+}
+
+th.header:after {
+  font: normal normal normal 13px/1 FontAwesome;
+  color: #ccc;
+  margin-left: 10px;
+  content: "\f0dc";
+}
+
+th.headerSortUp:after {
+  content: "\f0de";
+}
+
+th.headerSortDown:after {
+  content: "\f0dd";
+}

@@ -9,7 +9,7 @@ from subprocess import Popen, PIPE
 
 sys.path.insert(0, 'lib')
 import settings
-from flask import Flask, render_template, redirect, url_for, flash, request
+from flask import Flask, render_template, redirect, url_for, flash, request, abort
 
 # ============================================================================
 
@@ -47,9 +47,6 @@ def utility_processor():
     else:
       return 'danger'
 
-  def print_time(dt):
-    return dt.strftime('%a, %b %d at %I:%M:%S %p')
-
   def special_url_for(endpoint, **values):
     url = url_for(endpoint, **values)
     return url.replace('/app.cgi', '')
@@ -61,10 +58,25 @@ def utility_processor():
               enumerate=enumerate,
               print_alive=print_alive,
               row_class=row_class,
-              print_time=print_time,
               url_for=special_url_for,
               show_secret_word=show_secret_word,
               game_mode=settings.game_mode)
+
+# ============================================================================
+# Template Filters
+# ============================================================================
+
+@app.template_filter('datetime')
+def datetime_filter(x):
+  return '' if x == None else x.strftime('%a, %b %d at %I:%M:%S %p')
+
+@app.template_filter('default_zero')
+def datetime_filter(x):
+  return 0 if x == None else x
+
+@app.template_filter('default_blank')
+def datetime_filter(x):
+  return '' if x == None else x
 
 # ============================================================================
 # Routes
@@ -131,7 +143,6 @@ def die():
 def stats():
   conn = connect_db()
   cursor = conn.cursor()
-  top_limit = 5
   cursor.execute("""
     SELECT Players.Name, Players.Alive, Count(*) Count
     FROM Kills
@@ -139,7 +150,7 @@ def stats():
     ON Kills.KillerID = Players.PlayerID
     GROUP BY Kills.KillerID
     ORDER BY Count DESC
-    LIMIT ?""", (top_limit,))
+    LIMIT ?""", (settings.stats_row_limit,))
   top_scores = cursor.fetchall()
 
   cursor.execute("""
@@ -148,7 +159,7 @@ def stats():
     JOIN Players
     ON Kills.VictimID = Players.PlayerID
     ORDER BY Time DESC
-    LIMIT ?""", (top_limit,))
+    LIMIT ?""", (settings.stats_row_limit,))
   recent_deaths = cursor.fetchall()
 
   cursor.execute("SELECT COUNT(*) FROM Players WHERE Alive = 'True'")
@@ -162,6 +173,47 @@ def stats():
                          recent_deaths=recent_deaths,
                          num_alive=num_alive,
                          num_dead=num_dead)
+
+@app.route('/admin')
+def admin():
+  if sunetid not in settings.admins:
+    abort(403)
+  conn = connect_db()
+  cursor = conn.cursor()
+  cursor.execute("""
+    SELECT Players.PlayerID PlayerID, Players.Name Name, Targets.Name Target,
+      Players.Secret Secret, Players.Alive Alive, Scores.Count Score,
+      Recent.Victim "Last Victim", Recent.Time "Last Activity",
+      Recent.Latitude Latitude, Recent.Longitude Longitude
+    FROM Players
+    LEFT JOIN Players Targets
+    ON Players.TargetID = Targets.PlayerID
+    LEFT JOIN (
+      SELECT KillerID, Count(*) Count
+      FROM Kills
+      GROUP BY KillerID
+    ) Scores
+    ON Players.PlayerID = Scores.KillerID
+    LEFT JOIN (
+      SELECT K1.KillerID, Players.Name Victim, K1.Time, K1.Latitude, K1.Longitude
+      FROM Kills K1
+      JOIN Players
+      ON K1.VictimID = Players.PlayerID
+      WHERE K1.Time = (
+        SELECT MAX(Time) FROM Kills K2 WHERE K1.KillerID = K2.KillerID)
+    ) Recent
+    ON Players.PlayerID = Recent.KillerID
+    GROUP BY Players.PlayerID
+    ORDER BY Players.Name ASC
+    """)
+  players = cursor.fetchall()
+
+  return render_template('admin.html',
+                         players=players)
+
+@app.errorhandler(403)
+def forbidden(e):
+  return render_template('403.html'), 403
 
 # ============================================================================
 # Utility Functions

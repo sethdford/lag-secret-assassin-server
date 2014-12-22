@@ -1,0 +1,40 @@
+{% extends "layout.html" %}
+{% block body %}
+
+<div class="row">
+  <div class="col-xs-12">
+    <div class="panel panel-default">
+      <div class="panel-heading">Players</div>
+        <table class="table" data-tablesorter>
+          <thead>
+          <tr>
+            <th>Name</th>
+            {% if show_secret_word() %}
+            <th>Secret</th>
+            {% endif %}
+            <th>Score</th>
+            <th>Next Target</th>
+            <th>Last Target</th>
+            <th>Last Activity</th>
+          </tr>
+          </thead>
+          <tbody>
+          {% for player in players %}
+          <tr class="{{ row_class(player['Alive']) }}">
+            <td>{{ player['Name'] }}</td>
+            {% if show_secret_word() %}
+            <td>{{ player['Secret'] }}</td>
+            {% endif %}
+            <td>{{ player['Score'] | default_blank }}</td>
+            <td>{{ player['Target'] if player['Alive'] else None | default_blank }}</td>
+            <td>{{ player['Last Victim'] | default_blank }}</td>
+            <td>{{ player['Last Activity'] | datetime }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
