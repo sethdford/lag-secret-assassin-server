@@ -38,4 +38,5 @@ $(document).ready(function() {
   }
 
   $('[data-tablesorter]').tablesorter();
+  $('[data-toggle="tooltip"]').tooltip();
 });

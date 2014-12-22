@@ -1,0 +1,34 @@
+{% extends "layout_narrow.html" %}
+{% block body %}
+
+<div class="row">
+  <div class="col-xs-12">
+    <div class="panel panel-default">
+      <div class="panel-heading">Last Will</div>
+        {% if len(wills) == 0 %}
+        <div class="panel-body">No one has been assassinated yet.</div>
+        {% else %}
+        <table class="table" data-tablesorter>
+          <thead>
+          <tr>
+            <th>Name</th>
+            <th class="{sorter: false}">Last Will</th>
+            <th class="{sorter: false}">Time Assassinated</th>
+          </tr>
+          </thead>
+          <tbody>
+          {% for will in wills %}
+          <tr>
+            <td>{{ will['Name'] }}</td>
+            <td>{{ will['LastWill'] | default_blank }}</td>
+            <td>{{ will['Time'] | datetime }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}

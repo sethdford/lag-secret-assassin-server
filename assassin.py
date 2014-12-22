@@ -123,10 +123,11 @@ def die():
 
   killer_id = row['PlayerID']
   target_id = row['TargetID']
+  last_will = request.form['last_will']
   latitude = float(request.form['latitude']) if request.form['latitude'] != '' else -10000
   longitude = float(request.form['longitude']) if request.form['longitude'] != '' else -10000
 
-  cursor.execute("UPDATE Players SET Alive = 'False' WHERE PlayerID = ?", (sunetid,))
+  cursor.execute("UPDATE Players SET Alive = 'False', LastWill = ? WHERE PlayerID = ?",(last_will, sunetid))
   cursor.execute("UPDATE Players SET TargetID = ? WHERE PlayerID = ?", (target_id, killer_id))
   cursor.execute("INSERT INTO Kills VALUES (?, ?, ?, ?, ?)",
     (killer_id, sunetid, datetime.now(), latitude, longitude))
@@ -173,6 +174,22 @@ def stats():
                          recent_deaths=recent_deaths,
                          num_alive=num_alive,
                          num_dead=num_dead)
+
+@app.route('/wills')
+def wills():
+  conn = connect_db()
+  cursor = conn.cursor()
+  cursor.execute("""
+    SELECT Players.PlayerID, Players.Name, Players.LastWill, Kills.Time
+    FROM Players
+    LEFT JOIN Kills
+    ON Players.PlayerID = Kills.VictimID
+    WHERE Players.Alive = 'False'
+    GROUP BY Players.PlayerID
+    ORDER BY Kills.Time DESC
+    """)
+  wills = cursor.fetchall()
+  return render_template('wills.html', wills=wills)
 
 @app.route('/admin')
 def admin():

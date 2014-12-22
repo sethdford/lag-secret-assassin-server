@@ -30,11 +30,11 @@
       </div>
 
       <div class="kill-button">
-        <form action="{{ url_for('die') }}" method="post">
-        <input type="hidden" name="latitude" value="">
-        <input type="hidden" name="longitude" value="">
-        <input type="submit" title="Click if you just died" value="I have been killed" class="btn btn-danger">
-        </form>
+        <span data-toggle="tooltip" data-placement="left" title="Report your death!">
+        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#deathModal">
+          I have been killed
+        </button>
+        </span>
       </div>
 
       <div class="map-container hidden">
@@ -60,5 +60,32 @@
     </div>
   </div>
 
+<div class="modal fade" id="deathModal" tabindex="-1" role="dialog">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+        <h4 class="modal-title">Confirm your death</h4>
+      </div>
+
+      <form action="{{ url_for('die') }}" method="post">
+        <input type="hidden" name="latitude" value="">
+        <input type="hidden" name="longitude" value="">
+
+        <div class="modal-body">
+          <p>Are you sure you are dead? If so, please enter your <abbr data-toggle="tooltip" data-placement="top" title="For example: how you died, your thoughts on the game, etc.">last will</abbr>. This will be visible to all players. Please do not reveal who killed you.</p>
+
+          <textarea name="last_will" class="form-control" rows="3" placeholder="I was murdered in cold blood."></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+          <input type="submit" value="Confirm" class="btn btn-danger">
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
 
 {% endblock %}

@@ -47,3 +47,16 @@ th.headerSortUp:after {
 th.headerSortDown:after {
   content: "\f0dd";
 }
+
+.modal-header {
+  background: #444;
+  color: #fff;
+}
+
+.close {
+  color: #fff;
+}
+
+.close:hover {
+  color: #fff;
+}
