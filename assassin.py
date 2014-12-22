@@ -155,7 +155,7 @@ def stats():
   top_scores = cursor.fetchall()
 
   cursor.execute("""
-    SELECT Players.Name, Kills.Time
+    SELECT Players.Name, Kills.Time, Players.LastWill
     FROM Kills
     JOIN Players
     ON Kills.VictimID = Players.PlayerID

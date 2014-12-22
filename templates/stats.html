@@ -3,6 +3,17 @@
 <div class="row">
   <div class="col-sm-6">
     <div class="panel panel-default">
+      <div class="panel-heading">Recent Assassinations</div>
+      <table class="table">
+        <tr><th>Victim</th><th>Message</th></tr>
+        {% for death in recent_deaths %}
+          <tr><td>{{ death['Name'] }}</td><td>{{ death['LastWill'] | default_blank }}<br><small class="text-muted">{{ death['Time'] | datetime }}</small></td></tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+  <div class="col-sm-6">
+    <div class="panel panel-default">
       <div class="panel-heading">Top Scorers</div>
       <table class="table">
         <tr><th>Rank</th><th>Name</th><th>Score</th></tr>
@@ -11,22 +22,7 @@
         {% endfor %}
       </table>
     </div>
-  </div>
-  <div class="col-sm-6">
-    <div class="panel panel-default">
-      <div class="panel-heading">Recent Assassinations</div>
-      <table class="table">
-        <tr><th>Victim</th><th>Time</th></tr>
-        {% for death in recent_deaths %}
-          <tr><td>{{ death['Name'] }}</td><td>{{ death['Time'] | datetime }}</td></tr>
-        {% endfor %}
-      </table>
-    </div>
-  </div>
-</div>
 
-<div class="row">
-  <div class="col-sm-6">
     <div class="panel panel-default">
       <div class="panel-heading">Game Progress</div>
       <div class="panel-body chart-box" data-chart></div>
