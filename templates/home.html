@@ -47,6 +47,7 @@
     {% endif %}
     </div>
 
+    {% if kills != None %}
     <div class="col-sm-6">
       <div class="panel panel-default">
         <div class="panel-heading">Your Kills</div>
@@ -58,6 +59,7 @@
         </table>
       </div>
     </div>
+    {% endif %}
   </div>
 
 <div class="modal fade" id="deathModal" tabindex="-1" role="dialog">
