@@ -2,13 +2,14 @@
 import os
 import sqlite3
 import sys
-sys.path.insert(0, 'lib')
-
-from flask import Flask, render_template, redirect, url_for, flash, request
 
 from datetime import datetime
 from email.mime.text import MIMEText
 from subprocess import Popen, PIPE
+
+sys.path.insert(0, 'lib')
+import settings
+from flask import Flask, render_template, redirect, url_for, flash, request
 
 # ============================================================================
 
@@ -17,14 +18,11 @@ sqlite3.register_converter('DATE', lambda x: datetime.strptime(x, "%Y-%m-%dT%H:%
 sqlite3.register_adapter(bool, lambda x: str(x))
 sqlite3.register_adapter(datetime, lambda x: x.isoformat())
 
-# sendmail on Stanford clusters will only deliver to @stanford.edu addresses
-sendmail = '/usr/sbin/sendmail'
-
 app = Flask(__name__)
 
 # Retrieves the ID from WebAuth, or defaults to dev_user if running locally
-sunetid = os.getenv('WEBAUTH_USER', 'dev_user')
-dev_mode = sunetid == 'dev_user'
+sunetid = os.getenv('WEBAUTH_USER', settings.dev_id)
+dev_mode = sunetid == settings.dev_id
 
 # ============================================================================
 # Context Processors
@@ -56,12 +54,17 @@ def utility_processor():
     url = url_for(endpoint, **values)
     return url.replace('/app.cgi', '')
 
+  def show_secret_word():
+    return settings.game_mode == settings.WORD_ASSASSIN
+
   return dict(len=len,
               enumerate=enumerate,
               print_alive=print_alive,
               row_class=row_class,
               print_time=print_time,
-              url_for=special_url_for)
+              url_for=special_url_for,
+              show_secret_word=show_secret_word,
+              game_mode=settings.game_mode)
 
 # ============================================================================
 # Routes
@@ -178,20 +181,20 @@ def send_email(receivers, subject, message):
   if not isinstance(receivers, list):
     receivers = [receivers]
   email = MIMEText(message, 'html')
-  email['From'] = 'MI6 <m@sis.gov.uk>'
+  email['From'] = settings.email_sender
   email['To'] = ', '.join(receivers)
   email['Subject'] = subject
-  email['Reply-To'] = 'Raven <jcx@stanford.edu>'
+  email['Reply-To'] = settings.email_reply_to
 
   if dev_mode:
     print email.as_string()
   else:
-    p = Popen([sendmail, '-ti'], stdin=PIPE)
+    p = Popen([settings.sendmail, '-ti'], stdin=PIPE)
     p.communicate(email.as_string())
     return p.returncode
 
 def connect_db():
-  conn = sqlite3.connect('db/game.db', detect_types=sqlite3.PARSE_DECLTYPES)
+  conn = sqlite3.connect(settings.db_path, detect_types=sqlite3.PARSE_DECLTYPES)
   conn.row_factory = sqlite3.Row
   return conn
 

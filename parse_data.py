@@ -4,6 +4,10 @@ import sys
 
 from random import shuffle
 
+import settings
+
+import_words = settings.game_mode == settings.WORD_ASSASSIN
+
 def readlist(path):
   f = open(path, 'r')
   l = map(lambda s : s.strip(), f.readlines())
@@ -14,7 +18,7 @@ def readlist(path):
 
 folder = sys.argv[1]
 names = readlist(os.path.join(folder, 'names'))
-words = readlist(os.path.join(folder, 'words'))
+words = readlist(os.path.join(folder, 'words')) if import_words else None
 
 ids = map(lambda s : s.split(',')[0].strip(), names)
 names = map(lambda s : s.split(',')[1].strip(), names)
@@ -28,6 +32,6 @@ with open(os.path.join(folder, 'players.dat'), 'wb') as output:
     sunetid = ids[i]
     name = names[i]
     target = ids[i+1]
-    word = words[i]
+    word = words[i] if import_words else ''
     writer.writerow([sunetid, name, target, word, True])
 

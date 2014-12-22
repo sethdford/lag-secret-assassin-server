@@ -23,7 +23,9 @@
         <div class="panel-heading">Next Target</div>
         <table class="table">
           <tr><th>Name</th><td>{{ player['TargetName'] }}</td></tr>
+          {% if show_secret_word() %}
           <tr><th>Secret</th><td>{{ player['TargetSecret'] }}</td></tr>
+          {% endif %}
         </table>
       </div>
 
