@@ -158,15 +158,6 @@ def stats():
     LIMIT ?""", (settings.stats_row_limit,))
   top_scores = cursor.fetchall()
 
-  cursor.execute("""
-    SELECT Players.Name, Kills.Time, Players.LastWill
-    FROM Kills
-    JOIN Players
-    ON Kills.VictimID = Players.PlayerID
-    ORDER BY Time DESC
-    LIMIT ?""", (settings.stats_row_limit,))
-  recent_deaths = cursor.fetchall()
-
   cursor.execute("SELECT COUNT(*) FROM Players WHERE Alive = 'True'")
   num_alive = cursor.fetchone()[0]
 
@@ -175,12 +166,11 @@ def stats():
 
   return render_template('stats.html',
                          top_scores=top_scores,
-                         recent_deaths=recent_deaths,
                          num_alive=num_alive,
                          num_dead=num_dead)
 
-@app.route('/wills')
-def wills():
+@app.route('/recent')
+def recent():
   conn = connect_db()
   cursor = conn.cursor()
   cursor.execute("""
@@ -194,7 +184,7 @@ def wills():
     ORDER BY Kills.Time DESC
     """)
   wills = cursor.fetchall()
-  return render_template('wills.html', wills=wills)
+  return render_template('recent.html', wills=wills)
 
 @app.route('/admin')
 def admin():

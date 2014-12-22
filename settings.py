@@ -16,7 +16,7 @@ email_reply_to = 'Raven <jcx@stanford.edu>'
 dev_id = 'dev_user'
 
 # Number of rows to display on /stats
-stats_row_limit = 5
+stats_row_limit = 10
 
 # Path to generated game database
 db_path = 'db/game.db'
