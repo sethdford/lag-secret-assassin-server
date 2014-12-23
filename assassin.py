@@ -33,6 +33,23 @@ def inject_user():
   return dict(id=sunetid, player=None)
 
 @app.context_processor
+def inject_quote():
+  conn = connect_db()
+  cursor = conn.cursor()
+  cursor.execute("""
+    SELECT Name, LastWill, Time
+    FROM (
+      SELECT PlayerID, Name, LastWill
+      FROM Players
+      WHERE Alive = 'False'
+      ORDER BY RANDOM() LIMIT 1
+    ) Player
+    JOIN Kills
+    ON Kills.VictimID = Player.PlayerID""")
+  quote = cursor.fetchone()
+  return dict(quote=quote)
+
+@app.context_processor
 def utility_processor():
 
   def print_alive_alert(num_alive, victor_name):

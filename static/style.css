@@ -10,13 +10,12 @@ a {
   transition-duration: 0.3s;
 }
 
-footer {
+.page-footer {
   margin-top: 100px;
   padding-bottom: 30px;
-  color: #888;
 }
 
-footer a {
+.page-footer a {
   color: #333;
 }
 

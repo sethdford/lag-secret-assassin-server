@@ -1,9 +1,23 @@
-<footer class="row">
-  <div class="col-xs-4 col-xs-offset-2">
+{% if quote != None %}
+<div class="row">
+  <div class="col-md-4 col-xs-6 col-xs-offset-6">
+  <blockquote class="blockquote-reverse">
+    <p>{{ quote['LastWill'] }}</p>
+    <footer><span data-toggle="tooltip" data-placement="bottom" title="{{ quote['Time'] | datetime }}">{{ quote['Name'] }}</span></footer>
+  </blockquote>
+  </div>
+</div>
+{% endif %}
+
+<footer class="page-footer">
+<div class="row text-muted">
+  <div class="col-sm-6 col-md-4 col-md-offset-2">
     <div class="game-mode"><span class="label label-default">{{ game_mode }}</span> Assassin Mode</div>
   </div>
-  <div class="col-xs-4 text-right">
+  <div class="col-sm-6 col-md-4 text-right">
   <small><a href="https://github.com/darkmirage/assassin"><i class="fa fa-code"></i>darkmirage/assassin</a> by <a href="mailto:jcx@stanford.edu?subject=Assassin">Raven Jiang</a><br>
   with <a href="http://flask.pocoo.org/">Flask</a> and <a href="http://getbootstrap.com/">Bootstrap</a></small>
   </div>
+</div>
+
 </footer>
