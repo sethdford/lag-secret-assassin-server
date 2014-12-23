@@ -1,7 +1,9 @@
+db/names
+db/words
+
 *.py[cod]
 .suexecd
 lib/
 *.swp
 *.dat
 *.db
-
