@@ -49,7 +49,7 @@ def utility_processor():
 
   def special_url_for(endpoint, **values):
     url = url_for(endpoint, **values)
-    return url.replace('/app.cgi', '')
+    return url.replace('/' + settings.cgi_filename, '')
 
   def show_secret_word():
     return settings.game_mode == settings.WORD_ASSASSIN
