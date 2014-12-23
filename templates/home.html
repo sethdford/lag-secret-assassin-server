@@ -52,9 +52,14 @@
       <div class="panel panel-default">
         <div class="panel-heading">Your Kills</div>
         <table class="table table-striped">
-          <tr><th>#</th><th>Name</th><th>Time</th></tr>
+          <tr><th>#</th><th>Name</th><th>Last Words</th></tr>
           {% for count, kill in enumerate(kills) %}
-            <tr><td>{{ len(kills) - count }}</td><td>{{ kill['Name'] }}</td><td>{{ kill['Time'] | datetime }}</td></tr>
+            <tr>
+              <td>{{ len(kills) - count }}</td><td>{{ kill['Name'] }}</td>
+              <td>{{ kill['LastWill'] | default_blank }}<br>
+              <small class="text-muted">{{ kill['Time'] | datetime }}</small></td>
+
+            </tr>
           {% endfor %}
         </table>
       </div>
@@ -75,7 +80,7 @@
         <input type="hidden" name="longitude" value="">
 
         <div class="modal-body">
-          <p>Are you sure you are dead? If so, please enter your <abbr data-toggle="tooltip" data-placement="top" title="For example: how you died, your thoughts on the game, etc.">last will</abbr>. This will be emailed to your assassin and also be made visible to all players. Please do not reveal who killed you.</p>
+          <p>Are you sure you are dead? If so, please enter your <abbr data-toggle="tooltip" data-placement="top" title="For example: how you died, your thoughts on the game, etc.">last words</abbr>. This will be emailed to your assassin and also be made visible to all players. Please do not reveal who killed you.</p>
 
           <textarea name="last_will" class="form-control" rows="3" placeholder="I was murdered in cold blood."></textarea>
         </div>

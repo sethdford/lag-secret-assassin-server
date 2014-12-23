@@ -1,5 +1,5 @@
 INSERT INTO Players VALUES ('0', 'Jason', '1', '', 'True', '');
-INSERT INTO Players VALUES ('1', 'John', '2', '', 'False', 'Hit by a bus.');
+INSERT INTO Players VALUES ('1', 'John Stephen', '2', '', 'False', 'Hit by a bus.');
 INSERT INTO Players VALUES ('2', 'Cameron', '3', '', 'False', 'Death by chocolate.');
 INSERT INTO Players VALUES ('3', 'Jennifer', '4', '', 'False', 'Rained.');
 INSERT INTO Players VALUES ('4', 'Rachel', '5', '', 'False', 'Ate too much.');
@@ -17,7 +17,7 @@ INSERT INTO Players VALUES ('15', 'Ken', '16', '', 'False', 'RIP');
 INSERT INTO Players VALUES ('16', 'Winnie', '17', '', 'False', 'This is the end.');
 INSERT INTO Players VALUES ('17', 'Conan', '18', '', 'False', 'Love, love never dies.');
 INSERT INTO Players VALUES ('18', 'Arnold', '19', '', 'False', 'There is no spoon.');
-INSERT INTO Players VALUES ('19', 'Joyce', '20', '', 'False', 'The quick brown fox jumps over the lazy dog.');
+INSERT INTO Players VALUES ('19', 'Joyce Wellington', '20', '', 'False', 'The quick brown fox jumps over the lazy dog.');
 INSERT INTO Players VALUES ('20', 'Rock', '21', '', 'False', 'Avenge me...');
 INSERT INTO Players VALUES ('21', 'Wendy', '22', '', 'False', 'Awww...');
 INSERT INTO Players VALUES ('22', 'Orlando', '23', '', 'False', 'I almost won!');

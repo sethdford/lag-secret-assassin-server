@@ -99,7 +99,7 @@ def home():
   kills = None
   if player != None:
     cursor.execute("""
-      SELECT Players.Name, Kills.Time
+      SELECT Players.Name, Players.LastWill, Kills.Time
       FROM Kills
       JOIN Players
       ON VictimID = PlayerID
