@@ -8,7 +8,7 @@ CREATE TABLE Players (
   Secret      TEXT,
   Alive       BOOLEAN,
   LastWill    TEXT,
-  FOREIGN KEY (TargetID) REFERENCES Players(PlayerID),
+  FOREIGN KEY (TargetID) REFERENCES Players(PlayerID) ON DELETE SET NULL ON UPDATE CASCADE,
   PRIMARY KEY (PlayerID)
 );
 
@@ -18,8 +18,8 @@ CREATE TABLE Kills (
   Time        DATE,
   Latitude    REAL,
   Longitude   REAL,
-  FOREIGN KEY (KillerID) REFERENCES Players(PlayerID),
-  FOREIGN KEY (VictimID) REFERENCES Players(PlayerID),
+  FOREIGN KEY (KillerID) REFERENCES Players(PlayerID) ON UPDATE CASCADE,
+  FOREIGN KEY (VictimID) REFERENCES Players(PlayerID) ON UPDATE CASCADE,
   PRIMARY KEY (KillerID, VictimID)
 );
 

@@ -88,7 +88,8 @@ def home():
   cursor = conn.cursor()
   cursor.execute("""
     SELECT p1.PlayerID, p1.TargetID, p1.Alive, p2.Secret TargetSecret, p2.Name TargetName
-    FROM Players p1 JOIN Players p2
+    FROM Players p1
+    LEFT JOIN Players p2
     ON p1.TargetID = p2.PlayerID
     WHERE p1.PlayerID = ?""", (sunetid,))
   player = cursor.fetchone()
@@ -131,7 +132,7 @@ def die():
   latitude = float(request.form['latitude']) if request.form['latitude'] != '' else -10000
   longitude = float(request.form['longitude']) if request.form['longitude'] != '' else -10000
 
-  cursor.execute("UPDATE Players SET Alive = 'False', LastWill = ? WHERE PlayerID = ?",(last_will, sunetid))
+  cursor.execute("UPDATE Players SET Alive = 'False', LastWill = ?, TargetID = NULL WHERE PlayerID = ?", (last_will, sunetid))
   cursor.execute("UPDATE Players SET TargetID = ? WHERE PlayerID = ?", (target_id, killer_id))
   cursor.execute("INSERT INTO Kills VALUES (?, ?, ?, ?, ?)",
     (killer_id, sunetid, datetime.now(), latitude, longitude))
