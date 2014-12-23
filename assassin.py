@@ -189,7 +189,7 @@ def recent():
 
 @app.route('/admin')
 def admin():
-  if sunetid not in settings.admins:
+  if sunetid not in settings.admins and sunetid != settings.dev_id:
     abort(403)
   conn = connect_db()
   cursor = conn.cursor()

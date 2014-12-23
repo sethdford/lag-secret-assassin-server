@@ -8,8 +8,8 @@ WORD_ASSASSIN = 'Word'
 # Set this before running ./new_game.sh
 game_mode = WORD_ASSASSIN
 
-# Player IDs of gamemasters allowed to access to /admin
-admins = ['jcx', 'dev_user', 'justinez']
+# Player IDs of gamemasters allowed access to /admin
+admins = ['jcx', 'nobody']
 
 # Sendmail on Stanford clusters will only deliver to @stanford.edu addresses
 sendmail = '/usr/sbin/sendmail'
