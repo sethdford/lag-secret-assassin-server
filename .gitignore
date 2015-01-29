@@ -1,5 +1,5 @@
-db/names
-db/words
+db/names*
+db/words*
 
 *.py[cod]
 .suexecd
