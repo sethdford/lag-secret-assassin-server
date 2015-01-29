@@ -66,7 +66,7 @@ def utility_processor():
 
   def special_url_for(endpoint, **values):
     url = url_for(endpoint, **values)
-    return url.replace('/' + settings.cgi_filename, '')
+    return url.replace('/' + settings.cgi_filename, '').replace('/cgi-bin', '')
 
   def show_secret_word():
     return settings.game_mode == settings.WORD_ASSASSIN
