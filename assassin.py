@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import hashlib
 import os
 import sqlite3
 import sys
@@ -64,6 +65,9 @@ def utility_processor():
     else:
       return 'danger'
 
+  def hide_name(name):
+    return "Player " + hashlib.sha256(name).hexdigest()[4:12]
+
   def special_url_for(endpoint, **values):
     url = url_for(endpoint, **values)
     return url.replace('/' + settings.cgi_filename, '').replace('/cgi-bin', '')
@@ -75,6 +79,7 @@ def utility_processor():
               enumerate=enumerate,
               print_alive_alert=print_alive_alert,
               row_class=row_class,
+              hide_name=hide_name,
               url_for=special_url_for,
               show_secret_word=show_secret_word,
               game_mode=settings.game_mode)

@@ -7,9 +7,14 @@
       <table class="table">
         <tr><th>Rank</th><th>Name</th><th>Score</th></tr>
         {% for count, scorer in enumerate(top_scores) %}
-          <tr class="{{ row_class(scorer['Alive']) }}"><td>{{ count+1 }}</td><td>{{ scorer['Name'] }}</td><td>{{ scorer['Count'] }}</td></tr>
+          <tr class="{{ row_class(scorer['Alive']) }}">
+            <td>{{ count+1 }}</td>
+            <td>{% if scorer['Alive'] %}{{ hide_name(scorer['Name']) }}{% else %}{{ scorer['Name'] }}{% endif %}</td>
+            <td>{{ scorer['Count'] }}</td>
+          </tr>
         {% endfor %}
       </table>
+      <div class="panel-footer"><small>Players are anonymized until they are out of the game.</small></div>
     </div>
   </div>
 
