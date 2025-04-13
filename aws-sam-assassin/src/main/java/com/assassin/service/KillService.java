@@ -26,6 +26,9 @@ import com.assassin.model.Kill;
 import com.assassin.model.Notification;
 import com.assassin.model.Player;
 import com.assassin.model.PlayerStatus;
+import com.assassin.service.NotificationService;
+import com.assassin.service.verification.VerificationManager;
+import com.assassin.service.verification.VerificationResult;
 
 /**
  * Service layer for handling kill reporting logic.
@@ -37,18 +40,28 @@ public class KillService {
     private final PlayerDao playerDao; // Needed to validate players and update status/targets
     private final GameDao gameDao; // Added missing GameDao dependency
     private final NotificationService notificationService; // Added NotificationService
+    private final VerificationManager verificationManager; // Add VerificationManager dependency
 
     // Default constructor
     public KillService() {
-        this(new DynamoDbKillDao(), new DynamoDbPlayerDao(), new DynamoDbGameDao(), new NotificationService()); // Added NotificationService instantiation
+        this(new DynamoDbKillDao(), new DynamoDbPlayerDao(), new DynamoDbGameDao(), new NotificationService(), 
+             new VerificationManager(new DynamoDbPlayerDao())); // Instantiate VerificationManager here
     }
 
     // Constructor for dependency injection (testing)
-    public KillService(KillDao killDao, PlayerDao playerDao, GameDao gameDao, NotificationService notificationService) { // Added NotificationService parameter
+    public KillService(KillDao killDao, PlayerDao playerDao, GameDao gameDao, NotificationService notificationService) {
+        this(killDao, playerDao, gameDao, notificationService, 
+             new VerificationManager(playerDao)); // Instantiate VerificationManager here
+    }
+
+    // Constructor allowing explicit VerificationManager injection (for testing or different DI setups)
+    public KillService(KillDao killDao, PlayerDao playerDao, GameDao gameDao, 
+                       NotificationService notificationService, VerificationManager verificationManager) {
         this.killDao = killDao;
         this.playerDao = playerDao;
-        this.gameDao = gameDao; // Assign GameDao
-        this.notificationService = notificationService; // Assign NotificationService
+        this.gameDao = gameDao; 
+        this.notificationService = notificationService;
+        this.verificationManager = verificationManager; // Assign VerificationManager
     }
 
     /**
@@ -207,102 +220,29 @@ public class KillService {
                 
         Kill kill = getKill(killerId, killTime); // Fetches the kill or throws KillNotFoundException
 
-        // Allow verification if PENDING or PENDING_REVIEW (for moderator action)
+        // Allow verification only if PENDING or PENDING_REVIEW (for moderator action)
         if (!"PENDING".equals(kill.getVerificationStatus()) && !"PENDING_REVIEW".equals(kill.getVerificationStatus())) {
             throw new PlayerActionNotAllowedException("Kill is not pending verification. Current status: " + kill.getVerificationStatus());
         }
         
-        // --- Moderator Action Check (for PHOTO reviews) ---
-        String moderatorAction = verificationInput.get("moderatorAction");
-        if ("PHOTO".equals(kill.getVerificationMethod()) && moderatorAction != null && "PENDING_REVIEW".equals(kill.getVerificationStatus())) {
-            String moderatorNotes = verificationInput.getOrDefault("moderatorNotes", "Moderator review complete.");
-            boolean approved = false; // Track approval for notification
-            if ("APPROVE".equalsIgnoreCase(moderatorAction)) {
-                kill.setVerificationStatus("VERIFIED");
-                kill.setVerificationNotes("Approved by moderator (" + verifierId + "): " + moderatorNotes);
-                logger.info("Moderator approved photo verification for kill: Killer={}, Time={}", killerId, killTime);
-                approved = true; // Mark as approved
-            } else if ("REJECT".equalsIgnoreCase(moderatorAction)) {
-                kill.setVerificationStatus("REJECTED");
-                kill.setVerificationNotes("Rejected by moderator (" + verifierId + "): " + moderatorNotes);
-                logger.info("Moderator rejected photo verification for kill: Killer={}, Time={}", killerId, killTime);
-            } else {
-                logger.warn("Invalid moderatorAction '{}' received for kill: Killer={}, Time={}", moderatorAction, killerId, killTime);
-                // Keep status as PENDING_REVIEW if action is invalid
-            }
-            killDao.saveKill(kill);
-
-            // Send notification on successful verification
-            if (approved) {
-                sendKillVerifiedNotification(kill);
-            }
-            
-            return kill; // Return early after moderator action
-        }
+        // --- Delegate Verification to VerificationManager --- 
+        logger.info("Delegating kill verification to VerificationManager: Killer={}, Time={}, Verifier={}, Method={}",
+                    killerId, killTime, verifierId, kill.getVerificationMethod());
+                    
+        VerificationResult result = verificationManager.verifyKill(kill, verificationInput, verifierId);
         
-        // If not a moderator action on a photo, proceed with standard verification
-        // Re-check status in case it was just approved/rejected above (though we returned early)
-        if (!"PENDING".equals(kill.getVerificationStatus())) {
-             throw new PlayerActionNotAllowedException("Kill is not pending verification. Current status: " + kill.getVerificationStatus());
-        }
-
-        // TODO: Check if verifierId has permission (e.g., is a moderator or involved player)
-
-        boolean verified = false;
-        // Use a more descriptive base note
-        String verificationNotes = "Verification attempt by " + verifierId + " at " + Instant.now().toString(); 
-
-        // --- Verification Logic Branch --- 
-        switch (kill.getVerificationMethod().toUpperCase()) {
-            case "GPS":
-                verified = verifyGpsProximity(kill, verificationInput);
-                verificationNotes += " via GPS proximity.";
-                break;
-            case "NFC":
-                verified = verifyNfc(kill, verificationInput);
-                verificationNotes += " via NFC tag.";
-                break;
-            case "PHOTO":
-                // This case now handles the *initial* photo submission
-                boolean photoDataReceived = verifyPhoto(kill, verificationInput);
-                if (photoDataReceived) {
-                    kill.setVerificationStatus("PENDING_REVIEW"); // Set to pending review
-                    verificationNotes = "Photo submitted for review by " + verifierId + " (" + verificationInput.getOrDefault("photoUrl", "URL missing") + ").";
-                } else {
-                    kill.setVerificationStatus("REJECTED");
-                    verificationNotes = "Photo verification failed: Required data missing.";
-                }
-                logger.info("Photo submission result for kill (Killer: {}, Time: {}): Status={}, Notes={}", 
-                            kill.getKillerID(), kill.getTime(), kill.getVerificationStatus(), verificationNotes);
-                kill.setVerificationNotes(verificationNotes);
-                killDao.saveKill(kill);
-                return kill; // Return early, moderator action needed next
-            case "NONE":
-            case "MANUAL": // Allow manual verification by mods
-                verified = true; // Assume manual verification is always successful if requested
-                verificationNotes += " manually.";
-                break;
-            case "TEST_MODE":
-                 verified = true; // Auto-verify in test mode
-                 verificationNotes = "Auto-verified in test mode.";
-                 break;
-            default:
-                logger.warn("Unsupported verification method: {}", kill.getVerificationMethod());
-                verificationNotes = "Verification failed: Unsupported method.";
-                verified = false; 
-        }
+        // Update Kill status and notes based on verification result
+        kill.setVerificationStatus(result.toKillVerificationStatus());
+        kill.setVerificationNotes(result.getNotes());
         
-        // Update Kill status (only if not handled by PHOTO case)
-        kill.setVerificationStatus(verified ? "VERIFIED" : "REJECTED");
-        kill.setVerificationNotes(verificationNotes);
-        // Optionally merge verificationInput into kill.getVerificationData() if needed
-        
-        logger.info("Verification result for kill (Killer: {}, Time: {}): Status={}, Notes={}", 
+        logger.info("Verification result from manager for kill (Killer: {}, Time: {}): Status={}, Notes={}", 
                     kill.getKillerID(), kill.getTime(), kill.getVerificationStatus(), kill.getVerificationNotes());
+                    
+        // Save the updated kill record
         killDao.saveKill(kill);
         
-        // Send notification on successful verification
-        if (verified) {
+        // Send notification only on successful verification
+        if (result.isVerified()) {
             sendKillVerifiedNotification(kill);
         }
         
@@ -311,154 +251,24 @@ public class KillService {
     
     // --- Placeholder Verification Methods --- 
     // These would contain the actual logic for each verification type
-    
+    /* Remove the following methods as they are now handled by IVerificationMethod implementations
     private boolean verifyGpsProximity(Kill kill, Map<String, String> verificationInput) {
-        logger.info("Performing GPS verification for kill: Killer={}, Victim={}", kill.getKillerID(), kill.getVictimID());
-        
-        // 1. Get kill location (kill.getLatitude(), kill.getLongitude())
-        Double killLat = kill.getLatitude();
-        Double killLon = kill.getLongitude();
-        if (killLat == null || killLon == null) {
-             logger.warn("GPS verification failed: Kill location is missing.");
-             return false;
-        }
-
-        // 2. Get victim's current location (from verificationInput)
-        String victimLatStr = verificationInput.get("victimLatitude");
-        String victimLonStr = verificationInput.get("victimLongitude");
-        if (victimLatStr == null || victimLonStr == null) {
-            logger.warn("GPS verification failed: Victim location missing in verification input.");
-            return false;
-        }
-
-        Double victimLat, victimLon;
-        try {
-            victimLat = Double.parseDouble(victimLatStr);
-            victimLon = Double.parseDouble(victimLonStr);
-        } catch (NumberFormatException e) {
-            logger.warn("GPS verification failed: Invalid victim location format in input.");
-            return false;
-        }
-
-        // 3. Calculate distance (Haversine formula)
-        double distance = calculateHaversineDistance(killLat, killLon, victimLat, victimLon);
-        logger.debug("Calculated GPS distance: {} meters", distance);
-
-        // 4. Compare distance to threshold (fetch from Game settings)
-        double thresholdMeters = 50.0; // Default threshold
-        try {
-            Player victim = playerDao.getPlayerById(kill.getVictimID()).orElse(null);
-            if (victim != null && victim.getGameID() != null) {
-                Game game = gameDao.getGameById(victim.getGameID())
-                                .orElseThrow(() -> new GameNotFoundException("Game " + victim.getGameID() + " not found during GPS verification."));
-                // Assume Game model has a Map<String, Object> settings field
-                // And threshold is stored as a Number under "gpsVerificationThresholdMeters"
-                Map<String, Object> settings = game.getSettings(); // Need to add getSettings() to Game model
-                if (settings != null && settings.containsKey("gpsVerificationThresholdMeters")) {
-                    Object thresholdObj = settings.get("gpsVerificationThresholdMeters");
-                    if (thresholdObj instanceof Number) {
-                        thresholdMeters = ((Number) thresholdObj).doubleValue();
-                        logger.debug("Using GPS threshold from game settings: {}", thresholdMeters);
-                    } else {
-                        logger.warn("Game {} setting 'gpsVerificationThresholdMeters' is not a Number, using default.", game.getGameID());
-                    }
-                } else {
-                     logger.debug("Game {} has no 'gpsVerificationThresholdMeters' setting, using default.", game.getGameID());
-                }
-            } else {
-                logger.warn("Could not determine game ID for victim {} to fetch GPS threshold.", kill.getVictimID());
-            }
-        } catch (GameNotFoundException e) {
-             logger.error("Failed to fetch game settings for GPS threshold: {}", e.getMessage());
-             // Continue with default threshold
-        } catch (Exception e) {
-             logger.error("Unexpected error fetching game settings for GPS threshold: {}", e.getMessage(), e);
-             // Continue with default threshold
-        }
-        
-        boolean withinProximity = distance <= thresholdMeters;
-        
-        // 5. Consider time difference (optional - not implemented here)
-        // Instant killTime = Instant.parse(kill.getTime());
-        // Instant verificationTime = Instant.now();
-        // Duration timeDiff = Duration.between(killTime, verificationTime);
-
-        logger.info("GPS Verification Result: Distance = {}m, Threshold = {}m, WithinProximity = {}",
-                    String.format("%.2f", distance), thresholdMeters, withinProximity);
-        return withinProximity; 
+        // ... implementation removed ...
     }
     
     private boolean verifyNfc(Kill kill, Map<String, String> verificationInput) {
-        logger.info("Performing NFC verification for kill: Killer={}, Victim={}", kill.getKillerID(), kill.getVictimID());
-        
-        // 1. Get expected NFC tag ID (from victim's player profile)
-        Player victim = playerDao.getPlayerById(kill.getVictimID())
-                                .orElse(null); // Fetch victim's profile
-        if (victim == null) {
-            logger.warn("NFC verification failed: Could not find victim profile for ID: {}", kill.getVictimID());
-            return false;
-        }
-        String expectedNfcTagId = victim.getNfcTagId();
-        if (expectedNfcTagId == null || expectedNfcTagId.trim().isEmpty()) {
-            logger.warn("NFC verification failed: Victim {} does not have an associated NFC Tag ID.", kill.getVictimID());
-            return false;
-        }
-
-        // 2. Get scanned NFC tag ID (from verificationInput)
-        String scannedNfcTagId = verificationInput.get("scannedNfcTagId");
-        if (scannedNfcTagId == null || scannedNfcTagId.trim().isEmpty()) {
-            logger.warn("NFC verification failed: Scanned NFC Tag ID missing in verification input.");
-            return false;
-        }
-
-        // 3. Compare IDs
-        boolean matches = expectedNfcTagId.equals(scannedNfcTagId.trim());
-        logger.info("NFC Verification Result: Expected={}, Scanned={}, Matches={}", 
-                    expectedNfcTagId, scannedNfcTagId, matches);
-        return matches;
+        // ... implementation removed ...
     }
     
     private boolean verifyPhoto(Kill kill, Map<String, String> verificationInput) {
-        logger.info("Performing Photo verification for kill: Killer={}, Victim={}", kill.getKillerID(), kill.getVictimID());
-        
-        // 1. Get photo URL/reference (from verificationInput)
-        String photoUrl = verificationInput.get("photoUrl");
-        if (photoUrl == null || photoUrl.trim().isEmpty()) {
-             logger.warn("Photo verification failed: Photo URL missing in verification input.");
-             // Depending on flow, maybe this shouldn't fail immediately but wait for upload?
-             // For now, we require it in the input map.
-             return false;
-        }
-
-        // 2. Store/link photo reference in kill.verificationData
-        //    The data is already in verificationInput, which can be optionally merged 
-        //    into kill.verificationData in the verifyKill method if needed for persistence.
-        //    We'll assume the URL is enough for now.
-        logger.info("Photo verification initiated with URL: {}", photoUrl);
-
-        // 3. For now, assume photo submission implies verification pending moderator review
-        //    Actual implementation might involve image analysis or manual review triggers.
-        //    We will return true here, assuming the *submission* was successful, 
-        //    but the kill status remains PENDING until a moderator approves.
-        //    Alternatively, we could set status to PENDING_REVIEW. For simplicity, keep PENDING.
-        //    The actual VERIFIED/REJECTED status should be set by a moderator action later.
-        // --> Let's modify verifyKill to handle this: Photo verification won't auto-set to VERIFIED.
-        return true; // Indicate photo *data* was received, not that kill is verified yet.
+        // ... implementation removed ...
     }
 
     // Helper for GPS distance calculation
     private double calculateHaversineDistance(double lat1, double lon1, double lat2, double lon2) {
-        final int R = 6371000; // Radius of the earth in meters
-        double latDistance = Math.toRadians(lat2 - lat1);
-        double lonDistance = Math.toRadians(lon2 - lon1);
-        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c; 
+        // ... implementation removed ...
     }
-
-    // --- End Placeholder Methods --- 
+    */
 
     /**
      * Gets all kills where the specified player was the killer.
