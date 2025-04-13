@@ -19,6 +19,8 @@ import org.mockito.Mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 
 import com.assassin.dao.GameDao;
 import com.assassin.dao.KillDao;
@@ -458,7 +460,7 @@ class KillServiceTest {
         // Mock DAO calls
         when(gameDao.getGameById(gameId)).thenReturn(Optional.of(activeGame));
         when(playerDao.getPlayerById(victimId)).thenReturn(Optional.of(victimPlayer));
-        when(killDao.getKillerOfVictim(victimId, gameId)).thenReturn(Optional.of(killRecord));
+        when(killDao.findKillRecordByVictimAndGame(victimId, gameId)).thenReturn(Optional.of(killRecord)); 
         // Capture the saved Kill object
         org.mockito.ArgumentCaptor<Kill> killCaptor = org.mockito.ArgumentCaptor.forClass(Kill.class);
 
@@ -553,7 +555,7 @@ class KillServiceTest {
 
         when(gameDao.getGameById("game-1")).thenReturn(Optional.of(activeGame));
         when(playerDao.getPlayerById("dead-victim")).thenReturn(Optional.of(deadVictim));
-        when(killDao.getKillerOfVictim("dead-victim", "game-1")).thenReturn(Optional.empty()); // Kill not found
+        when(killDao.findKillRecordByVictimAndGame("dead-victim", "game-1")).thenReturn(Optional.empty()); // Kill not found
 
         // Act & Assert
         assertThrows(com.assassin.exception.KillNotFoundException.class, () -> {
@@ -580,7 +582,7 @@ class KillServiceTest {
 
         when(gameDao.getGameById("game-1")).thenReturn(Optional.of(activeGame));
         when(playerDao.getPlayerById("dead-victim")).thenReturn(Optional.of(deadVictim));
-        when(killDao.getKillerOfVictim("dead-victim", "game-1")).thenReturn(Optional.of(alreadyConfirmedKill));
+        when(killDao.findKillRecordByVictimAndGame("dead-victim", "game-1")).thenReturn(Optional.of(alreadyConfirmedKill)); 
 
         // Act & Assert
         assertThrows(com.assassin.exception.PlayerActionNotAllowedException.class, () -> {

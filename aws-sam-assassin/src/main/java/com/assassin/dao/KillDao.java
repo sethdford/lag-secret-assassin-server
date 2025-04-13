@@ -101,15 +101,15 @@ public interface KillDao {
     boolean isPlayerAlive(String playerId, String gameId) throws KillPersistenceException;
 
     /**
-     * Retrieves the player who killed a specific victim.
-     * This might involve complex logic if multiple kills are possible per victim.
+     * Retrieves the Kill record where a specific victim was killed in a given game.
+     * This typically finds the most recent kill record for the victim within the game context.
      *
      * @param victimId The ID of the victim.
      * @param gameId The context of the game.
-     * @return The Player object of the killer, or null/empty Optional if not found or ambiguous.
-     * @throws KillPersistenceException If there's an error determining the killer.
+     * @return An Optional containing the Kill record if found, otherwise empty.
+     * @throws KillPersistenceException If there's an error retrieving the kill record.
      */
-    Player getKillerOfVictim(String victimId, String gameId) throws KillPersistenceException;
+    Optional<Kill> findKillRecordByVictimAndGame(String victimId, String gameId) throws KillPersistenceException;
 
     /**
      * Retrieves all kills from the database.

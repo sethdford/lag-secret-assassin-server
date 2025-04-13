@@ -42,16 +42,16 @@ public class KillService {
     private final NotificationService notificationService; // Added NotificationService
     private final VerificationManager verificationManager; // Add VerificationManager dependency
 
-    // Default constructor
+    // Default constructor for frameworks or testing if needed
     public KillService() {
         this(new DynamoDbKillDao(), new DynamoDbPlayerDao(), new DynamoDbGameDao(), new NotificationService(), 
-             new VerificationManager(new DynamoDbPlayerDao())); // Instantiate VerificationManager here
+             new VerificationManager(new DynamoDbPlayerDao(), new DynamoDbGameDao())); // Pass GameDao here too
     }
 
     // Constructor for dependency injection (testing)
     public KillService(KillDao killDao, PlayerDao playerDao, GameDao gameDao, NotificationService notificationService) {
         this(killDao, playerDao, gameDao, notificationService, 
-             new VerificationManager(playerDao)); // Instantiate VerificationManager here
+             new VerificationManager(playerDao, gameDao)); // Pass GameDao here too
     }
 
     // Constructor allowing explicit VerificationManager injection (for testing or different DI setups)
@@ -397,29 +397,26 @@ public class KillService {
         
         Player player = playerOpt.get();
         if (!PlayerStatus.DEAD.name().equalsIgnoreCase(player.getStatus())) {
-            throw new PlayerActionNotAllowedException("Only players with DEAD status can confirm death");
+            logger.warn("Player {} attempted to confirm death in game {}, but is not DEAD (Status: {}).", victimId, gameId, player.getStatus());
+            throw new PlayerActionNotAllowedException("Cannot confirm death, player status is not DEAD.");
         }
         
-        // Get the kill record
-        List<Kill> kills = killDao.findKillsByVictim(victimId); // Corrected method name
-        if (kills.isEmpty()) {
-            throw new KillNotFoundException("No kill record found for victim: " + victimId);
-        }
-        
-        // Get the most recent kill (should only be one for a player in most cases)
-        Kill mostRecentKill = kills.stream()
-                .sorted((k1, k2) -> k2.getTime().compareTo(k1.getTime()))
-                .findFirst()
-                .orElseThrow(() -> new KillNotFoundException("Could not determine most recent kill for victim: " + victimId));
+        // 4. Find the Kill record for this victim in this game
+        // Use the renamed method returning Optional<Kill>
+        Kill killRecord = killDao.findKillRecordByVictimAndGame(victimId, gameId)
+                .orElseThrow(() -> {
+                     logger.warn("Could not find kill record for victim {} in game {} for death confirmation.", victimId, gameId);
+                     return new KillNotFoundException("No kill record found for victim " + victimId + " in game " + gameId);
+                 });
         
         // Update the kill record with the last will and confirmation
-        mostRecentKill.setLastWill(lastWill);
-        mostRecentKill.setDeathConfirmed(true);
+        killRecord.setLastWill(lastWill);
+        killRecord.setDeathConfirmed(true);
         
         // Save the updated kill record
-        killDao.saveKill(mostRecentKill); // Corrected: Use killDao
+        killDao.saveKill(killRecord); // Corrected: Use killDao
         
-        return mostRecentKill;
+        return killRecord;
     }
 
     // --- Helper Methods ---

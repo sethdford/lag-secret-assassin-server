@@ -478,17 +478,18 @@ public class DynamoDbKillDao implements KillDao {
     }
 
     /**
-     * Finds the killer (Player object) for a given victim within a specific game context.
-     * This requires querying the VictimID-Time-index GSI and then fetching the killer's Player record.
+     * Finds the kill record for a given victim within a specific game context.
+     * Queries the VictimID-Time-index GSI for the most recent kill of the victim,
+     * then filters by game ID.
      *
      * @param victimId The ID of the victim.
      * @param gameId The ID of the game to scope the search.
-     * @return The killer's Player object if found, otherwise null.
-     * @throws KillPersistenceException if the query operation fails or the killer player record cannot be fetched.
+     * @return An Optional containing the Kill record if found, otherwise empty.
+     * @throws KillPersistenceException if the query operation fails.
      */
     @Override
-    public Player getKillerOfVictim(String victimId, String gameId) throws KillPersistenceException {
-        logger.debug("Finding killer Player of victim {} in game {} using index {}", victimId, gameId, VICTIM_ID_TIME_INDEX);
+    public Optional<Kill> findKillRecordByVictimAndGame(String victimId, String gameId) throws KillPersistenceException {
+        logger.debug("Finding kill record for victim {} in game {} using index {}", victimId, gameId, VICTIM_ID_TIME_INDEX);
         try {
             QueryConditional queryConditional = QueryConditional.keyEqualTo(Key.builder().partitionValue(victimId).build());
             
@@ -510,34 +511,22 @@ public class DynamoDbKillDao implements KillDao {
                                                  .findFirst(); 
                 
                 if (killInGameOpt.isPresent()) {
-                    String killerId = killInGameOpt.get().getKillerID();
-                    logger.debug("Found kill record indicating killer {} for victim {} in game {}. Fetching player...", killerId, victimId, gameId);
-                    // Fetch the Player object for the killer
-                    try {
-                        return playerDao.getPlayerById(killerId).orElse(null); // Return Player or null
-                    } catch (Exception playerEx) {
-                        logger.error("Failed to fetch Player record for killer {}: {}", killerId, playerEx.getMessage(), playerEx);
-                        throw new KillPersistenceException("Found kill record but failed to fetch killer player data", playerEx);
-                    }
+                    logger.debug("Found kill record for victim {} in game {}.", victimId, gameId);
+                    return killInGameOpt;
                 } else {
-                    logger.debug("Victim {} was killed, but not found within game {} in the latest records checked.", victimId, gameId);
-                    return null;
+                    logger.debug("Victim {} was killed, but not found within game {}.", victimId, gameId);
+                    return Optional.empty();
                 }
             } else {
                 logger.debug("No kill records found for victim {}", victimId);
-                return null; // Victim not found in kill records
+                return Optional.empty(); // Victim not found in kill records
             }
         } catch (DynamoDbException e) {
-            logger.error("DynamoDbException finding killer for victim {}: {}", victimId, e.getMessage(), e);
-            throw new KillPersistenceException("Database error finding killer for victim: " + e.getMessage(), e);
+            logger.error("DynamoDbException finding kill record for victim {}: {}", victimId, e.getMessage(), e);
+            throw new KillPersistenceException("Database error finding kill record for victim: " + e.getMessage(), e);
         } catch (Exception e) {
-            // Catch exceptions from playerDao call as well
-            if (!(e instanceof KillPersistenceException)) { // Avoid double wrapping
-                 logger.error("Unexpected error finding killer for victim {}: {}", victimId, e.getMessage(), e);
-                throw new KillPersistenceException("Unexpected error finding killer for victim: " + e.getMessage(), e);
-            } else {
-                 throw e; // Re-throw KillPersistenceException
-            }
+            logger.error("Unexpected error finding kill record for victim {}: {}", victimId, e.getMessage(), e);
+            throw new KillPersistenceException("Unexpected error finding kill record for victim: " + e.getMessage(), e);
         }
     }
 
