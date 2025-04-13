@@ -1,27 +1,37 @@
 package com.assassin.service.verification;
 
-import com.assassin.dao.PlayerDao;
-import com.assassin.model.Kill;
-import com.assassin.model.VerificationMethod;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import org.mockito.Mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.assassin.dao.GameDao;
+import com.assassin.dao.PlayerDao;
+import com.assassin.model.Kill;
+import com.assassin.model.VerificationMethod;
 
 @ExtendWith(MockitoExtension.class)
 class VerificationManagerTest {
 
     @Mock
     private PlayerDao mockPlayerDao;
+    @Mock
+    private GameDao mockGameDao;
     @Mock
     private GpsVerificationMethod mockGpsMethod;
     @Mock
@@ -42,10 +52,8 @@ class VerificationManagerTest {
         when(mockPhotoMethod.getMethodType()).thenReturn(VerificationMethod.PHOTO);
 
         // Create VerificationManager instance, explicitly passing mocks
-        // We pass PlayerDao even though the manager itself doesn't use it directly,
-        // because the real constructor requires it to pass to real default methods.
-        // In a pure unit test with mocked strategies, it's less critical, but we'll keep the signature.
-        verificationManager = new VerificationManager(mockPlayerDao, mockGpsMethod, mockNfcMethod, mockPhotoMethod);
+        // We pass PlayerDao, GameDao, then varargs for methods
+        verificationManager = new VerificationManager(mockPlayerDao, mockGameDao, mockGpsMethod, mockNfcMethod, mockPhotoMethod);
 
         testKill = new Kill();
         testKill.setKillerID("killer-mgr-1");
@@ -60,8 +68,15 @@ class VerificationManagerTest {
     @Test
     void constructor_shouldThrowExceptionWhenPlayerDaoIsNull() {
         assertThrows(IllegalArgumentException.class,
-                     () -> new VerificationManager(null), // Pass null PlayerDao
+                     () -> new VerificationManager(null, mockGameDao), // Pass null PlayerDao, valid GameDao
                      "VerificationManager constructor should require PlayerDao");
+    }
+
+    @Test
+    void constructor_shouldThrowExceptionWhenGameDaoIsNull() {
+        assertThrows(IllegalArgumentException.class,
+                     () -> new VerificationManager(mockPlayerDao, null), // Pass valid PlayerDao, null GameDao
+                     "VerificationManager constructor should require GameDao");
     }
 
     @Test
@@ -77,7 +92,8 @@ class VerificationManagerTest {
         // Assert
         assertSame(expectedResult, actualResult);
         verify(mockGpsMethod).verify(testKill, testInput, verifierId);
-        verifyNoInteractions(mockNfcMethod, mockPhotoMethod);
+        verify(mockNfcMethod, never()).verify(any(), any(), any());
+        verify(mockPhotoMethod, never()).verify(any(), any(), any());
     }
 
     @Test
@@ -93,7 +109,8 @@ class VerificationManagerTest {
         // Assert
         assertSame(expectedResult, actualResult);
         verify(mockNfcMethod).verify(testKill, testInput, verifierId);
-        verifyNoInteractions(mockGpsMethod, mockPhotoMethod);
+        verify(mockGpsMethod, never()).verify(any(), any(), any());
+        verify(mockPhotoMethod, never()).verify(any(), any(), any());
     }
 
     @Test
@@ -110,7 +127,8 @@ class VerificationManagerTest {
         // Assert
         assertSame(expectedResult, actualResult);
         verify(mockPhotoMethod).verify(testKill, testInput, verifierId);
-        verifyNoInteractions(mockGpsMethod, mockNfcMethod);
+        verify(mockGpsMethod, never()).verify(any(), any(), any());
+        verify(mockNfcMethod, never()).verify(any(), any(), any());
     }
 
     @Test
@@ -132,8 +150,9 @@ class VerificationManagerTest {
         assertTrue(actualResult.getNotes().contains("Approved by moderator"));
         assertTrue(actualResult.getNotes().contains(moderatorId));
         assertTrue(actualResult.getNotes().contains("Looks good!"));
-        // Verify no other methods were called
-        verifyNoInteractions(mockGpsMethod, mockNfcMethod, mockPhotoMethod);
+        verify(mockGpsMethod, never()).verify(any(), any(), any());
+        verify(mockNfcMethod, never()).verify(any(), any(), any());
+        verify(mockPhotoMethod, never()).verify(any(), any(), any());
     }
 
     @Test
@@ -155,7 +174,9 @@ class VerificationManagerTest {
         assertTrue(actualResult.getNotes().contains("Rejected by moderator"));
         assertTrue(actualResult.getNotes().contains(moderatorId));
         assertTrue(actualResult.getNotes().contains("Too blurry"));
-        verifyNoInteractions(mockGpsMethod, mockNfcMethod, mockPhotoMethod);
+        verify(mockGpsMethod, never()).verify(any(), any(), any());
+        verify(mockNfcMethod, never()).verify(any(), any(), any());
+        verify(mockPhotoMethod, never()).verify(any(), any(), any());
     }
 
     @Test
@@ -173,7 +194,9 @@ class VerificationManagerTest {
         assertNotNull(actualResult);
         assertEquals(VerificationResult.Status.INVALID_INPUT, actualResult.getStatus());
         assertTrue(actualResult.getNotes().contains("No moderator action provided"));
-        verifyNoInteractions(mockGpsMethod, mockNfcMethod, mockPhotoMethod);
+        verify(mockGpsMethod, never()).verify(any(), any(), any());
+        verify(mockNfcMethod, never()).verify(any(), any(), any());
+        verify(mockPhotoMethod, never()).verify(any(), any(), any());
     }
 
     @Test
@@ -192,7 +215,9 @@ class VerificationManagerTest {
         assertNotNull(actualResult);
         assertEquals(VerificationResult.Status.INVALID_INPUT, actualResult.getStatus());
         assertTrue(actualResult.getNotes().contains("Invalid moderator action: MAYBE"));
-        verifyNoInteractions(mockGpsMethod, mockNfcMethod, mockPhotoMethod);
+        verify(mockGpsMethod, never()).verify(any(), any(), any());
+        verify(mockNfcMethod, never()).verify(any(), any(), any());
+        verify(mockPhotoMethod, never()).verify(any(), any(), any());
     }
 
 
@@ -208,7 +233,9 @@ class VerificationManagerTest {
         assertNotNull(actualResult);
         assertEquals(VerificationResult.Status.INVALID_INPUT, actualResult.getStatus());
         assertTrue(actualResult.getNotes().contains("Unsupported verification method: NONE")); // fromString defaults unknown to NONE
-        verifyNoInteractions(mockGpsMethod, mockNfcMethod, mockPhotoMethod);
+        verify(mockGpsMethod, never()).verify(any(), any(), any());
+        verify(mockNfcMethod, never()).verify(any(), any(), any());
+        verify(mockPhotoMethod, never()).verify(any(), any(), any());
     }
 
     @Test
@@ -220,7 +247,9 @@ class VerificationManagerTest {
         assertNotNull(actualResult);
         assertEquals(VerificationResult.Status.INVALID_INPUT, actualResult.getStatus());
         assertEquals("Kill record is null", actualResult.getNotes());
-        verifyNoInteractions(mockGpsMethod, mockNfcMethod, mockPhotoMethod);
+        verify(mockGpsMethod, never()).verify(any(), any(), any());
+        verify(mockNfcMethod, never()).verify(any(), any(), any());
+        verify(mockPhotoMethod, never()).verify(any(), any(), any());
     }
 
     @Test
