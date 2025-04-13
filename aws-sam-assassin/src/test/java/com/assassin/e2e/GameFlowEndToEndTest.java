@@ -37,9 +37,11 @@ import com.assassin.dao.PlayerDao;
 import com.assassin.handlers.KillHandler;
 import com.assassin.handlers.PlayerHandler;
 import com.assassin.integration.TestContext;
+import com.assassin.model.Game;
 import com.assassin.model.Kill;
 import com.assassin.model.Player;
 import com.assassin.service.KillService;
+import com.assassin.service.NotificationService;
 import com.assassin.util.DynamoDbClientProvider;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -103,6 +105,7 @@ public class GameFlowEndToEndTest {
     void setup() {
         System.setProperty("PLAYERS_TABLE_NAME", PLAYERS_TABLE_NAME);
         System.setProperty("KILLS_TABLE_NAME", KILLS_TABLE_NAME);
+        System.setProperty("GAMES_TABLE_NAME", "e2e-test-games");
         System.setProperty("ASSASSIN_TEST_MODE", "true");
         
         // Set up DynamoDB client pointing to LocalStack
@@ -119,6 +122,7 @@ public class GameFlowEndToEndTest {
         // Create the test tables
         createPlayersTable();
         createKillsTable();
+        createGamesTable();
         
         // Set up enhanced client and tables
         enhancedClient = DynamoDbEnhancedClient.builder()
@@ -132,7 +136,8 @@ public class GameFlowEndToEndTest {
         playerDao = new DynamoDbPlayerDao();
         killDao = new DynamoDbKillDao();
         gameDao = new DynamoDbGameDao();
-        killService = new KillService(killDao, playerDao, gameDao);
+        NotificationService notificationService = new NotificationService();
+        killService = new KillService(killDao, playerDao, gameDao, notificationService);
         
         playerHandler = new PlayerHandler(playerDao);
         killHandler = new KillHandler(killService);
@@ -149,6 +154,7 @@ public class GameFlowEndToEndTest {
         DynamoDbClientProvider.resetClient();
         System.clearProperty("PLAYERS_TABLE_NAME");
         System.clearProperty("KILLS_TABLE_NAME");
+        System.clearProperty("GAMES_TABLE_NAME");
         System.clearProperty("ASSASSIN_TEST_MODE");
         
         if (ddbClient != null) {
@@ -202,6 +208,12 @@ public class GameFlowEndToEndTest {
                     .attributeType(ScalarAttributeType.S)
                     .build();
             
+            // Define GameID attribute for the GameID-Time-index
+            AttributeDefinition gameIdDef = AttributeDefinition.builder()
+                    .attributeName("GameID")
+                    .attributeType(ScalarAttributeType.S)
+                    .build();
+            
             // Define primary key schema
             KeySchemaElement killerIdKey = KeySchemaElement.builder()
                     .attributeName("KillerID")
@@ -224,15 +236,33 @@ public class GameFlowEndToEndTest {
                     .keyType(KeyType.RANGE)
                     .build();
             
+            // Define Game GSI key schema
+            KeySchemaElement gameIdKey = KeySchemaElement.builder()
+                    .attributeName("GameID")
+                    .keyType(KeyType.HASH)
+                    .build();
+            
+            KeySchemaElement gameTimeKey = KeySchemaElement.builder()
+                    .attributeName("Time")
+                    .keyType(KeyType.RANGE)
+                    .build();
+            
             // Define GSI projection (what attributes to include)
             Projection projection = Projection.builder()
                     .projectionType(ProjectionType.ALL) // Include all attributes
                     .build();
             
-            // Define the GSI
+            // Define the Victim GSI
             GlobalSecondaryIndex victimIndex = GlobalSecondaryIndex.builder()
                     .indexName("VictimID-Time-index")
                     .keySchema(victimIdKey, gsiTimeKey)
+                    .projection(projection)
+                    .build();
+            
+            // Define the Game GSI
+            GlobalSecondaryIndex gameIndex = GlobalSecondaryIndex.builder()
+                    .indexName("GameID-Time-index")
+                    .keySchema(gameIdKey, gameTimeKey)
                     .projection(projection)
                     .build();
             
@@ -240,16 +270,79 @@ public class GameFlowEndToEndTest {
             CreateTableRequest createTableRequest = CreateTableRequest.builder()
                     .tableName(KILLS_TABLE_NAME)
                     .keySchema(killerIdKey, timeKey)
-                    .attributeDefinitions(killerIdDef, timeDef, victimIdDef)
-                    .globalSecondaryIndexes(victimIndex)
+                    .attributeDefinitions(killerIdDef, timeDef, victimIdDef, gameIdDef)
+                    .globalSecondaryIndexes(victimIndex, gameIndex)
                     .billingMode(BillingMode.PAY_PER_REQUEST)
                     .build();
             
             ddbClient.createTable(createTableRequest);
             ddbClient.waiter().waitUntilTableExists(builder -> builder.tableName(KILLS_TABLE_NAME));
-            logger.info("Created kills table for E2E test with GSI: VictimID-Time-index");
+            logger.info("Created kills table for E2E test with GSIs: VictimID-Time-index, GameID-Time-index");
         } catch (ResourceInUseException e) {
             logger.info("Kills table for E2E test already exists, continuing");
+        }
+    }
+    
+    private void createGamesTable() {
+        try {
+            AttributeDefinition gameIdDef = AttributeDefinition.builder()
+                    .attributeName("GameID") // Matches Game model @DynamoDbPartitionKey
+                    .attributeType(ScalarAttributeType.S)
+                    .build();
+            
+            KeySchemaElement gameIdKey = KeySchemaElement.builder()
+                    .attributeName("GameID")
+                    .keyType(KeyType.HASH)
+                    .build();
+            
+            // Define attributes for the GSI (StatusCreatedAtIndex)
+            AttributeDefinition statusDef = AttributeDefinition.builder()
+                    .attributeName("Status") // Matches Game model @DynamoDbSecondaryPartitionKey
+                    .attributeType(ScalarAttributeType.S)
+                    .build();
+            
+            AttributeDefinition createdAtDef = AttributeDefinition.builder()
+                    .attributeName("CreatedAt") // Matches Game model @DynamoDbSecondarySortKey
+                    .attributeType(ScalarAttributeType.S) 
+                    .build();
+            
+            // Define GSI key schema
+            KeySchemaElement statusKey = KeySchemaElement.builder()
+                    .attributeName("Status")
+                    .keyType(KeyType.HASH)
+                    .build();
+            KeySchemaElement createdAtKey = KeySchemaElement.builder()
+                    .attributeName("CreatedAt")
+                    .keyType(KeyType.RANGE)
+                    .build();
+                    
+            // Define the GSI projection
+            Projection projection = Projection.builder()
+                    .projectionType(ProjectionType.ALL)
+                    .build();
+                    
+            // Define the GSI
+            GlobalSecondaryIndex statusIndex = GlobalSecondaryIndex.builder()
+                    .indexName("StatusCreatedAtIndex") // Matches constant in GameDao
+                    .keySchema(statusKey, createdAtKey)
+                    .projection(projection)
+                    .build();
+
+            String tableName = "e2e-test-games"; // Use a consistent name 
+            
+            CreateTableRequest createTableRequest = CreateTableRequest.builder()
+                    .tableName(tableName)
+                    .keySchema(gameIdKey)
+                    .attributeDefinitions(gameIdDef, statusDef, createdAtDef) // Include all key attributes
+                    .globalSecondaryIndexes(statusIndex)
+                    .billingMode(BillingMode.PAY_PER_REQUEST)
+                    .build();
+            
+            ddbClient.createTable(createTableRequest);
+            ddbClient.waiter().waitUntilTableExists(builder -> builder.tableName(tableName));
+            logger.info("Created games table for E2E test: {}", tableName);
+        } catch (ResourceInUseException e) {
+            logger.info("Games table for E2E test already exists, continuing");
         }
     }
     
@@ -359,12 +452,20 @@ public class GameFlowEndToEndTest {
         logger.info("E2E Test Step 3: Recording a kill");
         
         // Player 1 kills Player 2
-        Kill kill = new Kill();
-        kill.setKillerID(PLAYER_1_ID);
-        kill.setVictimID(PLAYER_2_ID);
-        kill.setTime(Instant.now().toString());
-        kill.setLatitude(40.7128);
-        kill.setLongitude(-74.0060);
+        // Construct the request body, including verification details
+        // For this test, let's assume GPS verification is used.
+        Map<String, Object> killRequestBody = new HashMap<>();
+        killRequestBody.put("killerID", PLAYER_1_ID);
+        killRequestBody.put("victimID", PLAYER_2_ID);
+        // killRequestBody.put("time", Instant.now().toString()); // Time is set by service
+        killRequestBody.put("latitude", 40.7128);
+        killRequestBody.put("longitude", -74.0060);
+        killRequestBody.put("verificationMethod", "GPS");
+        // Include initial data for verification (e.g., killer's coords at time of report)
+        Map<String, String> verificationData = new HashMap<>();
+        verificationData.put("killerLatitude", "40.7129"); // Slightly different coords
+        verificationData.put("killerLongitude", "-74.0061");
+        killRequestBody.put("verificationData", verificationData);
         
         // Create a mock request context with authorizer
         APIGatewayProxyRequestEvent.ProxyRequestContext requestContext = new APIGatewayProxyRequestEvent.ProxyRequestContext();
@@ -378,7 +479,7 @@ public class GameFlowEndToEndTest {
                 .withPath("/die")  // Match the path in KillHandler
                 .withHttpMethod("POST")
                 .withRequestContext(requestContext)
-                .withBody(gson.toJson(kill));
+                .withBody(gson.toJson(killRequestBody)); // Use the Map for the body
         
         APIGatewayProxyResponseEvent response = killHandler.handleRequest(request, mockContext);
         assertEquals(201, response.getStatusCode());
@@ -427,12 +528,16 @@ public class GameFlowEndToEndTest {
         logger.info("E2E Test Step 5: Recording another kill");
         
         // Player 1 kills Player 3
-        Kill kill = new Kill();
-        kill.setKillerID(PLAYER_1_ID);
-        kill.setVictimID(PLAYER_3_ID);
-        kill.setTime(Instant.now().toString());
-        kill.setLatitude(40.7128);
-        kill.setLongitude(-74.0060);
+        // Use NFC verification this time
+        Map<String, Object> killRequestBody = new HashMap<>();
+        killRequestBody.put("killerID", PLAYER_1_ID);
+        killRequestBody.put("victimID", PLAYER_3_ID);
+        killRequestBody.put("latitude", 40.7128);
+        killRequestBody.put("longitude", -74.0060);
+        killRequestBody.put("verificationMethod", "NFC");
+        // For NFC, we might not provide verificationData initially
+        // It would come during the verifyKill step
+        killRequestBody.put("verificationData", new HashMap<>()); // Empty map
         
         // Create a mock request context with authorizer
         APIGatewayProxyRequestEvent.ProxyRequestContext requestContext = new APIGatewayProxyRequestEvent.ProxyRequestContext();
@@ -446,7 +551,7 @@ public class GameFlowEndToEndTest {
                 .withPath("/die")  // Match the path in KillHandler
                 .withHttpMethod("POST")
                 .withRequestContext(requestContext)
-                .withBody(gson.toJson(kill));
+                .withBody(gson.toJson(killRequestBody)); // Use map for body
         
         APIGatewayProxyResponseEvent response = killHandler.handleRequest(request, mockContext);
         assertEquals(201, response.getStatusCode());
@@ -559,5 +664,631 @@ public class GameFlowEndToEndTest {
         assertEquals("Updated E2E Test Player 1", updatedPlayer.getPlayerName());
         
         logger.info("Successfully updated and verified player information");
+    }
+
+    @Test
+    @Order(9)
+    void testGpsKillVerification_Success() {
+        logger.info("E2E Test Step 9: Verifying a kill via GPS (Success Case)");
+
+        // --- Setup: Create a Game with GPS threshold setting --- 
+        Game testGame = new Game();
+        testGame.setGameID("e2e-gps-game-1");
+        testGame.setGameName("E2E GPS Test Game");
+        testGame.setStatus("ACTIVE"); // Assume game is active for verification
+        Map<String, Object> settings = new HashMap<>();
+        settings.put("gpsVerificationThresholdMeters", 50.0); // Set threshold
+        testGame.setSettings(settings);
+        gameDao.saveGame(testGame); 
+        
+        // Ensure player 2 (victim) is associated with this game
+        Player victim = playerDao.getPlayerById(PLAYER_2_ID).orElseThrow();
+        victim.setGameID(testGame.getGameID());
+        playerDao.savePlayer(victim);
+        
+        // --- Find the kill to verify (Player 1 killed Player 2) ---
+        // We need the exact time from the kill record
+        List<Kill> killsByKiller = killDao.findKillsByKiller(PLAYER_1_ID);
+        Kill killToVerify = killsByKiller.stream()
+                                       .filter(k -> k.getVictimID().equals(PLAYER_2_ID))
+                                       .findFirst()
+                                       .orElseThrow(() -> new AssertionError("Kill record not found!"));
+        
+        // Ensure the kill is pending verification (it should be by default from reportKill)
+        assertEquals("PENDING", killToVerify.getVerificationStatus());
+
+        // --- Prepare Verification Request --- 
+        String killerId = killToVerify.getKillerID();
+        String killTime = killToVerify.getTime();
+        String verifierId = PLAYER_1_ID; // Assume killer verifies, or could be moderator
+
+        Map<String, String> verificationInput = new HashMap<>();
+        // Victim coords *within* threshold (e.g., 10m away from kill loc 40.7128, -74.0060)
+        verificationInput.put("victimLatitude", "40.71285"); 
+        verificationInput.put("victimLongitude", "-74.00605"); 
+
+        APIGatewayProxyRequestEvent.ProxyRequestContext requestContext = new APIGatewayProxyRequestEvent.ProxyRequestContext();
+        Map<String, Object> authorizer = new HashMap<>();
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", verifierId); // Authenticate as the verifier
+        authorizer.put("claims", claims);
+        requestContext.setAuthorizer(authorizer);
+        
+        APIGatewayProxyRequestEvent verifyRequest = new APIGatewayProxyRequestEvent()
+                .withPath("/kills/" + killerId + "/" + killTime + "/verify")
+                .withHttpMethod("POST")
+                .withRequestContext(requestContext)
+                .withPathParameters(Map.of("killerId", killerId, "killTime", killTime))
+                .withBody(gson.toJson(verificationInput));
+
+        // --- Execute Verification --- 
+        APIGatewayProxyResponseEvent verifyResponse = killHandler.handleRequest(verifyRequest, mockContext);
+        
+        // --- Assertions --- 
+        assertEquals(200, verifyResponse.getStatusCode());
+        Kill verifiedKill = gson.fromJson(verifyResponse.getBody(), Kill.class);
+        
+        assertNotNull(verifiedKill);
+        assertEquals("VERIFIED", verifiedKill.getVerificationStatus());
+        assertEquals("GPS", verifiedKill.getVerificationMethod());
+        assertTrue(verifiedKill.getVerificationNotes().contains("via GPS proximity"));
+        
+        logger.info("Successfully verified kill via GPS (within threshold)");
+    }
+    
+    @Test
+    @Order(10)
+    void testGpsKillVerification_Failure() {
+        logger.info("E2E Test Step 10: Verifying a kill via GPS (Failure Case)");
+
+        // --- Find the same kill again (it should now be VERIFIED from previous test) ---
+        // We'll reset its status to PENDING for this test case
+        List<Kill> killsByKiller = killDao.findKillsByKiller(PLAYER_1_ID);
+        Kill killToVerify = killsByKiller.stream()
+                                       .filter(k -> k.getVictimID().equals(PLAYER_2_ID))
+                                       .findFirst()
+                                       .orElseThrow(() -> new AssertionError("Kill record not found!"));
+                                       
+        killToVerify.setVerificationStatus("PENDING"); // Reset for test
+        killDao.saveKill(killToVerify); 
+        
+        assertEquals("PENDING", killDao.getKill(killToVerify.getKillerID(), killToVerify.getTime()).get().getVerificationStatus()); // Verify reset
+        
+        // --- Prepare Verification Request --- 
+        String killerId = killToVerify.getKillerID();
+        String killTime = killToVerify.getTime();
+        String verifierId = PLAYER_1_ID; 
+
+        Map<String, String> verificationInput = new HashMap<>();
+        // Victim coords *outside* threshold (e.g., 100m away from kill loc 40.7128, -74.0060)
+        verificationInput.put("victimLatitude", "40.7135"); 
+        verificationInput.put("victimLongitude", "-74.0070"); 
+
+        APIGatewayProxyRequestEvent.ProxyRequestContext requestContext = new APIGatewayProxyRequestEvent.ProxyRequestContext();
+        Map<String, Object> authorizer = new HashMap<>();
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", verifierId);
+        authorizer.put("claims", claims);
+        requestContext.setAuthorizer(authorizer);
+        
+        APIGatewayProxyRequestEvent verifyRequest = new APIGatewayProxyRequestEvent()
+                .withPath("/kills/" + killerId + "/" + killTime + "/verify")
+                .withHttpMethod("POST")
+                .withRequestContext(requestContext)
+                .withPathParameters(Map.of("killerId", killerId, "killTime", killTime))
+                .withBody(gson.toJson(verificationInput));
+
+        // --- Execute Verification --- 
+        APIGatewayProxyResponseEvent verifyResponse = killHandler.handleRequest(verifyRequest, mockContext);
+        
+        // --- Assertions --- 
+        assertEquals(200, verifyResponse.getStatusCode()); // Still 200 OK, but status inside is REJECTED
+        Kill rejectedKill = gson.fromJson(verifyResponse.getBody(), Kill.class);
+        
+        assertNotNull(rejectedKill);
+        assertEquals("REJECTED", rejectedKill.getVerificationStatus());
+        assertEquals("GPS", rejectedKill.getVerificationMethod());
+        assertTrue(rejectedKill.getVerificationNotes().contains("via GPS proximity"));
+        
+        logger.info("Successfully rejected kill via GPS (outside threshold)");
+    }
+
+    @Test
+    @Order(11)
+    void testNfcKillVerification_Success() {
+        logger.info("E2E Test Step 11: Verifying a kill via NFC (Success Case)");
+
+        // --- Find the kill to verify (Player 1 killed Player 3, which used NFC) ---
+        List<Kill> killsByKiller = killDao.findKillsByKiller(PLAYER_1_ID);
+        Kill killToVerify = killsByKiller.stream()
+                                       .filter(k -> k.getVictimID().equals(PLAYER_3_ID))
+                                       .findFirst()
+                                       .orElseThrow(() -> new AssertionError("Kill record not found!"));
+        
+        // Reset verification status for test
+        killToVerify.setVerificationStatus("PENDING");
+        killDao.saveKill(killToVerify);
+        
+        // --- Update victim with an NFC tag ID ---
+        Player victim = playerDao.getPlayerById(PLAYER_3_ID).orElseThrow();
+        String expectedNfcTagId = "nfc-tag-" + UUID.randomUUID().toString().substring(0, 8);
+        victim.setNfcTagId(expectedNfcTagId);
+        playerDao.savePlayer(victim);
+        
+        // --- Prepare Verification Request --- 
+        String killerId = killToVerify.getKillerID();
+        String killTime = killToVerify.getTime();
+        String verifierId = PLAYER_1_ID; // Killer verifies
+
+        Map<String, String> verificationInput = new HashMap<>();
+        verificationInput.put("scannedNfcTagId", expectedNfcTagId); // Matching NFC tag ID
+
+        APIGatewayProxyRequestEvent.ProxyRequestContext requestContext = new APIGatewayProxyRequestEvent.ProxyRequestContext();
+        Map<String, Object> authorizer = new HashMap<>();
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", verifierId);
+        authorizer.put("claims", claims);
+        requestContext.setAuthorizer(authorizer);
+        
+        APIGatewayProxyRequestEvent verifyRequest = new APIGatewayProxyRequestEvent()
+                .withPath("/kills/" + killerId + "/" + killTime + "/verify")
+                .withHttpMethod("POST")
+                .withRequestContext(requestContext)
+                .withPathParameters(Map.of("killerId", killerId, "killTime", killTime))
+                .withBody(gson.toJson(verificationInput));
+
+        // --- Execute Verification --- 
+        APIGatewayProxyResponseEvent verifyResponse = killHandler.handleRequest(verifyRequest, mockContext);
+        
+        // --- Assertions --- 
+        assertEquals(200, verifyResponse.getStatusCode());
+        Kill verifiedKill = gson.fromJson(verifyResponse.getBody(), Kill.class);
+        
+        assertNotNull(verifiedKill);
+        assertEquals("VERIFIED", verifiedKill.getVerificationStatus());
+        assertEquals("NFC", verifiedKill.getVerificationMethod());
+        assertTrue(verifiedKill.getVerificationNotes().contains("via NFC tag"));
+        
+        logger.info("Successfully verified kill via NFC (matching tag ID)");
+    }
+    
+    @Test
+    @Order(12)
+    void testNfcKillVerification_Failure() {
+        logger.info("E2E Test Step 12: Verifying a kill via NFC (Failure Case)");
+
+        // --- Find the kill again ---
+        List<Kill> killsByKiller = killDao.findKillsByKiller(PLAYER_1_ID);
+        Kill killToVerify = killsByKiller.stream()
+                                       .filter(k -> k.getVictimID().equals(PLAYER_3_ID))
+                                       .findFirst()
+                                       .orElseThrow(() -> new AssertionError("Kill record not found!"));
+        
+        // Reset verification status for test
+        killToVerify.setVerificationStatus("PENDING");
+        killDao.saveKill(killToVerify);
+        
+        // --- Prepare Verification Request with incorrect NFC tag --- 
+        String killerId = killToVerify.getKillerID();
+        String killTime = killToVerify.getTime();
+        String verifierId = PLAYER_1_ID;
+
+        Map<String, String> verificationInput = new HashMap<>();
+        verificationInput.put("scannedNfcTagId", "incorrect-nfc-tag-" + UUID.randomUUID()); // Wrong tag ID
+
+        APIGatewayProxyRequestEvent.ProxyRequestContext requestContext = new APIGatewayProxyRequestEvent.ProxyRequestContext();
+        Map<String, Object> authorizer = new HashMap<>();
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", verifierId);
+        authorizer.put("claims", claims);
+        requestContext.setAuthorizer(authorizer);
+        
+        APIGatewayProxyRequestEvent verifyRequest = new APIGatewayProxyRequestEvent()
+                .withPath("/kills/" + killerId + "/" + killTime + "/verify")
+                .withHttpMethod("POST")
+                .withRequestContext(requestContext)
+                .withPathParameters(Map.of("killerId", killerId, "killTime", killTime))
+                .withBody(gson.toJson(verificationInput));
+
+        // --- Execute Verification --- 
+        APIGatewayProxyResponseEvent verifyResponse = killHandler.handleRequest(verifyRequest, mockContext);
+        
+        // --- Assertions --- 
+        assertEquals(200, verifyResponse.getStatusCode()); // Still 200 OK, but REJECTED inside
+        Kill rejectedKill = gson.fromJson(verifyResponse.getBody(), Kill.class);
+        
+        assertNotNull(rejectedKill);
+        assertEquals("REJECTED", rejectedKill.getVerificationStatus());
+        assertEquals("NFC", rejectedKill.getVerificationMethod());
+        assertTrue(rejectedKill.getVerificationNotes().contains("via NFC tag"));
+        
+        logger.info("Successfully rejected kill via NFC (non-matching tag ID)");
+    }
+
+    @Test
+    @Order(13)
+    void testPhotoKillVerification_Submission() {
+        logger.info("E2E Test Step 13: Testing photo evidence verification submission");
+
+        // For this test, let's create a new kill with PHOTO verification
+        Map<String, Object> killRequestBody = new HashMap<>();
+        killRequestBody.put("killerID", PLAYER_1_ID);
+        killRequestBody.put("victimID", PLAYER_2_ID); // Reuse Player 2 (we reset state in each test)
+        killRequestBody.put("latitude", 40.7128);
+        killRequestBody.put("longitude", -74.0060);
+        killRequestBody.put("verificationMethod", "PHOTO");
+        Map<String, String> initialVerificationData = new HashMap<>();
+        killRequestBody.put("verificationData", initialVerificationData);
+        
+        // Create request context with authorizer
+        APIGatewayProxyRequestEvent.ProxyRequestContext requestContext = new APIGatewayProxyRequestEvent.ProxyRequestContext();
+        Map<String, Object> authorizer = new HashMap<>();
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", PLAYER_1_ID);
+        authorizer.put("claims", claims);
+        requestContext.setAuthorizer(authorizer);
+        
+        // Create kill with PHOTO verification
+        APIGatewayProxyRequestEvent createRequest = new APIGatewayProxyRequestEvent()
+                .withPath("/die")
+                .withHttpMethod("POST")
+                .withRequestContext(requestContext)
+                .withBody(gson.toJson(killRequestBody));
+        
+        APIGatewayProxyResponseEvent createResponse = killHandler.handleRequest(createRequest, mockContext);
+        assertEquals(201, createResponse.getStatusCode());
+        Kill photoKill = gson.fromJson(createResponse.getBody(), Kill.class);
+        assertEquals("PHOTO", photoKill.getVerificationMethod());
+        assertEquals("PENDING", photoKill.getVerificationStatus());
+        
+        // Now submit photo evidence for verification
+        String photoUrl = "https://example.com/kill-photos/" + UUID.randomUUID() + ".jpg";
+        Map<String, String> verificationInput = new HashMap<>();
+        verificationInput.put("photoUrl", photoUrl);
+        verificationInput.put("timestamp", Instant.now().toString());
+        verificationInput.put("description", "Photo of the assassination scene");
+        
+        APIGatewayProxyRequestEvent verifyRequest = new APIGatewayProxyRequestEvent()
+                .withPath("/kills/" + photoKill.getKillerID() + "/" + photoKill.getTime() + "/verify")
+                .withHttpMethod("POST")
+                .withRequestContext(requestContext)
+                .withPathParameters(Map.of(
+                    "killerId", photoKill.getKillerID(), 
+                    "killTime", photoKill.getTime()))
+                .withBody(gson.toJson(verificationInput));
+        
+        APIGatewayProxyResponseEvent verifyResponse = killHandler.handleRequest(verifyRequest, mockContext);
+        
+        // Assertions - should be PENDING_REVIEW status after photo submission
+        assertEquals(200, verifyResponse.getStatusCode());
+        Kill pendingReviewKill = gson.fromJson(verifyResponse.getBody(), Kill.class);
+        assertEquals("PENDING_REVIEW", pendingReviewKill.getVerificationStatus());
+        assertTrue(pendingReviewKill.getVerificationNotes().contains("Photo submitted for review"));
+        
+        logger.info("Successfully tested photo evidence submission, status now PENDING_REVIEW");
+    }
+    
+    @Test
+    @Order(14)
+    void testPhotoKillVerification_ModeratorApproval() {
+        logger.info("E2E Test Step 14: Testing moderator approval of photo evidence");
+        
+        // Find the kill with PENDING_REVIEW status
+        List<Kill> killsByKiller = killDao.findKillsByKiller(PLAYER_1_ID);
+        Kill photoKill = killsByKiller.stream()
+                .filter(k -> "PHOTO".equals(k.getVerificationMethod()) && "PENDING_REVIEW".equals(k.getVerificationStatus()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Photo kill record with PENDING_REVIEW status not found!"));
+        
+        // Create moderator account for this test (simple approach for test)
+        String moderatorId = "moderator-" + UUID.randomUUID().toString().substring(0, 8);
+        Player moderator = new Player();
+        moderator.setPlayerID(moderatorId);
+        moderator.setPlayerName("Game Moderator");
+        moderator.setEmail("moderator@example.com");
+        playerDao.savePlayer(moderator);
+        
+        // Simulate moderator approving the photo
+        Map<String, String> moderatorInput = new HashMap<>();
+        moderatorInput.put("moderatorAction", "APPROVE");
+        moderatorInput.put("moderatorNotes", "Photo clearly shows the assassination");
+        
+        // Create request context with moderator authorizer
+        APIGatewayProxyRequestEvent.ProxyRequestContext requestContext = new APIGatewayProxyRequestEvent.ProxyRequestContext();
+        Map<String, Object> authorizer = new HashMap<>();
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", moderatorId); 
+        authorizer.put("claims", claims);
+        requestContext.setAuthorizer(authorizer);
+        
+        APIGatewayProxyRequestEvent moderatorRequest = new APIGatewayProxyRequestEvent()
+                .withPath("/kills/" + photoKill.getKillerID() + "/" + photoKill.getTime() + "/verify")
+                .withHttpMethod("POST")
+                .withRequestContext(requestContext)
+                .withPathParameters(Map.of(
+                    "killerId", photoKill.getKillerID(), 
+                    "killTime", photoKill.getTime()))
+                .withBody(gson.toJson(moderatorInput));
+        
+        APIGatewayProxyResponseEvent moderatorResponse = killHandler.handleRequest(moderatorRequest, mockContext);
+        
+        // Assertions - should be VERIFIED status after moderator approval
+        assertEquals(200, moderatorResponse.getStatusCode());
+        Kill verifiedKill = gson.fromJson(moderatorResponse.getBody(), Kill.class);
+        assertEquals("VERIFIED", verifiedKill.getVerificationStatus());
+        assertTrue(verifiedKill.getVerificationNotes().contains("Photo clearly shows"));
+        
+        logger.info("Successfully tested moderator approval of photo evidence");
+    }
+    
+    @Test
+    @Order(15)
+    void testPhotoKillVerification_ModeratorRejection() {
+        logger.info("E2E Test Step 15: Testing moderator rejection of photo evidence");
+        
+        // Create another kill with PHOTO verification
+        Map<String, Object> killRequestBody = new HashMap<>();
+        killRequestBody.put("killerID", PLAYER_1_ID);
+        killRequestBody.put("victimID", PLAYER_3_ID); // Reuse Player 3
+        killRequestBody.put("latitude", 40.7128);
+        killRequestBody.put("longitude", -74.0060);
+        killRequestBody.put("verificationMethod", "PHOTO");
+        killRequestBody.put("verificationData", new HashMap<>());
+        
+        // Create kill request context
+        APIGatewayProxyRequestEvent.ProxyRequestContext killerContext = new APIGatewayProxyRequestEvent.ProxyRequestContext();
+        Map<String, Object> killerAuthorizer = new HashMap<>();
+        Map<String, Object> killerClaims = new HashMap<>();
+        killerClaims.put("sub", PLAYER_1_ID);
+        killerAuthorizer.put("claims", killerClaims);
+        killerContext.setAuthorizer(killerAuthorizer);
+        
+        // Create kill
+        APIGatewayProxyRequestEvent createRequest = new APIGatewayProxyRequestEvent()
+                .withPath("/die")
+                .withHttpMethod("POST")
+                .withRequestContext(killerContext)
+                .withBody(gson.toJson(killRequestBody));
+        
+        APIGatewayProxyResponseEvent createResponse = killHandler.handleRequest(createRequest, mockContext);
+        assertEquals(201, createResponse.getStatusCode());
+        Kill photoKill = gson.fromJson(createResponse.getBody(), Kill.class);
+        
+        // Submit photo for verification
+        Map<String, String> photoInput = new HashMap<>();
+        photoInput.put("photoUrl", "https://example.com/kill-photos/blurry-image-" + UUID.randomUUID() + ".jpg");
+        
+        APIGatewayProxyRequestEvent photoRequest = new APIGatewayProxyRequestEvent()
+                .withPath("/kills/" + photoKill.getKillerID() + "/" + photoKill.getTime() + "/verify")
+                .withHttpMethod("POST")
+                .withRequestContext(killerContext)
+                .withPathParameters(Map.of(
+                    "killerId", photoKill.getKillerID(), 
+                    "killTime", photoKill.getTime()))
+                .withBody(gson.toJson(photoInput));
+        
+        APIGatewayProxyResponseEvent photoResponse = killHandler.handleRequest(photoRequest, mockContext);
+        assertEquals(200, photoResponse.getStatusCode());
+        
+        // Get kill to verify it's in PENDING_REVIEW
+        Kill pendingKill = gson.fromJson(photoResponse.getBody(), Kill.class);
+        assertEquals("PENDING_REVIEW", pendingKill.getVerificationStatus());
+        
+        // Get moderator ID from previous test
+        List<Player> allPlayers = playerDao.getAllPlayers();
+        String moderatorId = allPlayers.stream()
+                .filter(p -> p.getPlayerName() != null && p.getPlayerName().contains("Moderator"))
+                .findFirst()
+                .map(Player::getPlayerID)
+                .orElse("moderator-" + UUID.randomUUID());
+                
+        // Simulate moderator rejecting this photo
+        Map<String, String> moderatorInput = new HashMap<>();
+        moderatorInput.put("moderatorAction", "REJECT");
+        moderatorInput.put("moderatorNotes", "Photo is too blurry to verify the assassination");
+        
+        // Create moderator request context
+        APIGatewayProxyRequestEvent.ProxyRequestContext modContext = new APIGatewayProxyRequestEvent.ProxyRequestContext();
+        Map<String, Object> modAuthorizer = new HashMap<>();
+        Map<String, Object> modClaims = new HashMap<>();
+        modClaims.put("sub", moderatorId);
+        modAuthorizer.put("claims", modClaims);
+        modContext.setAuthorizer(modAuthorizer);
+        
+        APIGatewayProxyRequestEvent rejectRequest = new APIGatewayProxyRequestEvent()
+                .withPath("/kills/" + pendingKill.getKillerID() + "/" + pendingKill.getTime() + "/verify")
+                .withHttpMethod("POST")
+                .withRequestContext(modContext)
+                .withPathParameters(Map.of(
+                    "killerId", pendingKill.getKillerID(), 
+                    "killTime", pendingKill.getTime()))
+                .withBody(gson.toJson(moderatorInput));
+        
+        APIGatewayProxyResponseEvent rejectResponse = killHandler.handleRequest(rejectRequest, mockContext);
+        
+        // Assertions - should be REJECTED status after moderator rejection
+        assertEquals(200, rejectResponse.getStatusCode());
+        Kill rejectedKill = gson.fromJson(rejectResponse.getBody(), Kill.class);
+        assertEquals("REJECTED", rejectedKill.getVerificationStatus());
+        assertTrue(rejectedKill.getVerificationNotes().contains("too blurry"));
+        
+        logger.info("Successfully tested moderator rejection of photo evidence");
+    }
+
+    @Test
+    @Order(16) 
+    void testRecentKills() {
+        logger.info("E2E Test Step 16: Testing retrieval of recent kills for notifications");
+        
+        // Create a few more kills with different timestamps to test ordering
+        // 1. A kill that happened "yesterday"
+        Kill oldKill = new Kill();
+        oldKill.setKillerID(PLAYER_3_ID); // Player 3 got a kill
+        oldKill.setVictimID("extra-victim-" + UUID.randomUUID().toString().substring(0, 8));
+        oldKill.setTime(Instant.now().minusSeconds(60 * 60 * 24).toString()); // 1 day ago
+        oldKill.setLatitude(41.1234);
+        oldKill.setLongitude(-73.4321);
+        oldKill.setVerificationStatus("VERIFIED");
+        oldKill.setVerificationMethod("GPS");
+        killDao.saveKill(oldKill);
+        
+        // 2. A kill that happened very recently (should be first in recent results)
+        Kill veryRecentKill = new Kill();
+        veryRecentKill.setKillerID(PLAYER_2_ID); // Player 2 got a kill (even though they're a victim in other tests)
+        veryRecentKill.setVictimID("recent-victim-" + UUID.randomUUID().toString().substring(0, 8));
+        veryRecentKill.setTime(Instant.now().toString()); // right now
+        veryRecentKill.setLatitude(40.1234);
+        veryRecentKill.setLongitude(-74.4321);
+        veryRecentKill.setVerificationStatus("VERIFIED");
+        veryRecentKill.setVerificationMethod("NFC");
+        killDao.saveKill(veryRecentKill);
+        
+        // Create request context with auth
+        APIGatewayProxyRequestEvent.ProxyRequestContext requestContext = new APIGatewayProxyRequestEvent.ProxyRequestContext();
+        Map<String, Object> authorizer = new HashMap<>();
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", PLAYER_1_ID);
+        authorizer.put("claims", claims);
+        requestContext.setAuthorizer(authorizer);
+        
+        // Add query parameters to limit to 5 most recent kills
+        Map<String, String> queryParams = new HashMap<>();
+        queryParams.put("limit", "5");
+        
+        // Test the recent kills endpoint
+        APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent()
+                .withPath("/kills/recent")
+                .withHttpMethod("GET") 
+                .withRequestContext(requestContext)
+                .withQueryStringParameters(queryParams);
+        
+        APIGatewayProxyResponseEvent response = killHandler.handleRequest(request, mockContext);
+        
+        // Assertions
+        assertEquals(200, response.getStatusCode());
+        List<Kill> recentKills = gson.fromJson(response.getBody(), new TypeToken<List<Kill>>(){}.getType());
+        
+        // Should have at least 6 kills from all our tests
+        assertTrue(recentKills.size() >= 5);
+        
+        // First kill should be the most recent
+        assertEquals(veryRecentKill.getKillerID(), recentKills.get(0).getKillerID());
+        assertEquals(veryRecentKill.getVictimID(), recentKills.get(0).getVictimID());
+        
+        // Verify chronological ordering (newest first)
+        for (int i = 0; i < recentKills.size() - 1; i++) {
+            Instant current = Instant.parse(recentKills.get(i).getTime());
+            Instant next = Instant.parse(recentKills.get(i+1).getTime());
+            assertTrue(current.isAfter(next) || current.equals(next), 
+                "Kills should be ordered by time (newest first)");
+        }
+        
+        logger.info("Successfully tested retrieval of recent kills for notifications");
+    }
+    
+    @Test
+    @Order(17)
+    void testKillsTimeline() {
+        logger.info("E2E Test Step 17: Testing game-specific kills timeline");
+        
+        // Create a game for timeline testing
+        Game timelineGame = new Game();
+        timelineGame.setGameID("timeline-game-" + UUID.randomUUID().toString().substring(0, 8));
+        timelineGame.setGameName("Timeline Test Game");
+        timelineGame.setStatus("ACTIVE");
+        gameDao.saveGame(timelineGame);
+        
+        // Create a few players for this specific game
+        Player gamePlayer1 = new Player();
+        gamePlayer1.setPlayerID("timeline-player1-" + UUID.randomUUID().toString().substring(0, 8));
+        gamePlayer1.setPlayerName("Timeline Player 1");
+        gamePlayer1.setGameID(timelineGame.getGameID());
+        playerDao.savePlayer(gamePlayer1);
+        
+        Player gamePlayer2 = new Player();
+        gamePlayer2.setPlayerID("timeline-player2-" + UUID.randomUUID().toString().substring(0, 8)); 
+        gamePlayer2.setPlayerName("Timeline Player 2");
+        gamePlayer2.setGameID(timelineGame.getGameID());
+        playerDao.savePlayer(gamePlayer2);
+        
+        Player gamePlayer3 = new Player();
+        gamePlayer3.setPlayerID("timeline-player3-" + UUID.randomUUID().toString().substring(0, 8));
+        gamePlayer3.setPlayerName("Timeline Player 3");
+        gamePlayer3.setGameID(timelineGame.getGameID());
+        playerDao.savePlayer(gamePlayer3);
+        
+        // Create some in-game kills with timestamps ascending order
+        Kill kill1 = new Kill();
+        kill1.setKillerID(gamePlayer1.getPlayerID());
+        kill1.setVictimID(gamePlayer2.getPlayerID());
+        kill1.setTime(Instant.now().minusSeconds(3600).toString()); // 1 hour ago
+        kill1.setLatitude(40.1234);
+        kill1.setLongitude(-74.4321);
+        kill1.setVerificationStatus("VERIFIED");
+        kill1.setVerificationMethod("GPS");
+        kill1.setGameId(timelineGame.getGameID()); // Set the game ID
+        killDao.saveKill(kill1);
+        
+        Kill kill2 = new Kill();
+        kill2.setKillerID(gamePlayer3.getPlayerID());
+        kill2.setVictimID(gamePlayer1.getPlayerID());
+        kill2.setTime(Instant.now().minusSeconds(1800).toString()); // 30 minutes ago
+        kill2.setLatitude(40.5678);
+        kill2.setLongitude(-74.8765);
+        kill2.setVerificationStatus("VERIFIED");
+        kill2.setVerificationMethod("NFC");
+        kill2.setGameId(timelineGame.getGameID()); // Set the game ID
+        killDao.saveKill(kill2);
+        
+        Kill kill3 = new Kill();
+        kill3.setKillerID(gamePlayer2.getPlayerID());
+        kill3.setVictimID(gamePlayer3.getPlayerID()); 
+        kill3.setTime(Instant.now().minusSeconds(600).toString()); // 10 minutes ago
+        kill3.setLatitude(40.9876);
+        kill3.setLongitude(-74.5432);
+        kill3.setVerificationStatus("VERIFIED");
+        kill3.setVerificationMethod("PHOTO");
+        kill3.setGameId(timelineGame.getGameID()); // Set the game ID
+        killDao.saveKill(kill3);
+        
+        // Create request context with auth (any player can view timeline)
+        APIGatewayProxyRequestEvent.ProxyRequestContext requestContext = new APIGatewayProxyRequestEvent.ProxyRequestContext();
+        Map<String, Object> authorizer = new HashMap<>();
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", gamePlayer1.getPlayerID());
+        authorizer.put("claims", claims);
+        requestContext.setAuthorizer(authorizer);
+        
+        // Test the game timeline endpoint 
+        APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent()
+                .withPath("/games/" + timelineGame.getGameID() + "/timeline")
+                .withHttpMethod("GET")
+                .withPathParameters(Map.of("gameID", timelineGame.getGameID()))
+                .withRequestContext(requestContext);
+        
+        APIGatewayProxyResponseEvent response = killHandler.handleRequest(request, mockContext);
+        
+        // Assertions
+        assertEquals(200, response.getStatusCode());
+        List<Map<String, Object>> timelineEvents = gson.fromJson(response.getBody(), 
+                                        new TypeToken<List<Map<String, Object>>>(){}.getType());
+        
+        // Should have 3 events in chronological order (oldest first for timeline)
+        assertEquals(3, timelineEvents.size());
+        
+        // Verify ordering (oldest first for the timeline feed)
+        assertEquals("KILL", timelineEvents.get(0).get("eventType"));
+        assertEquals(kill1.getKillerID(), timelineEvents.get(0).get("killerID"));
+        assertEquals(kill1.getVictimID(), timelineEvents.get(0).get("victimID"));
+        
+        assertEquals("KILL", timelineEvents.get(1).get("eventType"));
+        assertEquals(kill2.getKillerID(), timelineEvents.get(1).get("killerID"));
+        assertEquals(kill2.getVictimID(), timelineEvents.get(1).get("victimID"));
+        
+        assertEquals("KILL", timelineEvents.get(2).get("eventType"));
+        assertEquals(kill3.getKillerID(), timelineEvents.get(2).get("killerID"));
+        assertEquals(kill3.getVictimID(), timelineEvents.get(2).get("victimID"));
+        
+        logger.info("Successfully tested game-specific kills timeline");
     }
 } 

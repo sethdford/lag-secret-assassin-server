@@ -1,0 +1,204 @@
+# Task ID: 27
+# Title: Implement Premium Intelligence Perks System for Revealing Player Identities
+# Status: pending
+# Dependencies: 20
+# Priority: high
+# Description: Design and implement a secure system that allows players to purchase premium intelligence perks that reveal prey and hunter identities in the game. This includes backend services, APIs, and integration with the existing payment system.
+# Details:
+Create a comprehensive system for premium intelligence perks with the following components:
+
+1. **Backend Services**:
+   - Develop a `PremiumIntelligenceService` that manages the logic for revealing player identities
+   - Implement secure data access controls to ensure only authorized players can view identity information
+   - Create database models to track which players have purchased which intelligence perks and their duration
+   - Implement time-based expiration for temporary perks
+
+2. **API Endpoints**:
+   - `POST /api/premium/purchase-intelligence-perk`: Endpoint to purchase a specific intelligence perk
+   - `GET /api/premium/available-perks`: Retrieve available intelligence perks and their prices
+   - `GET /api/premium/my-perks`: Get currently active perks for the authenticated user
+   - `GET /api/game/reveal-identity/{playerId}`: Secured endpoint that reveals a player's identity if the requester has the appropriate perk
+
+3. **Perk Types to Implement**:
+   - Hunter Reveal: Shows the identity of hunters targeting the player
+   - Prey Reveal: Shows the identity of the player's assigned target
+   - Full Intelligence: Reveals both hunter and prey identities
+   - Temporary vs. Permanent perk options
+
+4. **Security Considerations**:
+   - Implement rate limiting to prevent abuse
+   - Add audit logging for all identity reveals
+   - Ensure proper authentication and authorization checks
+   - Prevent revealing identities in game modes where this would break game mechanics
+
+5. **Integration Points**:
+   - Connect with the payment processing system
+   - Integrate with the existing player identity and game state services
+   - Update the game client to display the newly available information
+
+The implementation should be scalable to allow for easy addition of new perk types in the future.
+
+# Test Strategy:
+Testing should cover all aspects of the premium intelligence perks system:
+
+1. **Unit Tests**:
+   - Test the `PremiumIntelligenceService` methods for proper logic execution
+   - Verify perk expiration logic works correctly
+   - Test authorization logic to ensure only players with valid perks can access identity information
+
+2. **Integration Tests**:
+   - Verify API endpoints return correct responses for various scenarios
+   - Test the integration with the payment system using mock payments
+   - Ensure database operations correctly track purchased perks
+
+3. **Security Tests**:
+   - Verify that players without perks cannot access protected identity information
+   - Test rate limiting functionality
+   - Verify audit logs are properly created
+
+4. **End-to-End Tests**:
+   - Complete purchase flow from selecting a perk to using it in-game
+   - Test perk expiration and renewal processes
+   - Verify correct display of revealed identities in the game client
+
+5. **Test Cases**:
+   - Purchase a Hunter Reveal perk and verify correct hunter identity is shown
+   - Purchase a Prey Reveal perk and verify correct target identity is shown
+   - Attempt to reveal identities without purchasing perks (should fail)
+   - Test behavior when a perk expires during an active game session
+   - Verify multiple concurrent perks work correctly together
+
+6. **Performance Testing**:
+   - Load test the system with many simultaneous perk purchases and identity reveals
+   - Measure and optimize response times for identity reveal operations
+
+# Subtasks:
+## 1. Implement Backend Database Models and PremiumIntelligenceService [pending]
+### Dependencies: None
+### Description: Create the database models and core service for managing premium intelligence perks
+### Details:
+Implementation details:
+
+1. Create database models:
+   - `IntelligencePerkType` enum (HUNTER_REVEAL, PREY_REVEAL, FULL_INTELLIGENCE)
+   - `PerkDuration` enum (TEMPORARY_24H, TEMPORARY_72H, PERMANENT)
+   - `IntelligencePerk` entity with fields for type, price, description, and duration
+   - `PlayerPerk` entity to track purchased perks with fields for player, perk, purchase date, and expiration date
+
+2. Implement `PremiumIntelligenceService` with the following methods:
+   - `getAvailablePerks()`: Returns all available perks and their details
+   - `getPerksByPlayer(playerId)`: Returns active perks for a player
+   - `hasPerk(playerId, perkType)`: Checks if a player has a specific active perk
+   - `addPerkToPlayer(playerId, perkId)`: Assigns a perk to a player with proper expiration
+   - `cleanupExpiredPerks()`: Background job to remove expired perks
+
+3. Implement time-based expiration logic:
+   - Create a scheduled task that runs daily to check for and expire temporary perks
+   - Add logic to calculate expiration dates based on perk duration type
+
+Testing approach:
+- Unit tests for all service methods
+- Integration tests with a test database to verify persistence
+- Test expiration logic by manipulating the system clock in tests
+
+## 2. Develop API Endpoints and Security Controls [pending]
+### Dependencies: 27.1
+### Description: Create the REST API endpoints for the premium intelligence system with proper security measures
+### Details:
+Implementation details:
+
+1. Implement the following API endpoints:
+   - `GET /api/premium/available-perks`: List all available intelligence perks with prices
+   - `GET /api/premium/my-perks`: Retrieve active perks for the authenticated user
+   - `POST /api/premium/purchase-intelligence-perk`: Purchase endpoint with perkId parameter
+   - `GET /api/game/reveal-identity/{playerId}`: Endpoint to reveal player identity
+
+2. Implement security controls:
+   - Add authentication middleware to all endpoints
+   - Implement authorization checks to verify appropriate perk ownership
+   - Add rate limiting to prevent abuse (max 10 requests per minute for reveal endpoints)
+   - Implement audit logging for all identity reveals with timestamp, requester, and target
+
+3. Add validation logic:
+   - Validate that identity reveals are only allowed in compatible game modes
+   - Check that the target player is actually a hunter or prey of the requesting player
+   - Verify perk hasn't expired before allowing identity reveal
+
+4. Implement error handling:
+   - Create custom exceptions for various error scenarios
+   - Return appropriate HTTP status codes and error messages
+
+Testing approach:
+- Unit tests for controller methods
+- Integration tests with mock authentication
+- Security tests to verify unauthorized access is prevented
+- Rate limit testing to ensure limits are enforced
+
+## 3. Integrate with Payment System and Game State Services [pending]
+### Dependencies: 27.1, 27.2
+### Description: Connect the premium intelligence system with the existing payment processing and game state services
+### Details:
+Implementation details:
+
+1. Integrate with payment system:
+   - Create a `PaymentService` adapter to connect with the existing payment system
+   - Implement purchase flow in the `PremiumIntelligenceService`:
+     - Verify player has sufficient funds
+     - Process payment transaction
+     - Grant perk upon successful payment
+     - Handle payment failures gracefully
+
+2. Integrate with game state services:
+   - Connect with `PlayerService` to retrieve hunter and prey relationships
+   - Implement logic to determine which players can be revealed based on game state
+   - Add hooks into game events to handle special cases (game end, player elimination)
+
+3. Implement transaction management:
+   - Ensure atomicity for payment and perk assignment operations
+   - Add compensation logic for failed transactions
+
+4. Create notification system:
+   - Send notifications to players when perks are purchased
+   - Alert players when perks are about to expire
+   - Notify players when their identity has been revealed (optional feature)
+
+Testing approach:
+- Integration tests with mocked payment service
+- End-to-end tests for the complete purchase flow
+- Transaction rollback tests to verify system integrity
+- Test notifications are sent correctly
+
+## 4. Develop Frontend UI Components and Purchase Flow [pending]
+### Dependencies: 27.2, 27.3
+### Description: Create the user interface components for browsing, purchasing, and using premium intelligence perks
+### Details:
+Implementation details:
+
+1. Create UI components for the premium store:
+   - Implement a `PerkStore` component showing available perks with prices and descriptions
+   - Create a `PerkPurchase` modal with confirmation dialog and payment options
+   - Develop a `MyPerks` dashboard showing active perks and their expiration dates
+   - Add visual indicators for active perks throughout the game UI
+
+2. Implement the reveal functionality in the game UI:
+   - Add "Reveal Identity" buttons next to hunter and prey players when appropriate perks are active
+   - Create an identity reveal modal showing the player's information
+   - Implement visual indicators showing which players have been revealed
+   - Add tooltips explaining the premium features
+
+3. Enhance the player profile screen:
+   - Show purchased perks and their status
+   - Add purchase history section
+   - Implement quick-purchase options for frequently bought perks
+
+4. Add responsive design and accessibility features:
+   - Ensure all new UI components work on mobile devices
+   - Implement keyboard navigation for the purchase flow
+   - Add appropriate ARIA labels for screen readers
+
+Testing approach:
+- Unit tests for UI components
+- User acceptance testing for the complete purchase flow
+- Cross-browser compatibility testing
+- Usability testing with focus groups
+

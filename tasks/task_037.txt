@@ -1,0 +1,50 @@
+# Task ID: 37
+# Title: Refactor Generic Exception Catches to Specific Exception Handling
+# Status: pending
+# Dependencies: None
+# Priority: low
+# Description: Replace all generic Exception catches in non-handler code with specific exception types to improve error handling, debugging, and code maintainability.
+# Details:
+This task involves identifying and refactoring all instances where generic Exception classes are caught in non-exception-handler code throughout the codebase. For each occurrence:
+
+1. Analyze the code to determine which specific exceptions could be thrown in the try block
+2. Replace the generic catch(Exception e) with multiple specific exception catches (e.g., catch(IOException e), catch(IllegalArgumentException e))
+3. Implement appropriate handling for each specific exception type
+4. If some exceptions cannot be handled at this level, allow them to propagate up the call stack
+5. For truly unexpected exceptions that must be caught, use a more specific approach such as catch(RuntimeException e) with proper logging
+6. Add comments explaining the rationale for exception handling choices
+7. Ensure proper resource cleanup in finally blocks where appropriate
+8. Update any logging to include specific exception details
+
+Focus areas should include:
+- Service layer methods
+- Repository/DAO implementations
+- Utility classes
+- Business logic components
+
+Exclude dedicated exception handler classes, global exception handlers, or controller advice classes that are specifically designed to catch and process exceptions.
+
+# Test Strategy:
+Testing should verify that the refactored code properly handles specific exceptions without changing the overall application behavior:
+
+1. Unit Tests:
+   - Create unit tests that deliberately trigger each specific exception type
+   - Verify that exceptions are caught and handled as expected
+   - Ensure that uncaught exceptions properly propagate up the call stack
+   - Test edge cases where multiple exceptions might be thrown
+
+2. Integration Tests:
+   - Run existing integration tests to ensure functionality remains unchanged
+   - Add new tests for scenarios where exception handling is critical
+   - Verify that error messages and logs contain specific exception information
+
+3. Code Review:
+   - Use static analysis tools to verify no generic Exception catches remain in non-handler code
+   - Review exception handling patterns for consistency
+   - Ensure logging includes appropriate context and stack traces
+
+4. Manual Testing:
+   - Test error scenarios in the application to verify user-facing error messages are appropriate
+   - Check that the application gracefully handles errors without exposing sensitive information
+
+Success criteria: All generic Exception catches in non-handler code are replaced with specific exception handling, with no regression in application functionality.

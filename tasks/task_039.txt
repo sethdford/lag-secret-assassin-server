@@ -1,0 +1,148 @@
+# Task ID: 39
+# Title: Implement Mobile Proximity Awareness with Geofencing and Distance Indicators
+# Status: pending
+# Dependencies: 7, 8, 13
+# Priority: medium
+# Description: Develop a mobile feature that tracks player locations, establishes geofences around targets, and provides real-time distance indicators to enhance the gameplay experience.
+# Details:
+This task involves implementing a location-based proximity awareness system with the following components:
+
+1. Location Services Integration:
+   - Implement background location tracking using the device's GPS
+   - Optimize for battery usage with adaptive polling frequencies based on proximity to targets
+   - Handle permission requests and graceful degradation when permissions are denied
+
+2. Geofencing Implementation:
+   - Create dynamic geofences around target locations with configurable radii (50m, 100m, 200m)
+   - Register for entry/exit events when players cross geofence boundaries
+   - Implement a caching mechanism to limit API calls for geofence updates
+
+3. Distance Calculation and Display:
+   - Develop an algorithm to calculate real-time distances between players and targets
+   - Create a visually intuitive UI component showing distance to target (both numeric and visual indicator)
+   - Implement different states for distance indicators (far, medium, close, very close)
+
+4. Map Integration:
+   - Display player and nearby target locations on an interactive map
+   - Implement heat zones or radius indicators showing proximity boundaries
+   - Add directional indicators pointing toward targets when not in map view
+
+5. Technical Considerations:
+   - Ensure cross-platform compatibility (iOS and Android)
+   - Implement proper error handling for GPS signal loss
+   - Create a fallback mechanism using cell tower triangulation when GPS is unavailable
+   - Ensure GDPR compliance with location data handling
+   - Add user settings to control location tracking precision and frequency
+
+# Test Strategy:
+Testing should verify both functionality and performance of the proximity awareness system:
+
+1. Functional Testing:
+   - Verify geofence creation with different radii configurations
+   - Test geofence entry/exit event triggering at various speeds of movement
+   - Validate distance calculations against known reference points
+   - Confirm UI updates correctly reflect distance changes
+   - Test permission flows and graceful degradation scenarios
+
+2. Performance Testing:
+   - Measure battery consumption during extended gameplay sessions
+   - Benchmark location update frequency against battery usage
+   - Test system behavior with multiple simultaneous geofences (10+)
+   - Verify performance on low-end devices with limited resources
+
+3. Field Testing:
+   - Conduct real-world testing in various environments (urban, rural, indoors)
+   - Test in areas with poor GPS reception to verify fallback mechanisms
+   - Validate accuracy of distance indicators in different terrains
+
+4. Integration Testing:
+   - Verify integration with notification system for proximity alerts
+   - Test interaction with other location-based game features
+   - Ensure proper data synchronization with backend services
+
+5. User Acceptance Testing:
+   - Gather feedback on the intuitiveness of distance indicators
+   - Evaluate battery impact perception from test users
+   - Assess overall user satisfaction with proximity awareness features
+
+# Subtasks:
+## 1. Implement Location Services Integration with Permission Handling [pending]
+### Dependencies: None
+### Description: Set up the core location tracking functionality with proper permission handling and battery optimization strategies.
+### Details:
+Implementation details:
+1. Create a LocationService class that interfaces with platform-specific location APIs
+2. Implement permission request flows for both iOS and Android with clear user messaging
+3. Set up background location tracking with configurable update intervals
+4. Develop adaptive polling frequency algorithm that adjusts based on movement and proximity to targets
+5. Implement battery optimization strategies (reduce polling when stationary, use significant location changes)
+6. Create a location data model to standardize location information across platforms
+7. Add graceful degradation paths when permissions are denied or location is unavailable
+8. Set up unit tests for the LocationService class with mock location data
+9. Test permission flows on both iOS and Android devices
+10. Verify battery usage metrics during extended tracking periods
+
+## 2. Build Geofencing System with Dynamic Boundaries [pending]
+### Dependencies: 39.1
+### Description: Develop the geofencing functionality that creates and monitors virtual boundaries around target locations.
+### Details:
+Implementation details:
+1. Create a GeofenceManager class that handles geofence creation and monitoring
+2. Implement methods to create geofences with configurable radii (50m, 100m, 200m)
+3. Set up listeners for geofence entry and exit events
+4. Develop a caching system to store active geofences and limit API calls
+5. Create an algorithm to prioritize which geofences to monitor based on proximity and relevance
+6. Implement batch processing for geofence updates to reduce system load
+7. Add notification triggers for significant geofence events
+8. Create interfaces for other components to subscribe to geofence events
+9. Test geofence triggering accuracy at different distances and movement speeds
+10. Verify proper cleanup of geofences when they're no longer needed
+
+## 3. Develop Distance Calculation and UI Indicators [pending]
+### Dependencies: 39.1
+### Description: Create the distance calculation algorithm and visual indicators to show proximity to targets.
+### Details:
+Implementation details:
+1. Implement a DistanceCalculator utility that uses the Haversine formula for accurate distance calculations
+2. Create a DistanceIndicatorView UI component with different visual states (far, medium, close, very close)
+3. Design and implement numeric distance display with appropriate units and formatting
+4. Add smooth transitions between distance states to avoid UI flickering
+5. Implement a vibration pattern system that intensifies as players get closer to targets
+6. Create color-coded visual indicators that change based on proximity
+7. Add accessibility features for distance indicators (TalkBack/VoiceOver support)
+8. Optimize the update frequency of distance calculations based on movement speed
+9. Test distance calculation accuracy against known reference points
+10. Conduct usability testing to ensure indicators are intuitive and helpful
+
+## 4. Integrate Interactive Map with Proximity Visualization [pending]
+### Dependencies: 39.1, 39.2, 39.3
+### Description: Add map functionality showing player location, targets, and visual proximity indicators.
+### Details:
+Implementation details:
+1. Set up integration with a map provider (Google Maps or platform-agnostic alternative)
+2. Create a MapViewController to handle map rendering and interaction
+3. Implement custom map markers for player and target locations
+4. Add visual radius indicators around targets showing geofence boundaries
+5. Develop heat zone visualization that changes intensity based on proximity
+6. Create directional indicators that point toward targets when not in map view
+7. Implement map camera controls that adjust zoom level based on proximity to targets
+8. Add smooth animations for location updates and camera movements
+9. Optimize map rendering for performance on lower-end devices
+10. Test map functionality across different device sizes and orientations
+
+## 5. Implement Error Handling, Fallbacks and User Settings [pending]
+### Dependencies: 39.1, 39.2, 39.3, 39.4
+### Description: Add robust error handling, fallback mechanisms, and user-configurable settings for the proximity awareness system.
+### Details:
+Implementation details:
+1. Create a comprehensive error handling system for location service failures
+2. Implement fallback to cell tower triangulation when GPS is unavailable
+3. Add network connectivity monitoring and offline mode capabilities
+4. Develop a user settings interface for controlling location tracking precision and frequency
+5. Implement data privacy controls in compliance with GDPR requirements
+6. Create a location data retention policy with automatic purging of old data
+7. Add battery usage statistics and recommendations in settings
+8. Implement system status indicators showing current tracking mode and accuracy
+9. Create automated tests for various failure scenarios (GPS loss, permission revocation)
+10. Conduct end-to-end testing of the complete proximity awareness system under various conditions
+

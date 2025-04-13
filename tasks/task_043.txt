@@ -1,0 +1,116 @@
+# Task ID: 43
+# Title: Implement Shrinking Safe Zone Gameplay Mode
+# Status: pending
+# Dependencies: 6
+# Priority: high
+# Description: Design and implement a new gameplay mode where the safe playable area gradually shrinks over time, damaging players who remain outside the boundaries.
+# Details:
+Create a comprehensive system for the shrinking safe zone gameplay mode with the following components:
+
+1. Zone Configuration System:
+   - Define a configurable set of shrinking stages (minimum 3-5 stages)
+   - For each stage, specify: duration, final zone size, transition time, and damage amount
+   - Create a visual indicator for the current safe zone and the next zone boundary
+
+2. Zone State Management:
+   - Implement a state machine to handle zone transitions (Waiting, Shrinking, Stable)
+   - Create a timer system to manage stage progression
+   - Develop smooth interpolation for zone shrinking animations
+   - Ensure the zone center can be randomized or predetermined
+
+3. Player Damage System:
+   - Implement a system to detect players outside the safe zone
+   - Apply configurable damage over time to players outside the zone
+   - Add visual and audio feedback when players take zone damage
+   - Include a grace period when a new zone is announced before damage begins
+
+4. Game Integration:
+   - Add the new mode to the game mode selection UI
+   - Implement proper initialization and cleanup for the mode
+   - Create appropriate UI elements showing zone timer, current stage, and warning indicators
+   - Ensure the mode works with existing game systems (respawn, scoring, etc.)
+
+5. Performance Considerations:
+   - Optimize zone boundary calculations to minimize performance impact
+   - Use efficient player position checking methods
+   - Consider level of detail adjustments for zone visualization at distance
+
+# Test Strategy:
+Testing should verify all aspects of the shrinking safe zone gameplay mode:
+
+1. Functional Testing:
+   - Verify zone shrinks correctly according to configured parameters
+   - Confirm damage is applied at the correct rate to players outside the zone
+   - Test zone state transitions occur at the expected times
+   - Validate visual indicators accurately represent current and next zone boundaries
+
+2. Edge Cases:
+   - Test behavior when players are exactly on the zone boundary
+   - Verify correct behavior when players rapidly enter and exit the zone
+   - Test with minimum and maximum configured zone sizes
+   - Validate behavior when all players are outside the zone
+
+3. Integration Testing:
+   - Verify the mode works correctly with different maps and player counts
+   - Test interaction with other game systems (scoring, respawn, etc.)
+   - Confirm UI elements update correctly as the zone changes
+
+4. Performance Testing:
+   - Measure frame rate impact with maximum player count
+   - Profile memory usage during extended gameplay sessions
+   - Test on minimum specification hardware to ensure acceptable performance
+
+5. Playtest Scenarios:
+   - Organize playtests with different zone configurations
+   - Gather feedback on pacing, difficulty, and fun factor
+   - Verify the mode creates the intended tension and strategic gameplay
+
+# Subtasks:
+## 1. Add API Endpoints for Zone State (Optional) [pending]
+### Dependencies: None
+### Description: Add API endpoints if necessary to query the current shrinking zone state (center, radius, timer).
+### Details:
+
+
+## 2. Update Location Checks for Shrinking Zone [pending]
+### Dependencies: 43.1
+### Description: Modify LocationService and potentially SafeZoneService to check against the dynamic shrinking zone for applicable game modes.
+### Details:
+
+
+## 3. Integrate Zone State Machine with Game Lifecycle [pending]
+### Dependencies: 43.2
+### Description: Initialize the zone state machine when a game starts and stop it when the game ends.
+### Details:
+
+
+## 4. Implement Time Advancement and Stage Triggering [pending]
+### Dependencies: 43.3
+### Description: Decide on and implement a mechanism (e.g., scheduled Lambda, opportunistic updates) to advance zone stages based on timers.
+### Details:
+
+
+## 5. Implement Damage Outside Zone [pending]
+### Dependencies: 43.4
+### Description: Create a system to check player locations against the current shrinking zone and apply damage based on the current stage's configuration.
+### Details:
+
+
+## 6. Implement Zone Transition Logic [pending]
+### Dependencies: 43.5
+### Description: Implement logic to calculate the next zone's center/radius and handle the shrinking process during transitions.
+### Details:
+
+
+## 7. Implement Zone State Machine [pending]
+### Dependencies: 43.6
+### Description: Create a service or state machine to manage the current shrinking zone stage (Waiting, Shrinking, Idle), center/radius, and timers.
+### Details:
+
+
+## 8. Define Shrinking Zone Configuration [pending]
+### Dependencies: 43.7
+### Description: Define and implement storage for shrinking zone stage configurations (wait time, transition time, shrink factor, damage, etc.) within the Game model or settings.
+### Details:
+
+

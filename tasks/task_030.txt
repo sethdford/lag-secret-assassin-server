@@ -1,0 +1,73 @@
+# Task ID: 30
+# Title: Implement Dynamic Scheduled Events System with Purge Periods and Tournament Phases
+# Status: pending
+# Dependencies: 28
+# Priority: medium
+# Description: Develop a comprehensive scheduled events system that manages periodic safe zone disabling, regional competitions, and a final championship phase for the last 100 players.
+# Details:
+Create a flexible event scheduling system with the following components:
+
+1. **Event Scheduler Core**:
+   - Implement a time-based scheduler that can trigger events at specific intervals or calendar dates
+   - Design a configuration system for defining event parameters (duration, affected regions, rules modifications)
+   - Create an event state machine to handle transitions between normal gameplay, purge periods, regional competitions, and championship phase
+
+2. **Weekly Purge Period Implementation**:
+   - Develop mechanism to temporarily disable all safe zones for a configurable duration (default: 6 hours)
+   - Implement warning notifications to all players 24 hours and 1 hour before purge begins
+   - Create visual indicators in the game world showing purge countdown and active status
+   - Ensure proper state restoration when purge period ends
+
+3. **Regional Sub-competitions**:
+   - Implement a system to divide the game world into configurable regions (minimum 4, maximum 12)
+   - Create leaderboards and scoring mechanisms specific to each region
+   - Design qualification rules for advancing from regional to championship phase
+   - Implement region-specific event modifiers (e.g., resource scarcity, environmental hazards)
+
+4. **Championship Phase**:
+   - Create a system to identify and select the top 100 players based on regional performance
+   - Implement teleportation or migration mechanism to bring qualified players to the championship city
+   - Design special rules and constraints for the championship (limited resources, accelerated danger zones)
+   - Develop a spectator system for eliminated players to watch the championship
+   - Create a victory ceremony and rewards distribution for the winner
+
+5. **Database and Persistence**:
+   - Design database schema to store event schedules, player participation, and results
+   - Implement transaction handling for critical operations during event transitions
+   - Create backup and recovery mechanisms for event state in case of server failures
+
+The system should be highly configurable through admin interfaces and resilient to server restarts or crashes.
+
+# Test Strategy:
+Testing should cover all aspects of the scheduled events system:
+
+1. **Unit Tests**:
+   - Test event scheduler timing accuracy with simulated time progression
+   - Verify state transitions between different event phases
+   - Test boundary conditions for player qualification and elimination
+   - Validate database operations for event persistence
+
+2. **Integration Tests**:
+   - Verify safe zone disabling/enabling during purge periods
+   - Test player notification system for upcoming events
+   - Validate regional competition boundaries and scoring
+   - Confirm championship qualification logic works correctly
+   - Test spectator mode functionality during championship
+
+3. **Performance Tests**:
+   - Simulate maximum player load during event transitions
+   - Measure database performance during high-activity periods
+   - Test server resource utilization during championship phase with 100 active players and spectators
+
+4. **Manual Testing Scenarios**:
+   - Conduct end-to-end test of a complete event cycle (normal → purge → regional → championship)
+   - Verify admin controls can modify event parameters correctly
+   - Test recovery from simulated server crashes during critical event phases
+   - Validate that event history is properly recorded and queryable
+
+5. **Acceptance Criteria**:
+   - All scheduled events must trigger within ±1 second of configured time
+   - Safe zones must be completely disabled during purge periods
+   - Regional competitions must correctly track player performance
+   - Championship must successfully gather exactly 100 qualified players
+   - System must maintain data integrity through all event transitions

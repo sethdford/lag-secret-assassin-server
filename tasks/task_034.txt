@@ -1,0 +1,45 @@
+# Task ID: 34
+# Title: Implement Push Notification Fallback Mechanism in NotificationService
+# Status: pending
+# Dependencies: 18, 32
+# Priority: medium
+# Description: Develop a fallback mechanism within the NotificationService that automatically switches to alternative notification methods when push notifications fail to deliver.
+# Details:
+The implementation should include the following components:
+
+1. Create a notification delivery status tracking system that monitors push notification delivery success/failure
+2. Implement fallback logic that triggers when push notifications fail with specific error codes (e.g., device token expired, service unavailable)
+3. Define a fallback hierarchy: push notification → in-app notification → email → SMS (configurable per user preference)
+4. Add a retry mechanism that attempts push notification delivery 3 times before falling back
+5. Implement a circuit breaker pattern to temporarily disable push notifications if failure rate exceeds 30% in a 5-minute window
+6. Create a configuration interface allowing admins to adjust fallback rules and thresholds
+7. Add detailed logging for all fallback events including reason for fallback, alternative method used, and delivery status
+8. Ensure the fallback process is asynchronous and doesn't block the main notification flow
+9. Update the NotificationService interface to expose methods for checking notification status
+10. Implement rate limiting to prevent flooding alternative channels during mass fallbacks
+
+# Test Strategy:
+Testing should verify both the detection of failures and the correct execution of fallbacks:
+
+1. Unit tests:
+   - Test fallback logic with mocked push notification failures
+   - Verify correct fallback channel selection based on user preferences
+   - Test retry mechanism with various error scenarios
+   - Validate circuit breaker functionality with simulated high failure rates
+
+2. Integration tests:
+   - Test end-to-end notification delivery with simulated push service outages
+   - Verify correct fallback to each alternative channel
+   - Test notification status tracking across the entire delivery pipeline
+
+3. Performance tests:
+   - Measure latency impact of fallback mechanism under normal conditions
+   - Test system behavior under high load with various fallback scenarios
+   - Verify memory usage remains within acceptable limits during fallbacks
+
+4. Specific test cases:
+   - Push notification fails with "InvalidToken" → verify fallback to in-app notification
+   - Push service returns 503 → verify retry logic and eventual fallback
+   - Circuit breaker trips → verify temporary routing to alternative channels
+   - User without email but with SMS → verify correct fallback to SMS
+   - All channels fail → verify proper error handling and logging

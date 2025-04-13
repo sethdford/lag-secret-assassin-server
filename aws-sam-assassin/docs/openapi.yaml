@@ -1,0 +1,1689 @@
+openapi: 3.1.0
+info:
+  title: Assassin Game API
+  description: |
+    # Assassin Game API
+    
+    This API serves as the backend for the Assassin Game web application, 
+    providing endpoints for player management, game management, kill reporting,
+    and statistics tracking.
+    
+    ## Authentication
+    
+    Most endpoints require authentication using a bearer token. Use the `/auth/signin` 
+    endpoint to obtain a token.
+    
+    For local development, set the `NEXT_PUBLIC_DISABLE_AUTH_FOR_LOCAL=true` environment 
+    variable to bypass authentication.
+  version: 1.0.0
+  contact:
+    name: Assassin Game Support
+servers:
+  - url: http://localhost:3002
+    description: Local Development
+  - url: https://{environment}-api.assassingame.com
+    description: AWS Environment
+    variables:
+      environment:
+        default: dev
+        enum:
+          - dev
+          - test
+          - prod
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Use JWT token obtained from /auth/signin
+  
+  schemas:
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Error message
+          example: "An error occurred while processing your request"
+    
+    Player:
+      type: object
+      required:
+        - playerID
+        - playerName
+        - status
+        - gameID
+      properties:
+        playerID:
+          type: string
+          description: Unique identifier for the player
+          example: "player-123"
+        playerName:
+          type: string
+          description: Display name for the player
+          example: "John Doe"
+        status:
+          type: string
+          description: Player status (ACTIVE, DEAD, SPECTATOR)
+          enum: [ACTIVE, DEAD, SPECTATOR]
+          example: "ACTIVE"
+        gameID:
+          type: string
+          description: ID of the game the player belongs to
+          example: "game-456"
+        targetID:
+          type: string
+          description: ID of the player's current target
+          example: "player-789"
+        lastWill:
+          type: string
+          description: Player's last will message shown when killed
+          example: "Tell my family I love them"
+        killCount:
+          type: integer
+          description: Number of kills the player has made
+          example: 3
+        email:
+          type: string
+          description: Player's email address (only returned to admins/self)
+          example: "john@example.com"
+    
+    CreatePlayerRequest:
+      type: object
+      required:
+        - playerName
+        - gameID
+      properties:
+        playerName:
+          type: string
+          description: Display name for the player
+          example: "John Doe"
+        gameID:
+          type: string
+          description: ID of the game to join
+          example: "game-456"
+        email:
+          type: string
+          description: Player's email address
+          example: "john@example.com"
+    
+    Game:
+      type: object
+      required:
+        - gameID
+        - gameName
+        - status
+      properties:
+        gameID:
+          type: string
+          description: Unique identifier for the game
+          example: "game-123"
+        gameName:
+          type: string
+          description: Display name for the game
+          example: "Spring 2025 Game"
+        status:
+          type: string
+          description: Game status (CREATED, ACTIVE, COMPLETED)
+          enum: [CREATED, ACTIVE, COMPLETED]
+          example: "ACTIVE"
+        createdAt:
+          type: string
+          format: date-time
+          description: When the game was created
+          example: "2025-04-01T12:00:00Z"
+        startedAt:
+          type: string
+          format: date-time
+          description: When the game was started
+          example: "2025-04-05T12:00:00Z"
+        endedAt:
+          type: string
+          format: date-time
+          description: When the game ended (if completed)
+          example: "2025-04-15T12:00:00Z"
+        adminID:
+          type: string
+          description: ID of the game administrator
+          example: "player-admin-123"
+        rules:
+          type: object
+          description: Game-specific rules and settings
+    
+    CreateGameRequest:
+      type: object
+      required:
+        - gameName
+      properties:
+        gameName:
+          type: string
+          description: Display name for the game
+          example: "Spring 2025 Game"
+        rules:
+          type: object
+          description: Game-specific rules and settings
+    
+    Kill:
+      type: object
+      required:
+        - killerID
+        - victimID
+        - time
+      properties:
+        killerID:
+          type: string
+          description: ID of the player who made the kill
+          example: "player-123"
+        victimID:
+          type: string
+          description: ID of the player who was killed
+          example: "player-456"
+        time:
+          type: string
+          format: date-time
+          description: When the kill occurred
+          example: "2025-04-07T15:30:00Z"
+        killerName:
+          type: string
+          description: Name of the killer
+          example: "John Doe"
+        victimName:
+          type: string
+          description: Name of the victim
+          example: "Jane Smith"
+        lastWill:
+          type: string
+          description: Victim's last will message
+          example: "Avenge me!"
+        latitude:
+          type: number
+          format: double
+          description: Latitude of kill location (if reported)
+          example: 40.7128
+        longitude:
+          type: number
+          format: double
+          description: Longitude of kill location (if reported)
+          example: -74.0060
+        verificationMethod:
+          type: string
+          description: Method used for verification (GPS, NFC, PHOTO, etc.)
+          enum: [GPS, NFC, PHOTO, MANUAL]
+          example: "GPS"
+        verificationStatus:
+          type: string
+          description: Status of the kill verification
+          enum: [PENDING, VERIFIED, REJECTED]
+          example: "VERIFIED"
+        verificationNotes:
+          type: string
+          description: Notes about the verification process
+          example: "Verified via GPS proximity"
+        verificationData:
+          type: object
+          additionalProperties:
+            type: string
+          description: Additional data related to verification
+          example: {"killerLatitude": "40.7129", "killerLongitude": "-74.0061"}
+    
+    ReportKillRequest:
+      type: object
+      required:
+        - victimID
+      properties:
+        victimID:
+          type: string
+          description: ID of the player who was killed
+          example: "player-456"
+        latitude:
+          type: number
+          format: double
+          description: Latitude of kill location
+          example: 40.7128
+        longitude:
+          type: number
+          format: double
+          description: Longitude of kill location
+          example: -74.0060
+        verificationMethod:
+          type: string
+          description: Method used for verification (GPS, NFC, PHOTO, etc.)
+          enum: [GPS, NFC, PHOTO, MANUAL]
+          example: "GPS"
+        verificationData:
+          type: object
+          additionalProperties:
+            type: string
+          description: Additional data related to verification
+          example: {"killerLatitude": "40.7129", "killerLongitude": "-74.0061"}
+        lastWill:
+          type: string
+          description: Victim's last words
+          example: "Avenge me!"
+    
+    PlayerStats:
+      type: object
+      properties:
+        playerId:
+          type: string
+          description: Player ID
+          example: "player-123"
+        gamesPlayed:
+          type: integer
+          description: Number of games played
+          example: 5
+        wins:
+          type: integer
+          description: Number of games won
+          example: 2
+        kills:
+          type: integer
+          description: Total number of kills
+          example: 10
+        deaths:
+          type: integer
+          description: Number of times killed
+          example: 3
+        killDeathRatio:
+          type: number
+          format: double
+          description: Ratio of kills to deaths
+          example: 3.33
+        winPercentage:
+          type: number
+          format: double
+          description: Percentage of games won
+          example: 40.0
+    
+    LeaderboardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+          description: Rank position on the leaderboard
+          example: 1
+        playerId:
+          type: string
+          description: Player ID
+          example: "player-123"
+        playerName:
+          type: string
+          description: Player name
+          example: "John Doe"
+        score:
+          type: integer
+          description: Player score
+          example: 1250
+    
+    SignInRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          description: User email
+          example: "user@example.com"
+        password:
+          type: string
+          description: User password
+          example: "password123"
+    
+    SignInResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT authentication token
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        playerId:
+          type: string
+          description: ID of the authenticated player
+          example: "player-123"
+        expiresIn:
+          type: integer
+          description: Token expiration time in seconds
+          example: 3600
+
+    SignUpRequest:
+      type: object
+      required:
+        - email
+        - password
+        - name
+      properties:
+        email:
+          type: string
+          description: User email
+          example: "user@example.com"
+        password:
+          type: string
+          description: User password
+          example: "password123"
+        name:
+          type: string
+          description: User's display name
+          example: "John Doe"
+
+security:
+  - BearerAuth: []
+
+paths:
+  # Player Management Endpoints
+  /players:
+    get:
+      tags:
+        - Player Management
+      summary: List all players
+      description: Retrieves a list of all players, optionally filtered by game ID
+      parameters:
+        - name: gameId
+          in: query
+          description: Filter players by game ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved players
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Player'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      tags:
+        - Player Management
+      summary: Create a new player
+      description: Creates a new player in the system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlayerRequest'
+      responses:
+        '201':
+          description: Player successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Player'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /players/{playerId}:
+    get:
+      tags:
+        - Player Management
+      summary: Get player by ID
+      description: Retrieves a specific player by their ID
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          description: ID of the player to retrieve
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved player
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Player'
+        '404':
+          description: Player not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    put:
+      tags:
+        - Player Management
+      summary: Update player
+      description: Updates an existing player's information
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          description: ID of the player to update
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Player'
+      responses:
+        '200':
+          description: Player successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Player'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Player not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    delete:
+      tags:
+        - Player Management
+      summary: Delete player
+      description: Deletes a player from the system
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          description: ID of the player to delete
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Player successfully deleted
+        '404':
+          description: Player not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  # Game Management Endpoints
+  /games:
+    get:
+      tags:
+        - Game Management
+      summary: List all games
+      description: Retrieves a list of all games
+      parameters:
+        - name: status
+          in: query
+          description: Filter games by status (CREATED, ACTIVE, COMPLETED, PENDING)
+          schema:
+            type: string
+            enum: [CREATED, ACTIVE, COMPLETED, PENDING]
+      responses:
+        '200':
+          description: Successfully retrieved games
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Game'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      tags:
+        - Game Management
+      summary: Create a new game
+      description: Creates a new game in the system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGameRequest'
+      responses:
+        '201':
+          description: Game successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /games/{gameId}:
+    get:
+      tags:
+        - Game Management
+      summary: Get game by ID
+      description: Retrieves a specific game by its ID
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game to retrieve
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved game
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    put:
+      tags:
+        - Game Management
+      summary: Update game
+      description: Updates an existing game's information
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game to update
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Game'
+      responses:
+        '200':
+          description: Game successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    delete:
+      tags:
+        - Game Management
+      summary: Delete game
+      description: Deletes a game from the system
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game to delete
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Game successfully deleted
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /games/{gameId}/start:
+    post:
+      tags:
+        - Game Management
+      summary: Start a game
+      description: Starts a game, assigns targets, and transitions it to ACTIVE status
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game to start
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Game successfully started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '400':
+          description: Invalid request or game cannot be started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /games/{gameId}/end:
+    post:
+      tags:
+        - Game Management
+      summary: End a game
+      description: Ends a game and transitions it to COMPLETED status
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game to end
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Game successfully ended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '400':
+          description: Invalid request or game cannot be ended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /games/{gameId}/join:
+    post:
+      tags:
+        - Game Management
+      summary: Join a game
+      description: Player joins an existing game
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game to join
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully joined game
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '400':
+          description: Invalid request or game cannot be joined
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /games/{gameId}/players/{playerId}:
+    delete:
+      tags:
+        - Game Management
+      summary: Remove player from game
+      description: Remove a player from a game (admin only)
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game
+          schema:
+            type: string
+        - name: playerId
+          in: path
+          required: true
+          description: ID of the player to remove
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Player successfully removed from game
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Game or player not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  # Kill Management Endpoints
+  /kills:
+    get:
+      tags:
+        - Kill Management
+      summary: List all kills
+      description: Retrieves a list of all kills
+      responses:
+        '200':
+          description: Successfully retrieved kills
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Kill'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      tags:
+        - Kill Management
+      summary: Report a new kill
+      description: Reports a kill in the system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportKillRequest'
+      responses:
+        '201':
+          description: Kill successfully reported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Kill'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden (e.g., trying to kill a player who is not your target)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  # Alternative kill reporting endpoint
+  /die:
+    post:
+      tags:
+        - Kill Management
+      summary: Report a new kill (alternative endpoint)
+      description: Alternative endpoint to report a kill in the system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportKillRequest'
+      responses:
+        '201':
+          description: Kill successfully reported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Kill'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden (e.g., trying to kill a player who is not your target)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /kills/{killId}:
+    get:
+      tags:
+        - Kill Management
+      summary: Get kill by ID
+      description: Retrieves a specific kill by its ID
+      parameters:
+        - name: killId
+          in: path
+          required: true
+          description: ID of the kill to retrieve
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved kill
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Kill'
+        '404':
+          description: Kill not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /kills/killer/{killerID}:
+    get:
+      tags:
+        - Kill Management
+      summary: Get kills by killer ID
+      description: Retrieves all kills made by a specific killer
+      parameters:
+        - name: killerID
+          in: path
+          required: true
+          description: ID of the killer
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved kills
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Kill'
+        '404':
+          description: Killer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /kills/victim/{victimID}:
+    get:
+      tags:
+        - Kill Management
+      summary: Get kills by victim ID
+      description: Retrieves all kills where the specified player was the victim
+      parameters:
+        - name: victimID
+          in: path
+          required: true
+          description: ID of the victim
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved kills
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Kill'
+        '404':
+          description: Victim not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /kills/recent:
+    get:
+      tags:
+        - Kill Management
+      summary: Get recent kills
+      description: Retrieves recent kills, with optional limit parameter
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of kills to return (default 10, max 50)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: Successfully retrieved recent kills
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Kill'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  # Stats Endpoints
+  /stats/player/{playerId}:
+    get:
+      tags:
+        - Statistics
+      summary: Get player statistics
+      description: Retrieves statistics for a specific player
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          description: ID of the player
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved player statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerStats'
+        '404':
+          description: Player not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /stats/player/{playerId}/history:
+    get:
+      tags:
+        - Statistics
+      summary: Get player history
+      description: Retrieves historical statistics for a specific player
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          description: ID of the player
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved player history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  kills:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Kill'
+                  deaths:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Kill'
+                  games:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Game'
+        '404':
+          description: Player not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /stats/game/{gameId}:
+    get:
+      tags:
+        - Statistics
+      summary: Get game statistics
+      description: Retrieves statistics for a specific game
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved game statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  playerCount:
+                    type: integer
+                    description: Total number of players
+                    example: 25
+                  activePlayerCount:
+                    type: integer
+                    description: Number of active players
+                    example: 18
+                  killCount:
+                    type: integer
+                    description: Total number of kills
+                    example: 7
+                  startTime:
+                    type: string
+                    format: date-time
+                    description: When the game started
+                    example: "2025-04-05T12:00:00Z"
+                  duration:
+                    type: integer
+                    description: Game duration in seconds
+                    example: 604800
+                  topKillers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        playerId:
+                          type: string
+                          example: "player-123"
+                        playerName:
+                          type: string
+                          example: "John Doe"
+                        kills:
+                          type: integer
+                          example: 3
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /stats/leaderboard:
+    get:
+      tags:
+        - Statistics
+      summary: Get leaderboard
+      description: Retrieves the player leaderboard
+      parameters:
+        - name: sortBy
+          in: query
+          description: Attribute to sort by
+          schema:
+            type: string
+            enum: [score, kills]
+            default: score
+        - name: limit
+          in: query
+          description: Maximum number of entries to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: Successfully retrieved leaderboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LeaderboardEntry'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  # Authentication Endpoints
+  /auth/signin:
+    post:
+      tags:
+        - Authentication
+      summary: Sign in user
+      description: Authenticates a user and returns a JWT token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInRequest'
+      responses:
+        '200':
+          description: Successfully authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /auth/signup:
+    post:
+      tags:
+        - Authentication
+      summary: Sign up new user
+      description: Registers a new user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignUpRequest'
+      responses:
+        '201':
+          description: User successfully created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User created successfully"
+                  userId:
+                    type: string
+                    example: "user-123"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Email already in use
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /auth/forgot-password:
+    post:
+      tags:
+        - Authentication
+      summary: Request password reset
+      description: Initiates the password reset process for a user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "user@example.com"
+      responses:
+        '200':
+          description: Password reset email sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Password reset instructions sent to email"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Email not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /auth/reset-password:
+    post:
+      tags:
+        - Authentication
+      summary: Reset password
+      description: Resets a user's password using a token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - newPassword
+              properties:
+                token:
+                  type: string
+                  example: "reset-token-123"
+                newPassword:
+                  type: string
+                  example: "newPassword123"
+      responses:
+        '200':
+          description: Password successfully reset
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Password reset successful"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  # Kill Verification Endpoint
+  /kills/{killerId}/{killTime}/verify:
+    post:
+      tags:
+        - Kill Management
+      summary: Verify a kill
+      description: Verifies a kill report using the specified verification method
+      parameters:
+        - name: killerId
+          in: path
+          required: true
+          description: ID of the killer who made the kill
+          schema:
+            type: string
+        - name: killTime
+          in: path
+          required: true
+          description: Timestamp of the kill
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Verification input data (varies by verification method)
+              additionalProperties:
+                type: string
+              example: 
+                victimLatitude: "40.71285"
+                victimLongitude: "-74.00605"
+      responses:
+        '200':
+          description: Kill verification processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Kill'
+        '400':
+          description: Invalid verification data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Kill not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error' 

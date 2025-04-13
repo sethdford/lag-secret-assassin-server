@@ -1,0 +1,41 @@
+# Task ID: 36
+# Title: Implement Comprehensive Unit Tests for DynamoDbNotificationDao
+# Status: pending
+# Dependencies: 32
+# Priority: low
+# Description: Create a complete suite of unit tests for the DynamoDbNotificationDao class to ensure all methods and edge cases are properly covered.
+# Details:
+This task involves implementing unit tests for all remaining methods in the DynamoDbNotificationDao class that currently lack test coverage. The developer should:
+
+1. Review existing test coverage to identify untested methods and edge cases
+2. Create test cases for all CRUD operations (create, read, update, delete)
+3. Implement tests for error handling scenarios including:
+   - DynamoDB service exceptions
+   - Item not found scenarios
+   - Permission/access issues
+   - Malformed data handling
+4. Test pagination functionality if applicable
+5. Test any filtering or query capabilities
+6. Verify proper handling of notification status transitions
+7. Test batch operations if supported
+8. Use mocking frameworks (like Mockito) to isolate the DAO from actual DynamoDB dependencies
+9. Ensure tests are independent and don't rely on execution order
+10. Add appropriate assertions to verify both successful operations and proper error handling
+
+# Test Strategy:
+Verification will involve:
+
+1. Code review to ensure all public methods have corresponding test methods
+2. Verify test coverage metrics using JaCoCo or similar tools, aiming for >90% line coverage
+3. Confirm tests for the following scenarios exist:
+   - Successfully saving a notification
+   - Retrieving a notification by ID
+   - Retrieving notifications by user ID
+   - Updating notification status
+   - Deleting notifications
+   - Handling of null/invalid inputs
+   - Proper exception propagation
+4. Run the entire test suite to ensure all tests pass consistently
+5. Verify that tests use appropriate mocking to avoid actual DynamoDB calls
+6. Check that edge cases are covered (empty results, maximum items, etc.)
+7. Ensure tests are well-documented with clear assertions explaining expected outcomes

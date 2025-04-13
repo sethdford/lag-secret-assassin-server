@@ -1,0 +1,150 @@
+# Task ID: 38
+# Title: Implement Delayed Target Reassignment in KillService
+# Status: pending
+# Dependencies: 7, 8
+# Priority: high
+# Description: Modify the KillService to delay target reassignment until after successful kill verification by introducing a PENDING_DEATH status and restructuring the verification flow.
+# Details:
+This task requires modifying the KillService to improve the target assignment timing:
+
+1. Add a new 'PENDING_DEATH' status to the Player/User status enum to represent players who have been reported killed but not yet verified.
+
+2. Update the reportKill method to:
+   - Change the victim's status to PENDING_DEATH instead of DEAD
+   - Do NOT reassign targets at this point
+   - Store the necessary information to restore states if verification fails
+
+3. Modify the verifyKill method to:
+   - If verification is successful:
+     - Change victim status from PENDING_DEATH to DEAD
+     - Perform target reassignment (move this logic from reportKill)
+     - Update all relevant game statistics
+   - If verification fails:
+     - Restore victim's status to ACTIVE
+     - Keep original target assignments intact
+     - Log the failed verification attempt
+
+4. Ensure proper transaction handling to maintain data consistency during the verification process.
+
+5. Update any relevant frontend components to handle the new PENDING_DEATH status appropriately in the UI.
+
+6. Consider edge cases such as:
+   - What happens if a player with PENDING_DEATH status is reported killed again
+   - How to handle timeouts in the verification process
+   - Game termination conditions when players are in PENDING_DEATH state
+
+# Test Strategy:
+Testing should verify both the successful and failed verification paths:
+
+1. Unit Tests:
+   - Test reportKill sets victim status to PENDING_DEATH
+   - Test verifyKill with successful verification:
+     - Verify victim status changes from PENDING_DEATH to DEAD
+     - Verify target reassignment occurs correctly
+     - Verify game statistics are updated
+   - Test verifyKill with failed verification:
+     - Verify victim status is restored to ACTIVE
+     - Verify original target assignments remain unchanged
+   - Test edge cases like multiple kill reports on same victim
+
+2. Integration Tests:
+   - Create a test game with multiple players
+   - Simulate complete kill-verification flows (both success and failure)
+   - Verify the game state remains consistent throughout the process
+
+3. Mock the verification service to test timeout scenarios
+
+4. Performance test to ensure the delayed reassignment doesn't impact game performance
+
+5. Create regression tests to ensure existing functionality isn't broken
+
+# Subtasks:
+## 1. Add PENDING_DEATH Status to Player/User Enum [pending]
+### Dependencies: None
+### Description: Add a new status value to the Player/User status enum to represent players who have been reported killed but not yet verified.
+### Details:
+Implementation steps:
+1. Locate the Player/User status enum in the codebase
+2. Add the new 'PENDING_DEATH' status value between ACTIVE and DEAD
+3. Update any switch statements or conditional logic that handles player statuses to include the new status
+4. Update database schema if necessary to support the new enum value
+5. Add appropriate documentation for the new status
+
+Testing approach:
+- Write unit tests to verify the enum contains the new status
+- Test that serialization/deserialization of the enum works correctly
+- Verify that existing code using the enum still functions properly
+
+## 2. Modify reportKill Method to Use PENDING_DEATH Status [pending]
+### Dependencies: 38.1
+### Description: Update the reportKill method to change victim status to PENDING_DEATH instead of DEAD and store information for potential status restoration.
+### Details:
+Implementation steps:
+1. Modify the reportKill method to set victim's status to PENDING_DEATH instead of DEAD
+2. Create a data structure to store the pre-kill state information (original status, target assignments)
+3. Remove the target reassignment logic from this method (will be moved to verifyKill)
+4. Add transaction handling to ensure data consistency
+5. Update logging to reflect the new flow
+
+Testing approach:
+- Write unit tests to verify victim status is set to PENDING_DEATH
+- Test that pre-kill state information is correctly stored
+- Verify that targets are not reassigned at this stage
+- Test transaction rollback scenarios
+
+## 3. Implement Enhanced verifyKill Method [pending]
+### Dependencies: 38.1, 38.2
+### Description: Modify the verifyKill method to handle the final status change and target reassignment based on verification result.
+### Details:
+Implementation steps:
+1. Restructure verifyKill to handle two paths: successful and failed verification
+2. For successful verification:
+   - Change victim status from PENDING_DEATH to DEAD
+   - Move target reassignment logic from reportKill to this method
+   - Update game statistics
+3. For failed verification:
+   - Restore victim's status to ACTIVE
+   - Keep original target assignments intact
+   - Log the failed attempt
+4. Implement proper transaction handling for both paths
+
+Testing approach:
+- Write unit tests for both successful and failed verification paths
+- Test that target reassignment occurs only on successful verification
+- Verify that game statistics are updated correctly
+- Test edge cases like verifying already verified kills
+
+## 4. Handle Edge Cases in Kill Verification Flow [pending]
+### Dependencies: 38.2, 38.3
+### Description: Implement logic to handle special scenarios in the new verification flow, such as multiple reports and timeouts.
+### Details:
+Implementation steps:
+1. Implement handling for when a player with PENDING_DEATH status is reported killed again
+2. Add timeout mechanism for verification process with configurable duration
+3. Update game termination conditions to account for players in PENDING_DEATH state
+4. Implement cleanup process for stale PENDING_DEATH statuses
+5. Add appropriate error handling and logging for edge cases
+
+Testing approach:
+- Create unit tests for each edge case
+- Test timeout functionality with different time settings
+- Verify game termination logic works correctly with pending deaths
+- Test concurrent kill reports for the same player
+
+## 5. Update Frontend Components for PENDING_DEATH Status [pending]
+### Dependencies: 38.1
+### Description: Modify frontend components to properly display and handle the new PENDING_DEATH status in the UI.
+### Details:
+Implementation steps:
+1. Update player status display components to show a distinct visual for PENDING_DEATH status
+2. Modify player listing and game status views to handle the new status
+3. Update any status-dependent UI logic (e.g., action buttons, available options)
+4. Add appropriate tooltips or help text explaining the PENDING_DEATH status
+5. Ensure mobile and desktop views both handle the new status correctly
+
+Testing approach:
+- Write UI tests to verify correct display of PENDING_DEATH status
+- Test user interactions with players in PENDING_DEATH status
+- Verify responsive design works with the new status
+- Test accessibility features with the updated UI
+

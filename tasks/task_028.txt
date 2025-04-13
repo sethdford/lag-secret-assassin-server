@@ -1,0 +1,213 @@
+# Task ID: 28
+# Title: Implement Comprehensive Safe Zone System
+# Status: pending
+# Dependencies: 20
+# Priority: high
+# Description: Design and implement a multi-tiered safe zone system with public, private, timed, and relocatable zones, including all necessary backend APIs and database models to manage zone interactions and enforce game rules.
+# Details:
+Create a flexible safe zone system with the following components:
+
+1. Database Models:
+   - Base SafeZone model with common properties (coordinates, radius, active status)
+   - Specialized models for each zone type:
+     - PublicSafeZone: accessible to all players
+     - PrivateSafeZone: accessible only to authorized players (store owner_id and authorized_players list)
+     - TimedSafeZone: temporary zones with start_time and duration
+     - RelocatableSafeZone: zones that can be moved (store movement history and cooldown period)
+
+2. Backend APIs:
+   - CRUD operations for each safe zone type
+   - Zone authorization endpoints (request/grant access to private zones)
+   - Zone status checking endpoint (is_player_in_safe_zone)
+   - Zone relocation endpoint with validation
+   - Zone timer management (activate/deactivate timed zones)
+
+3. Game Logic Implementation:
+   - Spatial indexing for efficient player-zone intersection detection
+   - Rule enforcement within zones (disable combat, modify resource gathering rates, etc.)
+   - Zone transition handling (entering/exiting effects)
+   - Conflict resolution for overlapping zones
+   - Notification system for zone status changes
+
+4. Performance Considerations:
+   - Optimize spatial queries for large numbers of zones
+   - Implement caching for frequently accessed zone data
+   - Consider using geospatial database features if available
+
+Ensure the system is extensible to allow for future zone types and properties.
+
+# Test Strategy:
+1. Unit Tests:
+   - Test CRUD operations for each zone type
+   - Validate zone property constraints (e.g., radius limits, authorization rules)
+   - Test zone type-specific logic (timed activation/deactivation, relocation rules)
+   - Verify spatial calculations for player-zone intersection
+
+2. Integration Tests:
+   - Test API endpoints with various request scenarios
+   - Verify database consistency after complex operations
+   - Test concurrent zone operations for race conditions
+
+3. Functional Tests:
+   - Create test scenarios for each zone type:
+     - Public: Verify all players can enter/exit and receive appropriate effects
+     - Private: Test authorization flow and access control
+     - Timed: Verify automatic activation/deactivation at specified times
+     - Relocatable: Test movement constraints, cooldowns, and history tracking
+   - Test overlapping zones and priority rules
+
+4. Performance Tests:
+   - Benchmark zone lookup performance with varying numbers of zones
+   - Test system under load with many players entering/exiting zones simultaneously
+   - Verify memory usage remains acceptable with large zone datasets
+
+5. Edge Cases:
+   - Test zone behavior at world boundaries
+   - Verify handling of players disconnecting while in zones
+   - Test zone persistence across server restarts
+
+# Subtasks:
+## 1. Implement Base SafeZone Database Models and Core APIs [pending]
+### Dependencies: None
+### Description: Create the foundational database models for all safe zone types and implement the core API endpoints for basic zone management.
+### Details:
+Implementation steps:
+1. Create a base SafeZone model with common properties:
+   - id (unique identifier)
+   - coordinates (latitude/longitude)
+   - radius (in meters)
+   - active_status (boolean)
+   - created_at, updated_at timestamps
+   - zone_type (enum: 'public', 'private', 'timed', 'relocatable')
+
+2. Implement specialized models extending the base model:
+   - PublicSafeZone: Add properties for public designation
+   - PrivateSafeZone: Add owner_id and authorized_players (array/relation)
+   - TimedSafeZone: Add start_time and duration fields
+   - RelocatableSafeZone: Add movement_history and cooldown_period
+
+3. Create database migrations and set up appropriate indexes
+
+4. Implement core API endpoints:
+   - GET /safe-zones (list all zones with filtering)
+   - GET /safe-zones/:id (get zone details)
+   - POST /safe-zones (create new zone with validation)
+   - PUT /safe-zones/:id (update zone properties)
+   - DELETE /safe-zones/:id (remove zone)
+
+5. Add basic validation logic for each zone type
+
+Testing approach:
+- Unit tests for model validations and constraints
+- API endpoint tests with mock data
+- Test database schema integrity
+- Verify proper inheritance between models
+
+## 2. Implement Specialized Zone Type APIs and Authorization [pending]
+### Dependencies: 28.1
+### Description: Build specialized API endpoints for each zone type and implement the authorization system for private zones.
+### Details:
+Implementation steps:
+1. Extend the base API with specialized endpoints for each zone type:
+   - POST /safe-zones/public (create public zone)
+   - POST /safe-zones/private (create private zone)
+   - POST /safe-zones/timed (create timed zone)
+   - POST /safe-zones/relocatable (create relocatable zone)
+
+2. Implement private zone authorization system:
+   - POST /safe-zones/:id/authorize (add player to authorized list)
+   - DELETE /safe-zones/:id/authorize/:player_id (remove authorization)
+   - GET /safe-zones/:id/authorized-players (list authorized players)
+
+3. Implement timed zone management:
+   - POST /safe-zones/:id/activate (manually activate a timed zone)
+   - POST /safe-zones/:id/deactivate (manually deactivate a timed zone)
+   - Create background job for automatic activation/deactivation
+
+4. Implement relocatable zone functionality:
+   - POST /safe-zones/:id/relocate (move zone to new coordinates)
+   - GET /safe-zones/:id/movement-history (view past locations)
+   - Add cooldown validation logic
+
+5. Create comprehensive permission checks for all operations
+
+Testing approach:
+- Test authorization flows for private zones
+- Verify timed zone activation/deactivation works correctly
+- Test relocation with valid and invalid parameters
+- Verify cooldown periods are enforced
+- Test permission checks with different user roles
+
+## 3. Implement Spatial Indexing and Zone Detection System [pending]
+### Dependencies: 28.1, 28.2
+### Description: Create an efficient spatial indexing system to detect player presence in safe zones and implement the core game logic for zone effects.
+### Details:
+Implementation steps:
+1. Research and select appropriate spatial indexing approach:
+   - Consider R-tree, Quadtree, or geospatial database features
+   - Evaluate performance characteristics for the expected scale
+
+2. Implement spatial index for safe zones:
+   - Create data structure to efficiently store zone boundaries
+   - Implement efficient query methods for point-in-zone detection
+   - Add bulk loading capability for initial data population
+
+3. Create player-zone detection system:
+   - Implement is_player_in_safe_zone(player_id) endpoint
+   - Create batch processing for checking multiple players
+   - Add caching layer for frequent zone checks
+
+4. Implement core game logic for zones:
+   - Define zone effects (combat disabled, resource modifiers, etc.)
+   - Create rule enforcement system for each zone type
+   - Implement zone transition handling (enter/exit events)
+
+5. Add conflict resolution for overlapping zones:
+   - Define priority rules for different zone types
+   - Implement logic to determine which zone rules apply
+
+Testing approach:
+- Benchmark spatial index performance with various player counts
+- Test accuracy of point-in-zone detection
+- Verify correct rule application in different zones
+- Test overlapping zone scenarios
+- Validate caching behavior and invalidation
+
+## 4. Implement Zone Notification System and Performance Optimizations [pending]
+### Dependencies: 28.1, 28.2, 28.3
+### Description: Create a notification system for zone events and implement performance optimizations for the entire safe zone system.
+### Details:
+Implementation steps:
+1. Implement zone notification system:
+   - Create events for zone creation, modification, deletion
+   - Add player-specific notifications for zone entry/exit
+   - Implement notifications for authorization changes
+   - Add alerts for timed zone activation/deactivation
+
+2. Optimize spatial queries:
+   - Implement query result caching with appropriate TTL
+   - Add spatial index maintenance routines
+   - Create batch processing for high-volume operations
+
+3. Implement database optimizations:
+   - Add appropriate indexes for common query patterns
+   - Consider sharding strategy for large deployments
+   - Implement read replicas if necessary
+
+4. Add monitoring and performance metrics:
+   - Track query performance and cache hit rates
+   - Monitor zone check latency
+   - Create alerts for performance degradation
+
+5. Implement frontend components (if applicable):
+   - Zone visualization on game map
+   - Zone management UI for administrators
+   - Zone status indicators for players
+
+Testing approach:
+- Load test the system with simulated player movements
+- Verify notification delivery under various conditions
+- Benchmark optimized queries against baseline
+- Test system behavior under high load
+- Validate frontend components with different zone configurations
+
