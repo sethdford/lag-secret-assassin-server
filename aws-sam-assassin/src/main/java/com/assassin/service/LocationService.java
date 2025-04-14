@@ -315,72 +315,79 @@ public class LocationService {
     }
     
     /**
-     * Checks if a player is near a specific coordinate.
+     * Checks if a player is near a specific target location.
      *
-     * @param playerId ID of the player to check.
-     * @param targetLat Latitude of the target location.
-     * @param targetLon Longitude of the target location.
-     * @param radiusMeters Radius in meters to consider "near".
-     * @return true if the player is within the specified radius of the target, false otherwise.
-     * @throws PlayerNotFoundException if the player doesn't exist.
+     * @param playerId The ID of the player.
+     * @param targetLat Target latitude.
+     * @param targetLon Target longitude.
+     * @param radiusMeters The radius in meters to check within.
+     * @return true if the player is within the radius, false otherwise or if location is unknown.
+     * @throws PlayerNotFoundException If the player doesn't exist.
      */
     public boolean isPlayerNearLocation(String playerId, double targetLat, double targetLon, double radiusMeters) 
             throws PlayerNotFoundException {
-        
         Player player = playerDao.getPlayerById(playerId)
                 .orElseThrow(() -> new PlayerNotFoundException("Player not found: " + playerId));
-                
-        if (player.getLatitude() == null || player.getLongitude() == null) {
-            logger.debug("Player {} has no location data", playerId);
-            return false;
+
+        // Use the correct getter methods from the Player object
+        Double playerLat = player.getLatitude();
+        Double playerLon = player.getLongitude();
+
+        if (playerLat == null || playerLon == null) {
+            logger.warn("Player {} has no known location, cannot check proximity.", playerId);
+            return false; // Cannot determine proximity without location
         }
-        
+
+        // Use the Double values directly
         double distance = GeoUtils.calculateDistance(
-            new Coordinate(player.getLatitude(), player.getLongitude()),
-            new Coordinate(targetLat, targetLon)
+                new Coordinate(playerLat, playerLon), 
+                new Coordinate(targetLat, targetLon)
         );
-        
+
         boolean isNear = distance <= radiusMeters;
-        logger.debug("Player {} is {}within {} meters of target location ({}, {}). Distance: {} meters",
-            playerId, isNear ? "" : "not ", radiusMeters, targetLat, targetLon, distance);
-            
+        logger.debug("Player {} distance to ({}, {}): {} meters. Is within {}m radius? {}",
+                     playerId, targetLat, targetLon, distance, radiusMeters, isNear);
         return isNear;
     }
     
     /**
-     * Checks if two players are near each other.
+     * Checks if two players are near each other based on their last known locations.
      *
      * @param player1Id ID of the first player.
      * @param player2Id ID of the second player.
-     * @param radiusMeters Radius in meters to consider "near".
-     * @return true if the players are within the specified radius of each other, false otherwise.
-     * @throws PlayerNotFoundException if either player doesn't exist.
+     * @param radiusMeters The radius in meters to check within.
+     * @return true if the players are within the radius of each other, false otherwise or if locations are unknown.
+     * @throws PlayerNotFoundException If either player doesn't exist.
      */
     public boolean arePlayersNearby(String player1Id, String player2Id, double radiusMeters) 
             throws PlayerNotFoundException {
-        
         Player player1 = playerDao.getPlayerById(player1Id)
-                .orElseThrow(() -> new PlayerNotFoundException("Player not found: " + player1Id));
-                
+                .orElseThrow(() -> new PlayerNotFoundException("Player 1 not found: " + player1Id));
         Player player2 = playerDao.getPlayerById(player2Id)
-                .orElseThrow(() -> new PlayerNotFoundException("Player not found: " + player2Id));
-                
-        if (player1.getLatitude() == null || player1.getLongitude() == null ||
-            player2.getLatitude() == null || player2.getLongitude() == null) {
-            logger.debug("One or both players have no location data");
+                .orElseThrow(() -> new PlayerNotFoundException("Player 2 not found: " + player2Id));
+
+        // Use correct getters
+        Double lat1 = player1.getLatitude();
+        Double lon1 = player1.getLongitude();
+        Double lat2 = player2.getLatitude();
+        Double lon2 = player2.getLongitude();
+
+        if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) {
+             logger.warn("Cannot check proximity between {} and {}: one or both players have unknown locations.", 
+                         player1Id, player2Id);
             return false;
         }
-        
+
+        // Use Double values directly
         double distance = GeoUtils.calculateDistance(
-            new Coordinate(player1.getLatitude(), player1.getLongitude()),
-            new Coordinate(player2.getLatitude(), player2.getLongitude())
+            new Coordinate(lat1, lon1), 
+            new Coordinate(lat2, lon2)
         );
-        
-        boolean isNear = distance <= radiusMeters;
-        logger.debug("Players {} and {} are {}within {} meters of each other. Distance: {} meters",
-            player1Id, player2Id, isNear ? "" : "not ", radiusMeters, distance);
-            
-        return isNear;
+
+        boolean areNear = distance <= radiusMeters;
+        logger.debug("Distance between player {} and {}: {} meters. Are within {}m radius? {}",
+                     player1Id, player2Id, distance, radiusMeters, areNear);
+        return areNear;
     }
 
     /**

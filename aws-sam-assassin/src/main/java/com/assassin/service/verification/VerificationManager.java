@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.assassin.dao.PlayerDao;
+import com.assassin.dao.GameDao;
 import com.assassin.model.Kill;
 import com.assassin.model.VerificationMethod;
 
@@ -22,18 +23,21 @@ public class VerificationManager {
     
     private final Map<VerificationMethod, IVerificationMethod> verificationMethods = new HashMap<>();
     private final PlayerDao playerDao;
+    private final GameDao gameDao;
     
     /**
      * Constructs a VerificationManager with the specified verification methods.
      *
      * @param playerDao DAO for fetching player data (needed by some verification methods)
+     * @param gameDao DAO for fetching game data (needed by some verification methods)
      * @param methods Array of verification method implementations (optional)
      */
-    public VerificationManager(PlayerDao playerDao, IVerificationMethod... methods) {
-        if (playerDao == null) {
-            throw new IllegalArgumentException("PlayerDao cannot be null for VerificationManager");
+    public VerificationManager(PlayerDao playerDao, GameDao gameDao, IVerificationMethod... methods) {
+        if (playerDao == null || gameDao == null) {
+            throw new IllegalArgumentException("PlayerDao and GameDao cannot be null for VerificationManager");
         }
         this.playerDao = playerDao;
+        this.gameDao = gameDao;
         registerDefaultMethods();
         
         // Register provided methods
@@ -48,7 +52,7 @@ public class VerificationManager {
      * Registers the default verification methods.
      */
     private void registerDefaultMethods() {
-        registerMethod(new GpsVerificationMethod());
+        registerMethod(new GpsVerificationMethod(this.playerDao, this.gameDao));
         registerMethod(new NfcVerificationMethod(this.playerDao));
         registerMethod(new PhotoVerificationMethod());
         // Add other default methods here if needed

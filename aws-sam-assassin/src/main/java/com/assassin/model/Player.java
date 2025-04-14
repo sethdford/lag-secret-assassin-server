@@ -31,6 +31,16 @@ public class Player {
     private Boolean active; // Whether the account is active
     private String nfcTagId; // Optional NFC Tag ID associated with the player for verification
 
+    // Location related fields
+    private Double lastKnownLatitude;
+    private Double lastKnownLongitude;
+    private String locationTimestamp; // ISO 8601 format
+    private Double locationAccuracy;
+
+    // Shrinking Zone related fields
+    private String firstEnteredOutOfZoneTimestamp; // ISO 8601 format
+    private String lastZoneDamageTimestamp; // ISO 8601 format
+
     // Constants for GSI
     private static final String EMAIL_INDEX = "EmailIndex";
 
@@ -108,6 +118,7 @@ public class Player {
         this.lastWill = lastWill;
     }
 
+    @DynamoDbSecondaryPartitionKey(indexNames = {"GameIdIndex"})
     @DynamoDbAttribute("GameID")
     public String getGameID() {
         return gameID;
@@ -199,6 +210,60 @@ public class Player {
         this.nfcTagId = nfcTagId;
     }
 
+    @DynamoDbAttribute("LastKnownLatitude")
+    public Double getLatitude() {
+        return lastKnownLatitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.lastKnownLatitude = latitude;
+    }
+
+    @DynamoDbAttribute("LastKnownLongitude")
+    public Double getLongitude() {
+        return lastKnownLongitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.lastKnownLongitude = longitude;
+    }
+
+    @DynamoDbAttribute("LocationTimestamp")
+    public String getLocationTimestamp() {
+        return locationTimestamp;
+    }
+
+    public void setLocationTimestamp(String locationTimestamp) {
+        this.locationTimestamp = locationTimestamp;
+    }
+
+    @DynamoDbAttribute("LocationAccuracy")
+    public Double getLocationAccuracy() {
+        return locationAccuracy;
+    }
+
+    public void setLocationAccuracy(Double locationAccuracy) {
+        this.locationAccuracy = locationAccuracy;
+    }
+
+    @DynamoDbAttribute("FirstEnteredOutOfZoneTimestamp")
+    public String getFirstEnteredOutOfZoneTimestamp() {
+        return firstEnteredOutOfZoneTimestamp;
+    }
+
+    public void setFirstEnteredOutOfZoneTimestamp(String firstEnteredOutOfZoneTimestamp) {
+        this.firstEnteredOutOfZoneTimestamp = firstEnteredOutOfZoneTimestamp;
+    }
+
+    @DynamoDbAttribute("LastZoneDamageTimestamp")
+    public String getLastZoneDamageTimestamp() {
+        return lastZoneDamageTimestamp;
+    }
+
+    public void setLastZoneDamageTimestamp(String lastZoneDamageTimestamp) {
+        this.lastZoneDamageTimestamp = lastZoneDamageTimestamp;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -220,6 +285,7 @@ public class Player {
                ", playerName='" + playerName + '\'' +
                ", targetID='" + targetID + '\'' +
                ", status='" + status + '\'' +
+               ", locationTimestamp='" + locationTimestamp + '\'' +
                '}';
     }
 } 

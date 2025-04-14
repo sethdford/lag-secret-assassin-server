@@ -3,16 +3,22 @@ package com.assassin.model;
 import java.time.Instant;
 import java.util.Map;
 
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortKey;
+
 /**
  * Represents a notification message within the system.
  */
+@DynamoDbBean
 public class Notification {
 
     private String notificationId; // Unique ID for the notification
-    private String recipientPlayerId; // ID of the player receiving the notification
+    private String recipientPlayerId; // ID of the player receiving the notification (partition key)
     private String type; // Type of notification (e.g., "KILL_VERIFIED", "TARGET_ASSIGNED", "GAME_START", "ADMIN_MESSAGE")
     private String message; // Human-readable message content
-    private String timestamp; // ISO 8601 timestamp when the event occurred or notification was generated
+    private String timestamp; // ISO 8601 timestamp when the event occurred or notification was generated (sort key)
     private Map<String, String> data; // Optional structured data related to the notification (e.g., killerId, victimId)
     private String status; // Status of the notification (e.g., "UNREAD", "READ", "ARCHIVED") - may not be needed initially
 
@@ -33,6 +39,7 @@ public class Notification {
     }
 
     // Getters and Setters
+    @DynamoDbAttribute("NotificationID")
     public String getNotificationId() {
         return notificationId;
     }
@@ -41,6 +48,8 @@ public class Notification {
         this.notificationId = notificationId;
     }
 
+    @DynamoDbPartitionKey
+    @DynamoDbAttribute("RecipientPlayerID")
     public String getRecipientPlayerId() {
         return recipientPlayerId;
     }
@@ -49,6 +58,7 @@ public class Notification {
         this.recipientPlayerId = recipientPlayerId;
     }
 
+    @DynamoDbAttribute("Type")
     public String getType() {
         return type;
     }
@@ -57,6 +67,7 @@ public class Notification {
         this.type = type;
     }
 
+    @DynamoDbAttribute("Message")
     public String getMessage() {
         return message;
     }
@@ -65,6 +76,8 @@ public class Notification {
         this.message = message;
     }
 
+    @DynamoDbSortKey
+    @DynamoDbAttribute("Timestamp")
     public String getTimestamp() {
         return timestamp;
     }
@@ -73,6 +86,7 @@ public class Notification {
         this.timestamp = timestamp;
     }
 
+    @DynamoDbAttribute("Data")
     public Map<String, String> getData() {
         return data;
     }
@@ -81,6 +95,7 @@ public class Notification {
         this.data = data;
     }
 
+    @DynamoDbAttribute("Status")
     public String getStatus() {
         return status;
     }

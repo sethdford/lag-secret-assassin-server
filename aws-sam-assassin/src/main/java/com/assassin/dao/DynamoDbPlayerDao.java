@@ -15,6 +15,7 @@ import com.assassin.util.DynamoDbClientProvider;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbIndex;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
+import software.amazon.awssdk.enhanced.dynamodb.Expression;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.DeleteItemEnhancedRequest;
@@ -31,10 +32,12 @@ public class DynamoDbPlayerDao implements PlayerDao {
     private static final String PLAYER_TABLE_ENV_VAR = "PLAYERS_TABLE_NAME"; // Store the env var *name*
     private static final String EMAIL_INDEX_NAME = "EmailIndex";
     private static final String KILL_COUNT_INDEX_NAME = "KillCountIndex";
+    private static final String GAME_ID_INDEX_NAME = "GameIdIndex"; // Name of the new index
 
     private final DynamoDbTable<Player> playerTable;
     private final DynamoDbIndex<Player> emailIndex;
     private final DynamoDbIndex<Player> killCountIndex;
+    private final DynamoDbIndex<Player> gameIdIndex; // Add index reference
     private final DynamoDbEnhancedClient enhancedClient;
     private final String tableName; // Store table name for DescribeTable
 
@@ -49,6 +52,7 @@ public class DynamoDbPlayerDao implements PlayerDao {
         this.playerTable = enhancedClient.table(this.tableName, TableSchema.fromBean(Player.class));
         this.emailIndex = playerTable.index(EMAIL_INDEX_NAME);
         this.killCountIndex = playerTable.index(KILL_COUNT_INDEX_NAME);
+        this.gameIdIndex = playerTable.index(GAME_ID_INDEX_NAME); // Initialize the index
     }
 
     @Override
@@ -225,6 +229,97 @@ public class DynamoDbPlayerDao implements PlayerDao {
         } catch (Exception e) {
             logger.error("Unexpected error incrementing kill count for player {}: {}", playerId, e.getMessage(), e);
             throw new PlayerPersistenceException("Unexpected error incrementing kill count", e);
+        }
+    }
+
+    /**
+     * Updates the location details for a specific player.
+     * Uses DynamoDB updateItem for efficiency, only modifying location attributes.
+     *
+     * @param playerId The ID of the player to update.
+     * @param latitude The new latitude.
+     * @param longitude The new longitude.
+     * @param timestamp The timestamp of the location update (ISO 8601 format).
+     * @param accuracy The accuracy of the location in meters.
+     * @throws PlayerPersistenceException If the update fails.
+     * @throws PlayerNotFoundException If the player does not exist (based on update condition).
+     */
+    @Override
+    public void updatePlayerLocation(String playerId, Double latitude, Double longitude, String timestamp, Double accuracy)
+            throws PlayerPersistenceException, PlayerNotFoundException {
+        logger.debug("Updating location for player ID: {} - Lat={}, Lon={}, Timestamp={}, Accuracy={}", 
+                   playerId, latitude, longitude, timestamp, accuracy);
+        
+        if (playerId == null || playerId.isEmpty()) {
+            throw new IllegalArgumentException("Player ID cannot be null or empty");
+        }
+        // Add null checks for required location fields if necessary, or allow partial updates
+        
+        try {
+            // Create a partial Player object containing only the primary key and the fields to update
+            Player playerUpdate = new Player();
+            playerUpdate.setPlayerID(playerId); // Essential: Set the partition key
+            if (latitude != null) {
+                playerUpdate.setLatitude(latitude); // Use renamed setter
+            }
+            if (longitude != null) {
+                playerUpdate.setLongitude(longitude); // Use renamed setter
+            }
+            if (timestamp != null) {
+                playerUpdate.setLocationTimestamp(timestamp);
+            }
+            if (accuracy != null) {
+                playerUpdate.setLocationAccuracy(accuracy);
+            }
+            
+            // Use updateItem with ignoreNulls(true) to only update provided fields.
+            // This also avoids overwriting other player attributes.
+            // Add a condition expression to ensure the player exists before updating.
+            playerTable.updateItem(r -> r.item(playerUpdate)
+                                          .ignoreNulls(true)
+                                          // Condition: Ensure PlayerID exists.
+                                          // If it doesn't, update fails and we might throw PlayerNotFoundException.
+                                          .conditionExpression(Expression.builder()
+                                                                       .expression("attribute_exists(PlayerID)")
+                                                                       .build()));
+            
+            logger.info("Successfully updated location for player ID: {}", playerId);
+            
+        } catch (software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException e) {
+             logger.warn("Update location failed because player not found: {}", playerId);
+            throw new PlayerNotFoundException("Player not found with ID: " + playerId + " during location update.", e);
+        } catch (DynamoDbException e) {
+            logger.error("DynamoDB error updating location for player {}: {}", playerId, e.getMessage(), e);
+            throw new PlayerPersistenceException("Error updating player location", e);
+        } catch (Exception e) {
+            logger.error("Unexpected error updating location for player {}: {}", playerId, e.getMessage(), e);
+            throw new PlayerPersistenceException("Unexpected error updating player location", e);
+        }
+    }
+
+    @Override
+    public List<Player> getPlayersByGameId(String gameId) throws PlayerPersistenceException {
+        logger.debug("Getting players by game ID: {} using index: {}", gameId, GAME_ID_INDEX_NAME);
+        try {
+            QueryConditional queryConditional = QueryConditional.keyEqualTo(Key.builder().partitionValue(gameId).build());
+            QueryEnhancedRequest request = QueryEnhancedRequest.builder()
+                                                               .queryConditional(queryConditional)
+                                                               .build();
+
+            // Query the GSI
+            List<Player> players = gameIdIndex.query(request).stream()
+                                             .flatMap(page -> page.items().stream())
+                                             .collect(Collectors.toList());
+                                             
+            logger.debug("Found {} players for game ID: {}", players.size(), gameId);
+            return players;
+        } catch (DynamoDbException e) {
+            String errorMessage = e.awsErrorDetails() != null ? e.awsErrorDetails().errorMessage() : e.getMessage();
+            logger.error("Error querying GameIdIndex for game {}: {}", gameId, errorMessage, e);
+            throw new PlayerPersistenceException("Error finding players by game ID", e);
+        } catch (Exception e) { // Catch broader exceptions
+            logger.error("Unexpected error getting players for game {}: {}", gameId, e.getMessage(), e);
+            throw new PlayerPersistenceException("Unexpected error getting players by game ID", e);
         }
     }
 

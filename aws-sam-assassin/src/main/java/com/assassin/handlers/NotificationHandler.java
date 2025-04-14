@@ -8,21 +8,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.amazonaws.services.lambda.runtime.Context;
+import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.assassin.exception.ValidationException;
 import com.assassin.model.Notification;
 import com.assassin.service.NotificationService;
+import com.assassin.util.HandlerUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
 /**
- * Handler for notification operations.
- * Processes API Gateway requests for retrieving notifications and sending new notifications.
+ * Handles API Gateway requests related to notifications.
  */
-public class NotificationHandler extends BaseHandler {
+public class NotificationHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationHandler.class);
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
@@ -51,8 +50,7 @@ public class NotificationHandler extends BaseHandler {
      * @param context the Lambda context
      * @return API Gateway response with appropriate status code and body
      */
-    @Override
-    protected APIGatewayProxyResponseEvent processRequest(APIGatewayProxyRequestEvent request, Context context) {
+    public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
         logger.info("Processing notification request: Method={}, Path={}", request.getHttpMethod(), request.getPath());
         String path = request.getPath();
         String httpMethod = request.getHttpMethod();
@@ -75,22 +73,22 @@ public class NotificationHandler extends BaseHandler {
                                     request.getQueryStringParameters().get("recipientId") : null;
                 
                 if (recipientId == null || recipientId.isEmpty()) {
-                    return createErrorResponse(400, "Required query parameter 'recipientId' is missing");
+                    return HandlerUtils.createErrorResponse(400, "Required query parameter 'recipientId' is missing");
                 }
                 
                 return getNotification(recipientId, notificationId);
             } else {
-                return createErrorResponse(404, "Route not found");
+                return HandlerUtils.createErrorResponse(404, "Route not found");
             }
         } catch (ValidationException e) {
             logger.warn("Validation error: {}", e.getMessage());
-            return createErrorResponse(400, e.getMessage());
+            return HandlerUtils.createErrorResponse(400, e.getMessage());
         } catch (NumberFormatException e) {
             logger.warn("Invalid number format: {}", e.getMessage());
-            return createErrorResponse(400, "Invalid number format in request parameters");
+            return HandlerUtils.createErrorResponse(400, "Invalid number format in request parameters");
         } catch (Exception e) {
             logger.error("Error processing notification request: {}", e.getMessage(), e);
-            return createErrorResponse(500, "Internal Server Error");
+            return HandlerUtils.createErrorResponse(500, "Internal Server Error");
         }
     }
     
@@ -102,7 +100,7 @@ public class NotificationHandler extends BaseHandler {
      */
     private APIGatewayProxyResponseEvent createNotification(APIGatewayProxyRequestEvent request) {
         if (request.getBody() == null || request.getBody().isEmpty()) {
-            return createErrorResponse(400, "Request body is required");
+            return HandlerUtils.createErrorResponse(400, "Request body is required");
         }
         
         try {
@@ -112,27 +110,25 @@ public class NotificationHandler extends BaseHandler {
             
             // Validate required fields
             if (notification.getRecipientPlayerId() == null || notification.getRecipientPlayerId().isEmpty()) {
-                return createErrorResponse(400, "recipientPlayerId is required");
+                return HandlerUtils.createErrorResponse(400, "recipientPlayerId is required");
             }
             
             if (notification.getType() == null || notification.getType().isEmpty()) {
-                return createErrorResponse(400, "type is required");
+                return HandlerUtils.createErrorResponse(400, "type is required");
             }
             
             if (notification.getMessage() == null || notification.getMessage().isEmpty()) {
-                return createErrorResponse(400, "message is required");
+                return HandlerUtils.createErrorResponse(400, "message is required");
             }
             
             // Send the notification
             notificationService.sendNotification(notification);
             
             // Return the created notification
-            return createResponse()
-                    .withStatusCode(201)
-                    .withBody(gson.toJson(notification));
+            return HandlerUtils.createApiResponse(201, gson.toJson(notification));
         } catch (Exception e) {
             logger.error("Error creating notification: {}", e.getMessage(), e);
-            return createErrorResponse(400, "Invalid notification data: " + e.getMessage());
+            return HandlerUtils.createErrorResponse(400, "Invalid notification data: " + e.getMessage());
         }
     }
     
@@ -149,15 +145,15 @@ public class NotificationHandler extends BaseHandler {
                    playerId, sinceTimestamp != null ? sinceTimestamp : "beginning", limit);
         
         if (playerId == null || playerId.isEmpty()) {
-            return createErrorResponse(400, "Player ID is required");
+            return HandlerUtils.createErrorResponse(400, "Player ID is required");
         }
         
         try {
             List<Notification> notifications = notificationService.getNotificationsForPlayer(playerId, sinceTimestamp, limit);
-            return createSuccessResponse(gson.toJson(notifications));
+            return HandlerUtils.createApiResponse(200, gson.toJson(notifications));
         } catch (Exception e) {
             logger.error("Error retrieving notifications for player: {}", e.getMessage(), e);
-            return createErrorResponse(500, "Error retrieving notifications: " + e.getMessage());
+            return HandlerUtils.createErrorResponse(500, "Error retrieving notifications: " + e.getMessage());
         }
     }
     
@@ -175,13 +171,13 @@ public class NotificationHandler extends BaseHandler {
             Optional<Notification> notification = notificationService.getNotification(recipientId, notificationId);
             
             if (notification.isPresent()) {
-                return createSuccessResponse(gson.toJson(notification.get()));
+                return HandlerUtils.createApiResponse(200, gson.toJson(notification.get()));
             } else {
-                return createErrorResponse(404, "Notification not found");
+                return HandlerUtils.createErrorResponse(404, "Notification not found");
             }
         } catch (Exception e) {
             logger.error("Error retrieving notification: {}", e.getMessage(), e);
-            return createErrorResponse(500, "Error retrieving notification: " + e.getMessage());
+            return HandlerUtils.createErrorResponse(500, "Error retrieving notification: " + e.getMessage());
         }
     }
     

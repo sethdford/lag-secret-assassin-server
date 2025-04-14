@@ -36,6 +36,15 @@ public interface NotificationDao {
      */
     List<Notification> findNotificationsByPlayer(String recipientPlayerId, String sinceTimestamp, int limit);
 
+    /**
+     * Marks a specific notification as read.
+     *
+     * @param recipientPlayerId The recipient's player ID (partition key).
+     * @param notificationId The unique ID of the notification to update.
+     * @return The updated Notification object, or Optional.empty() if not found or update failed.
+     */
+    Optional<Notification> markNotificationAsRead(String recipientPlayerId, String notificationId);
+
     // Potentially add methods for updating status (e.g., mark as read)
     // void updateNotificationStatus(String recipientPlayerId, String timestamp, String newStatus);
 } 

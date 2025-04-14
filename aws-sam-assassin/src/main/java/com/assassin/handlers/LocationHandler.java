@@ -1,8 +1,6 @@
 package com.assassin.handlers;
 
 import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,19 +9,16 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.assassin.dao.DynamoDbPlayerDao;
-import com.assassin.dao.PlayerDao;
-import com.assassin.model.Player;
+import com.assassin.exception.GameNotFoundException;
+import com.assassin.exception.InvalidLocationException;
+import com.assassin.exception.PlayerNotFoundException;
+import com.assassin.exception.PlayerPersistenceException;
+import com.assassin.exception.ValidationException;
 import com.assassin.model.LocationUpdateInput;
 import com.assassin.service.LocationService;
 import com.assassin.util.HandlerUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.assassin.exception.PlayerNotFoundException;
-import com.assassin.exception.GameNotFoundException;
-import com.assassin.exception.InvalidLocationException;
-import com.assassin.exception.PlayerPersistenceException;
-import com.assassin.exception.ValidationException;
 
 /**
  * Handles incoming requests related to player location updates.
@@ -103,7 +98,8 @@ public class LocationHandler implements RequestHandler<APIGatewayProxyRequestEve
         String playerId = null;
         try {
             // 1. Get Player ID from Authenticated User
-            playerId = HandlerUtils.getPlayerIdFromRequest(request);
+            playerId = HandlerUtils.getPlayerIdFromRequest(request)
+                    .orElseThrow(() -> new ValidationException("Player ID not found in request context."));
             logger.debug("Attempting location update for player ID: {}", playerId);
 
             // 2. Parse Request Body

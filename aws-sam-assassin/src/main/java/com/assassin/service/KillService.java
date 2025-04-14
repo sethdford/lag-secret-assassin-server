@@ -17,18 +17,23 @@ import com.assassin.dao.PlayerDao;
 import com.assassin.exception.GameNotFoundException;
 import com.assassin.exception.InvalidGameStateException;
 import com.assassin.exception.KillNotFoundException;
+import com.assassin.exception.PersistenceException;
 import com.assassin.exception.PlayerActionNotAllowedException;
 import com.assassin.exception.PlayerNotFoundException;
+import com.assassin.exception.SafeZoneException;
 import com.assassin.exception.ValidationException;
+import com.assassin.model.Coordinate;
 import com.assassin.model.Game;
 import com.assassin.model.GameState;
 import com.assassin.model.Kill;
 import com.assassin.model.Notification;
 import com.assassin.model.Player;
 import com.assassin.model.PlayerStatus;
-import com.assassin.service.NotificationService;
 import com.assassin.service.verification.VerificationManager;
 import com.assassin.service.verification.VerificationResult;
+import com.assassin.util.GeoUtils;
+
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 
 /**
  * Service layer for handling kill reporting logic.
@@ -41,45 +46,63 @@ public class KillService {
     private final GameDao gameDao; // Added missing GameDao dependency
     private final NotificationService notificationService; // Added NotificationService
     private final VerificationManager verificationManager; // Add VerificationManager dependency
+    private final SafeZoneService safeZoneService; // Add SafeZoneService
 
     // Default constructor for frameworks or testing if needed
     public KillService() {
         this(new DynamoDbKillDao(), new DynamoDbPlayerDao(), new DynamoDbGameDao(), new NotificationService(), 
-             new VerificationManager(new DynamoDbPlayerDao(), new DynamoDbGameDao())); // Pass GameDao here too
+             new VerificationManager(new DynamoDbPlayerDao(), new DynamoDbGameDao()), new SafeZoneService()); // Pass GameDao here too
     }
 
     // Constructor for dependency injection (testing)
     public KillService(KillDao killDao, PlayerDao playerDao, GameDao gameDao, NotificationService notificationService) {
         this(killDao, playerDao, gameDao, notificationService, 
-             new VerificationManager(playerDao, gameDao)); // Pass GameDao here too
+             new VerificationManager(playerDao, gameDao), new SafeZoneService()); // Pass GameDao here too
     }
 
     // Constructor allowing explicit VerificationManager injection (for testing or different DI setups)
     public KillService(KillDao killDao, PlayerDao playerDao, GameDao gameDao, 
-                       NotificationService notificationService, VerificationManager verificationManager) {
+                       NotificationService notificationService, VerificationManager verificationManager, SafeZoneService safeZoneService) {
         this.killDao = killDao;
         this.playerDao = playerDao;
         this.gameDao = gameDao; 
         this.notificationService = notificationService;
         this.verificationManager = verificationManager; // Assign VerificationManager
+        this.safeZoneService = safeZoneService; // Assign SafeZoneService
+    }
+
+    // Constructor for full dependency injection including the enhanced client for SafeZoneService
+    public KillService(KillDao killDao, PlayerDao playerDao, GameDao gameDao, 
+                       NotificationService notificationService, VerificationManager verificationManager, 
+                       DynamoDbEnhancedClient enhancedClient) {
+        this.killDao = killDao;
+        this.playerDao = playerDao;
+        this.gameDao = gameDao; 
+        this.notificationService = notificationService;
+        this.verificationManager = verificationManager;
+        // Instantiate SafeZoneService with the provided client
+        this.safeZoneService = new SafeZoneService(enhancedClient); 
     }
 
     /**
-     * Processes a reported kill, including initial verification setup.
+     * Reports a new kill.
      *
-     * @param killerId The ID of the player reporting the kill.
-     * @param victimId The ID of the player who was killed.
-     * @param latitude Latitude of the kill location.
-     * @param longitude Longitude of the kill location.
-     * @param verificationMethod The verification method required/used for this kill (e.g., "GPS", "NONE").
-     * @param verificationData Any initial data relevant to the verification (e.g., killer's current coords for GPS).
-     * @return The created Kill object.
-     * @throws ValidationException if the kill is invalid (e.g., players not found, killer target mismatch).
-     * @throws GameNotFoundException If the associated game cannot be found.
+     * @param killerId ID of the player reporting the kill
+     * @param victimId ID of the victim player
+     * @param latitude Optional latitude of kill location
+     * @param longitude Optional longitude of kill location
+     * @param verificationMethod Method used for verification (e.g., "GPS", "NFC", "PHOTO")
+     * @param verificationData Additional data for verification
+     * @return The newly created Kill object
+     * @throws ValidationException If validation fails
+     * @throws PlayerNotFoundException If killer or victim not found
+     * @throws PlayerActionNotAllowedException If player status prevents the action
+     * @throws PersistenceException If database error occurs
+     * @throws SafeZoneException If the kill is attempted within a safe zone
      */
     public Kill reportKill(String killerId, String victimId, Double latitude, Double longitude,
-                           String verificationMethod, Map<String, String> verificationData) 
-            throws ValidationException, GameNotFoundException { 
+                           String verificationMethod, Map<String, String> verificationData)
+            throws ValidationException, PlayerNotFoundException, PlayerActionNotAllowedException, PersistenceException, SafeZoneException {
         
         if (killerId == null || victimId == null || killerId.equals(victimId)) {
             throw new ValidationException("Invalid killer or victim ID.");
@@ -101,13 +124,6 @@ public class KillService {
             Player killer = playerDao.getPlayerById(killerId)
                     .orElseThrow(() -> new ValidationException("Killer with ID " + killerId + " not found."));
             
-            // TODO: Fetch game rules based on killer.getGameId() if needed to determine
-            //       the required verification method dynamically instead of relying on input.
-            // Game game = gameDao.getGameById(killer.getGameId())
-            //        .orElseThrow(() -> new GameNotFoundException("Game not found for killer: " + killerId));
-            // String requiredVerificationMethod = game.getSettings().getOrDefault("verificationMethod", "NONE");
-            // We'll use the passed-in verificationMethod for now.
-            
             // Validate killer is alive
             if (!PlayerStatus.ACTIVE.name().equals(killer.getStatus())) { 
                  throw new ValidationException("Killer " + killerId + " is not active in the game.");
@@ -119,10 +135,51 @@ public class KillService {
              if (!PlayerStatus.ACTIVE.name().equals(victim.getStatus())) {
                  throw new ValidationException("Victim " + victimId + " is not active in the game.");
             }
+            
+            // Ensure players are in the same game
+            String gameId = killer.getGameID();
+            if (gameId == null || gameId.trim().isEmpty()) {
+                throw new ValidationException("Killer " + killerId + " is not associated with a game.");
+            }
+            if (!gameId.equals(victim.getGameID())) {
+                throw new ValidationException("Killer and victim are not in the same game.");
+            }
+
+            // Fetch the game to check boundaries and status
+            Game game = gameDao.getGameById(gameId)
+                .orElseThrow(() -> new GameNotFoundException("Game with ID " + gameId + " not found."));
+
+            // Check if game is active
+            if (!GameState.ACTIVE.name().equals(game.getStatus())) {
+                throw new InvalidGameStateException("Game " + gameId + " is not active. Cannot report kill.");
+            }
+
+            // *** Boundary Check ***
+            List<Coordinate> gameBoundary = game.getBoundary();
+            if (gameBoundary != null && !gameBoundary.isEmpty()) {
+                Coordinate killLocation = new Coordinate(latitude, longitude);
+                if (!GeoUtils.isPointInBoundary(killLocation, gameBoundary)) {
+                    logger.warn("Kill reported outside game boundary for game {}. Location: ({}, {}). Killer: {}. Victim: {}", 
+                                gameId, latitude, longitude, killerId, victimId);
+                    throw new ValidationException("Kill location is outside the defined game boundary.");
+                }
+                logger.debug("Kill location ({}, {}) is within game boundary for game {}", latitude, longitude, gameId);
+            } else {
+                logger.debug("No boundary defined for game {}, skipping boundary check.", gameId);
+            }
+            // *** End Boundary Check ***
     
             // Validate the victim is the killer's current target
             if (!victimId.equals(killer.getTargetID())) {
                 throw new ValidationException("Reported victim " + victimId + " is not the killer's current target (" + killer.getTargetID() + ").");
+            }
+            
+            // Check if the kill location is in a safe zone
+            if (latitude != null && longitude != null) {
+                Coordinate location = new Coordinate(latitude, longitude);
+                if (safeZoneService.isLocationInSafeZone(gameId, location)) {
+                    throw new SafeZoneException("Kill cannot be reported in a safe zone");
+                }
             }
             
             // --- Kill is valid, proceed --- 
@@ -138,6 +195,9 @@ public class KillService {
             kill.setVerificationMethod(verificationMethod.toUpperCase());
             kill.setVerificationStatus("PENDING"); // Default status
             kill.setVerificationData(verificationData); // Store any provided data
+            
+            // *** Set the KillStatusPartition based on initial status ***
+            kill.setKillStatusPartition(kill.getVerificationStatus()); // Initial status is PENDING
             
             logger.info("Reporting valid kill: Killer={}, Victim={}, Time={}, Verification={}", 
                         killerId, victimId, kill.getTime(), kill.getVerificationMethod());
@@ -234,6 +294,9 @@ public class KillService {
         // Update Kill status and notes based on verification result
         kill.setVerificationStatus(result.toKillVerificationStatus());
         kill.setVerificationNotes(result.getNotes());
+        
+        // *** Update KillStatusPartition based on the final verification status ***
+        kill.setKillStatusPartition(kill.getVerificationStatus());
         
         logger.info("Verification result from manager for kill (Killer: {}, Time: {}): Status={}, Notes={}", 
                     kill.getKillerID(), kill.getTime(), kill.getVerificationStatus(), kill.getVerificationNotes());

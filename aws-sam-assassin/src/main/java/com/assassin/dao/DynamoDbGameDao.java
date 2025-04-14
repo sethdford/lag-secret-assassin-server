@@ -8,7 +8,9 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.assassin.exception.GameNotFoundException;
 import com.assassin.exception.GamePersistenceException;
+import com.assassin.model.Coordinate;
 import com.assassin.model.Game;
 import com.assassin.util.DynamoDbClientProvider;
 
@@ -21,8 +23,8 @@ import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
 import software.amazon.awssdk.enhanced.dynamodb.model.ScanEnhancedRequest;
+import software.amazon.awssdk.enhanced.dynamodb.model.UpdateItemEnhancedRequest;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.DynamoDbException;
 
 /**
@@ -51,22 +53,63 @@ public class DynamoDbGameDao implements GameDao {
     }
 
     @Override
-    public void saveGame(Game game) {
+    public void saveGame(Game game) throws GamePersistenceException {
         try {
-            logger.debug("Attempting to save game: {}", game.getGameID());
             gameTable.putItem(game);
-            logger.info("Successfully saved game: {}", game.getGameID());
-        } catch (ConditionalCheckFailedException e) {
-            logger.warn("Conditional check failed while saving game {}: {}", game.getGameID(), e.getMessage());
-            // This might be expected if using conditional writes (e.g., for optimistic locking)
-            // Re-throw or wrap in a custom exception if needed by the service layer
-            throw new RuntimeException("Optimistic lock failed or condition not met saving game " + game.getGameID(), e);
-        } catch (DynamoDbException e) {
-            logger.error("DynamoDbException saving game {}: {}", game.getGameID(), e.getMessage(), e);
-            throw new RuntimeException("Failed to save game " + game.getGameID(), e);
+            logger.info("Saved/Updated game: {}", game.getGameID());
         } catch (Exception e) {
-            logger.error("Unexpected error saving game {}: {}", game.getGameID(), e.getMessage(), e);
-            throw new RuntimeException("Unexpected error saving game " + game.getGameID(), e);
+            logger.error("Error saving game {}: {}", game.getGameID(), e.getMessage(), e);
+            throw new GamePersistenceException("Failed to save game: " + game.getGameID(), e);
+        }
+    }
+
+    @Override
+    public void updateGameBoundary(String gameId, List<Coordinate> boundary) 
+            throws GameNotFoundException, GamePersistenceException {
+        logger.info("Attempting to update boundary for game: {}", gameId);
+        try {
+            Game game = gameTable.getItem(Key.builder().partitionValue(gameId).build());
+            if (game == null) {
+                throw new GameNotFoundException("Game not found: " + gameId);
+            }
+            
+            // Create an updated game object with only the boundary set
+            // This ensures we only update the boundary attribute
+            Game updateItem = new Game();
+            updateItem.setGameID(gameId);
+            updateItem.setBoundary(boundary);
+
+            // Use updateItem to only update specified attributes (boundary)
+            // ignoreNulls(true) prevents null fields in updateItem from overwriting existing values
+            gameTable.updateItem(UpdateItemEnhancedRequest.builder(Game.class)
+                                .item(updateItem)
+                                .ignoreNulls(true) 
+                                .build());
+                                
+            logger.info("Successfully updated boundary for game: {}", gameId);
+        } catch (GameNotFoundException e) {
+            logger.warn("Cannot update boundary, game not found: {}", gameId);
+            throw e;
+        } catch (Exception e) {
+            logger.error("Error updating boundary for game {}: {}", gameId, e.getMessage(), e);
+            throw new GamePersistenceException("Failed to update boundary for game: " + gameId, e);
+        }
+    }
+
+    @Override
+    public void deleteGame(String gameId) throws GameNotFoundException, GamePersistenceException {
+        try {
+            Game deletedGame = gameTable.deleteItem(Key.builder().partitionValue(gameId).build());
+            if (deletedGame == null) {
+                 throw new GameNotFoundException("Game not found: " + gameId);
+            }
+            logger.info("Deleted game: {}", gameId);
+        } catch (GameNotFoundException e) {
+             logger.warn("Cannot delete game, game not found: {}", gameId);
+             throw e;
+        } catch (Exception e) {
+            logger.error("Error deleting game {}: {}", gameId, e.getMessage(), e);
+            throw new GamePersistenceException("Failed to delete game: " + gameId, e);
         }
     }
 

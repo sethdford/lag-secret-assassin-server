@@ -14,7 +14,10 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.assassin.exception.GameNotFoundException;
 import com.assassin.exception.KillNotFoundException;
+import com.assassin.exception.PersistenceException;
 import com.assassin.exception.PlayerActionNotAllowedException;
+import com.assassin.exception.PlayerNotFoundException;
+import com.assassin.exception.SafeZoneException;
 import com.assassin.exception.ValidationException;
 import com.assassin.model.Kill;
 import com.assassin.service.KillService;
@@ -78,12 +81,24 @@ public class KillHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
                         .withBody(gson.toJson(Map.of("message", "Route not found: " + path)));
             }
         } catch (ValidationException e) {
-            logger.warn("Validation failed processing kill request: {}", e.getMessage());
-            return response.withStatusCode(400).withBody(gson.toJson(Map.of("message", e.getMessage())));
+            logger.warn("Validation error: {}", e.getMessage());
+            return response.withStatusCode(400).withBody(gson.toJson(Map.of("message", "Validation error: " + e.getMessage())));
+        } catch (PlayerNotFoundException e) {
+            logger.warn("Player not found: {}", e.getMessage());
+            return response.withStatusCode(404).withBody(gson.toJson(Map.of("message", "Player not found: " + e.getMessage())));
+        } catch (PlayerActionNotAllowedException e) {
+            logger.warn("Player action not allowed: {}", e.getMessage());
+            return response.withStatusCode(403).withBody(gson.toJson(Map.of("message", "Action not allowed: " + e.getMessage())));
+        } catch (PersistenceException e) {
+            logger.error("Database error processing kill: {}", e.getMessage(), e);
+            return response.withStatusCode(500).withBody(gson.toJson(Map.of("message", "Server error processing kill request")));
+        } catch (SafeZoneException e) {
+            logger.warn("Safe zone violation: {}", e.getMessage());
+            return response.withStatusCode(403).withBody(gson.toJson(Map.of("message", "Safe zone violation: " + e.getMessage())));
         } catch (JsonSyntaxException e) {
             logger.error("Invalid JSON input for kill request: {}", e.getMessage());
             return response.withStatusCode(400).withBody(gson.toJson(Map.of("message", "Invalid JSON format")));
-        } catch (KillNotFoundException | PlayerActionNotAllowedException e) {
+        } catch (KillNotFoundException | GameNotFoundException e) {
             logger.warn("Kill verification failed: {}", e.getMessage());
             return response.withStatusCode(404).withBody(gson.toJson(Map.of("message", e.getMessage())));
         } catch (Exception e) {
@@ -93,16 +108,17 @@ public class KillHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
     }
 
     private APIGatewayProxyResponseEvent reportKill(APIGatewayProxyRequestEvent request, APIGatewayProxyResponseEvent response) throws ValidationException {
-        String killerId = HandlerUtils.getPlayerIdFromRequest(request);
-        
+        // Use Optional handling
+        String killerId = HandlerUtils.getPlayerIdFromRequest(request)
+                .orElseThrow(() -> new ValidationException("Killer ID (sub claim) not found in request context."));
+
         // Parse the entire request body into a Map
         Map<String, Object> requestBodyMap = gson.fromJson(request.getBody(), new TypeToken<Map<String, Object>>(){}.getType());
 
         // For testing, if we can't get the killer ID from the auth context, try using the one from the request body
-        if (killerId == null) {
-            killerId = (String) requestBodyMap.get("killerID");
-        }
-        
+        // ** Note: This fallback logic might be insecure in production. Rely on the authenticated context. **
+        // String killerId = (String) requestBodyMap.get("killerID"); // Keep the one from context
+
         // Extract fields from the Map
         String victimId = (String) requestBodyMap.get("victimID");
         Double latitude = (Double) requestBodyMap.get("latitude");
@@ -209,10 +225,9 @@ public class KillHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
     private APIGatewayProxyResponseEvent verifyKill(APIGatewayProxyRequestEvent request, APIGatewayProxyResponseEvent response)
             throws KillNotFoundException, ValidationException, PlayerActionNotAllowedException {
                 
-        String verifierId = HandlerUtils.getPlayerIdFromRequest(request);
-        if (verifierId == null) {
-             logger.warn("Verifier ID not found in request context for kill verification.");
-        }
+        // Use Optional handling
+        String verifierId = HandlerUtils.getPlayerIdFromRequest(request)
+                .orElseThrow(() -> new ValidationException("Verifier ID (sub claim) not found in request context."));
 
         Map<String, String> pathParams = request.getPathParameters();
         String killerId = pathParams.get("killerId"); 

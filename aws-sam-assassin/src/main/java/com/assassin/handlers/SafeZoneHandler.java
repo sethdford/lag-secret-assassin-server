@@ -1,25 +1,26 @@
 package com.assassin.handlers;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.assassin.exception.PersistenceException;
-import com.assassin.exception.ValidationException;
 import com.assassin.exception.SafeZoneNotFoundException;
 import com.assassin.exception.UnauthorizedException;
+import com.assassin.exception.ValidationException;
 import com.assassin.model.SafeZone;
 import com.assassin.service.SafeZoneService;
 import com.assassin.util.HandlerUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 public class SafeZoneHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
@@ -126,7 +127,8 @@ public class SafeZoneHandler implements RequestHandler<APIGatewayProxyRequestEve
     private APIGatewayProxyResponseEvent updateSafeZone(APIGatewayProxyRequestEvent request, APIGatewayProxyResponseEvent response)
             throws SafeZoneNotFoundException, ValidationException, UnauthorizedException {
         String safeZoneId = request.getPathParameters().get("safeZoneId");
-        String requestingPlayerId = HandlerUtils.getPlayerIdFromRequest(request);
+        String requestingPlayerId = HandlerUtils.getPlayerIdFromRequest(request)
+                .orElseThrow(() -> new ValidationException("Player ID not found in request context."));
 
         if (safeZoneId == null || safeZoneId.isEmpty()) {
            return response.withStatusCode(400).withBody(gson.toJson(Map.of("message", "Missing safeZoneId path parameter")));

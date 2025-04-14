@@ -70,7 +70,7 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>dynamodb-enhanced</artifactId>
-            <!-- Version managed by BOM -->
+            <version>${aws.sdk.version}</version>
         </dependency>
 
         <!-- AWS SDK v2 Core DynamoDB Client -->
@@ -193,6 +193,21 @@
             <artifactId>sqlite-jdbc</artifactId>
             <version>3.46.0.0</version> <!-- Use a recent version -->
             <!-- Scope might be 'runtime' or default depending if migration code is compiled separately -->
+        </dependency>
+
+        <!-- Add Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.32</version> <!-- Use the latest version -->
+            <scope>provided</scope>
+        </dependency>
+        
+        <!-- Jackson for JSON handling -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.15.2</version>
         </dependency>
     </dependencies>
 

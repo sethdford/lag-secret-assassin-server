@@ -368,6 +368,23 @@ components:
           description: User's display name
           example: "John Doe"
 
+    Coordinate:
+      type: object
+      properties:
+        latitude:
+          type: number
+          format: double
+          description: Latitude coordinate.
+          example: 40.7128
+        longitude:
+          type: number
+          format: double
+          description: Longitude coordinate.
+          example: -74.0060
+      required:
+        - latitude
+        - longitude
+
 security:
   - BearerAuth: []
 
@@ -1686,4 +1703,60 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error' 
+                $ref: '#/components/schemas/Error'
+
+  /games/{gameId}/boundary:
+    put:
+      summary: Update Game Boundary
+      description: Updates the geographic boundary for a specific game.
+      tags:
+        - Games
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game whose boundary is to be updated.
+          schema:
+            type: string
+      requestBody:
+        description: A list of coordinates defining the new game boundary polygon.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Coordinate'
+              minItems: 3
+              description: List of coordinates defining the polygon boundary.
+      responses:
+        '200':
+          description: Game boundary updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Game boundary updated successfully.
+        '400':
+          description: Invalid request (e.g., invalid boundary data, missing body).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Game not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      # security:
+      #   - CognitoAuth: [] # Assuming security defined globally or needed here 

@@ -281,9 +281,22 @@ public class NotificationService {
      * @return true if the notification was successfully marked as read, false otherwise
      */
     public boolean markNotificationAsRead(String recipientPlayerId, String notificationId) {
-        // TODO: Implement this method when we add the ability to update notification status
-        logger.info("Marking notification as read: {}", notificationId);
-        throw new UnsupportedOperationException("Not implemented yet");
+        logger.info("Marking notification as read: recipient={}, id={}", recipientPlayerId, notificationId);
+        
+        try {
+            // Call the DAO method to update the notification status
+            Optional<Notification> updatedNotification = notificationDao.markNotificationAsRead(recipientPlayerId, notificationId);
+            
+            // Return true if the update was successful (Optional is present)
+            return updatedNotification.isPresent();
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid arguments provided for marking notification as read: {}", e.getMessage());
+            return false;
+        } catch (RuntimeException e) {
+            // Catch potential runtime exceptions from the DAO layer
+            logger.error("Error marking notification as read: {}", e.getMessage(), e);
+            return false;
+        }
     }
 
     // Potential future methods:

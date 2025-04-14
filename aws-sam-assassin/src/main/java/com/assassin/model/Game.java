@@ -35,6 +35,8 @@ public class Game {
     private List<String> playerIDs; // List of player IDs participating in the game
     private String adminPlayerID; // Player who created/administers the game
     private Map<String, Object> settings; // Flexible map for game settings
+    private List<Coordinate> boundary; // Game boundary coordinates
+    private Boolean shrinkingZoneEnabled; // Flag if shrinking zone is active
 
     // Constants for GSI
     private static final String STATUS_CREATED_AT_INDEX = "StatusCreatedAtIndex";
@@ -181,6 +183,25 @@ public class Game {
         this.settings = settings;
     }
 
+    // TODO: Add appropriate DynamoDB annotations and potentially a converter for List<Coordinate>
+    public List<Coordinate> getBoundary() {
+        return boundary;
+    }
+
+    public void setBoundary(List<Coordinate> boundary) {
+        this.boundary = boundary;
+    }
+
+    // Basic getter/setter for shrinkingZoneEnabled. Annotate if stored directly.
+    public Boolean getShrinkingZoneEnabled() {
+        // Default to false if null? Or handle null upstream?
+        return shrinkingZoneEnabled == null ? Boolean.FALSE : shrinkingZoneEnabled;
+    }
+
+    public void setShrinkingZoneEnabled(Boolean shrinkingZoneEnabled) {
+        this.shrinkingZoneEnabled = shrinkingZoneEnabled;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -204,6 +225,8 @@ public class Game {
                ", playerIDs=" + playerIDs +
                ", adminPlayerID='" + adminPlayerID + '\'' +
                ", settings=" + settings +
+               ", boundary=" + boundary +
+               ", shrinkingZoneEnabled=" + shrinkingZoneEnabled +
                '}';
     }
 } 
