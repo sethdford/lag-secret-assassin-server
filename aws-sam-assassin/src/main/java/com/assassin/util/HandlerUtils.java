@@ -108,6 +108,27 @@ public class HandlerUtils {
     }
 
     /**
+     * Extracts the JWT token from the Authorization header.
+     * Expects the token to be in the format: "Bearer {token}".
+     *
+     * @param request The API Gateway request event.
+     * @return An Optional containing the JWT token if found and properly formatted, otherwise empty.
+     */
+    public static Optional<String> extractAuthToken(APIGatewayProxyRequestEvent request) {
+        try {
+            return Optional.ofNullable(request)
+                    .map(APIGatewayProxyRequestEvent::getHeaders)
+                    .map(headers -> headers.get("Authorization"))
+                    .filter(authHeader -> authHeader != null && authHeader.startsWith("Bearer "))
+                    .map(authHeader -> authHeader.substring(7).trim()) // Remove "Bearer " prefix and trim
+                    .filter(token -> !token.isEmpty());
+        } catch (Exception e) {
+            logger.error("Error extracting JWT token from Authorization header", e);
+            return Optional.empty();
+        }
+    }
+
+    /**
      * Basic JSON string escaping.
      * Replace with a proper library function (like from Gson or Jackson) if available.
      */
