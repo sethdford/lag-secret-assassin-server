@@ -501,9 +501,12 @@ public class ShrinkingZoneService {
         // Calculate next shrink time based on first phase wait time
         if (!mapConfig.getZonePhases().isEmpty()) {
             com.assassin.config.ZonePhase firstPhase = mapConfig.getZonePhases().get(0);
-            Long nextShrinkTime = startTime + (firstPhase.getWaitTimeSeconds() * 1000L);
+            // Use startTimeOffsetMillis to determine when the first phase (and thus first shrink) begins
+            Long nextShrinkTime = startTime + firstPhase.getStartTimeOffsetMillis(); 
             initialState.setNextShrinkTimeEpochMillis(nextShrinkTime);
         } else {
+            // If no phases, use a default shrink time (or maybe never shrink?)
+            logger.warn("No zone phases defined for map {}. Setting default shrink time.", mapConfig.getMapId());
             initialState.setNextShrinkTimeEpochMillis(startTime + 300000L); // Default 5 minutes
         }
         

@@ -1,7 +1,9 @@
 package com.assassin.config;
 
 import java.util.ArrayList; // Ensure Coordinate model exists and path is correct
-import java.util.List; // Added this import
+import java.util.HashMap; // Added this import
+import java.util.List;   // Added for weaponDistances
+import java.util.Map; // Added for weaponDistances initialization
 import java.util.Objects;
 
 import com.assassin.model.Coordinate;
@@ -27,12 +29,14 @@ public class MapConfiguration {
     // New fields for proximity detection
     private Double eliminationDistanceMeters; // Max distance for elimination
     private Double proximityAwarenessDistanceMeters; // Distance at which proximity alerts trigger
+    private Map<String, Double> weaponDistances; // Weapon type -> Elimination distance (meters)
 
     /**
      * Default constructor
      */
     public MapConfiguration() {
         this.zonePhases = new ArrayList<>();
+        this.weaponDistances = new HashMap<>(); // Initialize the map
     }
 
     /**
@@ -204,6 +208,24 @@ public class MapConfiguration {
         this.proximityAwarenessDistanceMeters = proximityAwarenessDistanceMeters;
     }
 
+    /**
+     * Gets the map of weapon types to their specific elimination distances.
+     *
+     * @return Map where keys are weapon types (String) and values are distances (Double).
+     */
+    public Map<String, Double> getWeaponDistances() {
+        return weaponDistances;
+    }
+
+    /**
+     * Sets the map of weapon types to their specific elimination distances.
+     *
+     * @param weaponDistances Map where keys are weapon types (String) and values are distances (Double).
+     */
+    public void setWeaponDistances(Map<String, Double> weaponDistances) {
+        this.weaponDistances = weaponDistances;
+    }
+
     // Standard equals, hashCode, and toString methods
     @Override
     public boolean equals(Object o) {
@@ -218,15 +240,19 @@ public class MapConfiguration {
                 Objects.equals(initialZoneCenter, that.initialZoneCenter) &&
                 Objects.equals(zoneDamagePerSecond, that.zoneDamagePerSecond) &&
                 Objects.equals(zonePhases, that.zonePhases) &&
+                Objects.equals(shrinkingZoneConfig, that.shrinkingZoneConfig) &&
                 Objects.equals(eliminationDistanceMeters, that.eliminationDistanceMeters) &&
-                Objects.equals(proximityAwarenessDistanceMeters, that.proximityAwarenessDistanceMeters);
+                Objects.equals(proximityAwarenessDistanceMeters, that.proximityAwarenessDistanceMeters) &&
+                Objects.equals(weaponDistances, that.weaponDistances);
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(mapId, mapName, gameBoundary, shrinkingZoneEnabled, 
                 initialZoneRadiusMeters, initialZoneCenter, zoneDamagePerSecond, zonePhases,
-                eliminationDistanceMeters, proximityAwarenessDistanceMeters);
+                shrinkingZoneConfig,
+                eliminationDistanceMeters, proximityAwarenessDistanceMeters,
+                weaponDistances);
     }
 
     @Override
@@ -240,8 +266,10 @@ public class MapConfiguration {
                 ", initialZoneCenter=" + initialZoneCenter +
                 ", zoneDamagePerSecond=" + zoneDamagePerSecond +
                 ", zonePhases=" + zonePhases +
+                ", shrinkingZoneConfig=" + shrinkingZoneConfig +
                 ", eliminationDistanceMeters=" + eliminationDistanceMeters +
                 ", proximityAwarenessDistanceMeters=" + proximityAwarenessDistanceMeters +
+                ", weaponDistances=" + weaponDistances +
                 '}';
     }
 } 

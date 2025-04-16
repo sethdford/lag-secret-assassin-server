@@ -1,11 +1,12 @@
 package com.assassin.service;
 
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.List;
-import java.util.ArrayList;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,10 +20,11 @@ import com.assassin.exception.GameNotFoundException;
 import com.assassin.exception.PlayerNotFoundException;
 import com.assassin.model.Coordinate;
 import com.assassin.model.Game;
-import com.assassin.model.Player;
-import com.assassin.util.GeoUtils;
 import com.assassin.model.Notification;
 import com.assassin.model.NotificationType;
+import com.assassin.model.Player;
+import com.assassin.model.PlayerStatus;
+import com.assassin.util.GeoUtils;
 
 /**
  * Service responsible for detecting proximity between players for elimination mechanics.
@@ -31,10 +33,8 @@ import com.assassin.model.NotificationType;
 public class ProximityDetectionService {
     private static final Logger logger = LoggerFactory.getLogger(ProximityDetectionService.class);
     
-    // Default threshold distances for different elimination modes in meters
-    private static final double DEFAULT_ELIMINATION_DISTANCE = 10.0;  // Default for close-range eliminations
-    private static final double LONG_RANGE_ELIMINATION_DISTANCE = 50.0; // For "long-range" weapons
-    private static final double EXTREME_RANGE_ELIMINATION_DISTANCE = 100.0; // For "extreme-range" weapons
+    // Default threshold distance if not specified in map config
+    private static final double DEFAULT_ELIMINATION_DISTANCE = 10.0;
     
     // GPS accuracy compensation (meters)
     private static final double GPS_ACCURACY_BUFFER = 5.0;
@@ -44,6 +44,9 @@ public class ProximityDetectionService {
     
     // Cache expiration time in milliseconds
     private static final long CACHE_EXPIRATION_MS = 10000; // 10 seconds
+    
+    // Maximum age of location data to be considered valid (milliseconds)
+    private static final long LOCATION_STALENESS_THRESHOLD_MS = 60000; // 60 seconds
     
     // Cache for recent alerts sent to avoid spamming users
     private final Map<String, Long> alertCache;
@@ -126,13 +129,13 @@ public class ProximityDetectionService {
     
     /**
      * Checks if a player is close enough to their target for an elimination attempt.
-     * Takes into account game rules, weapon types, and adds a buffer for GPS inaccuracy.
+     * Takes into account game rules, weapon types, player status, location validity, and GPS inaccuracy.
      * 
      * @param gameId ID of the game
-     * @param playerId ID of the player attempting elimination
-     * @param targetId ID of the target player
-     * @param weaponType Optional weapon type affecting elimination distance
-     * @return true if players are within required proximity, false otherwise
+     * @param playerId ID of the player attempting elimination (killer)
+     * @param targetId ID of the target player (victim)
+     * @param weaponType Optional weapon type affecting elimination distance (e.g., "MELEE", "SNIPER")
+     * @return true if the killer can eliminate the victim based on proximity and status, false otherwise
      * @throws PlayerNotFoundException If either player cannot be found
      * @throws GameNotFoundException If the game cannot be found
      */
@@ -141,14 +144,82 @@ public class ProximityDetectionService {
         
         // Validate inputs
         if (gameId == null || playerId == null || targetId == null) {
-            logger.warn("Null parameters in canEliminateTarget: gameId={}, playerId={}, targetId={}", 
+            logger.warn("Null parameters provided to canEliminateTarget: gameId={}, playerId={}, targetId={}", 
                       gameId, playerId, targetId);
+            return false; // Cannot proceed with null IDs
+        }
+        
+        if (playerId.equals(targetId)) {
+             logger.warn("Player {} attempted to eliminate themselves.", playerId);
+             return false; // Cannot eliminate self
+        }
+        
+        // Fetch player data first for status and location checks
+        Player killer = playerDao.getPlayerById(playerId)
+                .orElseThrow(() -> new PlayerNotFoundException("Killer not found: " + playerId));
+        Player victim = playerDao.getPlayerById(targetId)
+                .orElseThrow(() -> new PlayerNotFoundException("Victim not found: " + targetId));
+        
+        // Check Player Status: Both must be ACTIVE
+        if (!PlayerStatus.ACTIVE.name().equals(killer.getStatus())) {
+            logger.debug("Cannot eliminate: Killer {} is not ACTIVE (status: {})", playerId, killer.getStatus());
+            return false;
+        }
+        if (!PlayerStatus.ACTIVE.name().equals(victim.getStatus())) {
+            logger.debug("Cannot eliminate: Victim {} is not ACTIVE (status: {})", targetId, victim.getStatus());
             return false;
         }
         
-        // Get the game to check game-specific settings
+        // Check Location Availability and Staleness
+        if (killer.getLatitude() == null || killer.getLongitude() == null || killer.getLocationTimestamp() == null) {
+            logger.warn("Cannot eliminate: Killer {} has no location data.", playerId);
+            return false;
+        }
+        if (victim.getLatitude() == null || victim.getLongitude() == null || victim.getLocationTimestamp() == null) {
+            logger.warn("Cannot eliminate: Victim {} has no location data.", targetId);
+            return false;
+        }
+        
+        // Check staleness
+        long nowMillis = System.currentTimeMillis();
+        try {
+            Instant killerLocationInstant = Instant.parse(killer.getLocationTimestamp());
+            if (nowMillis - killerLocationInstant.toEpochMilli() > LOCATION_STALENESS_THRESHOLD_MS) {
+                logger.warn("Cannot eliminate: Killer {} location data is too old (timestamp: {}, Threshold: {}ms)", 
+                          playerId, killer.getLocationTimestamp(), LOCATION_STALENESS_THRESHOLD_MS);
+                return false;
+            }
+
+            Instant victimLocationInstant = Instant.parse(victim.getLocationTimestamp());
+            if (nowMillis - victimLocationInstant.toEpochMilli() > LOCATION_STALENESS_THRESHOLD_MS) {
+                logger.warn("Cannot eliminate: Victim {} location data is too old (timestamp: {}, Threshold: {}ms)", 
+                          targetId, victim.getLocationTimestamp(), LOCATION_STALENESS_THRESHOLD_MS);
+                return false;
+            }
+        } catch (DateTimeParseException e) {
+            logger.error("Cannot eliminate: Failed to parse location timestamp for killer {} ({}) or victim {} ({}): {}", 
+                         playerId, killer.getLocationTimestamp(), targetId, victim.getLocationTimestamp(), e.getMessage());
+            return false; // Treat unparseable timestamps as stale/invalid
+        }
+
+        // Get the game to check game-specific settings (already checked players, less likely to throw here)
         Game game = gameDao.getGameById(gameId)
-                .orElseThrow(() -> new GameNotFoundException("Game not found: " + gameId));
+                .orElseThrow(() -> new GameNotFoundException("Game not found: " + gameId + " (referenced by players " + playerId + ", " + targetId + ")"));
+        
+        // Check if killer is in a safe zone
+        Coordinate killerCoordinate = new Coordinate(killer.getLatitude(), killer.getLongitude());
+        long currentTimeMillis = System.currentTimeMillis();
+        if (mapConfigService.isLocationInSafeZone(gameId, killerCoordinate, currentTimeMillis)) {
+            logger.debug("Cannot eliminate: Killer {} is in a safe zone", playerId);
+            return false;
+        }
+        
+        // Check if target is in a safe zone
+        Coordinate targetCoordinate = new Coordinate(victim.getLatitude(), victim.getLongitude());
+        if (mapConfigService.isLocationInSafeZone(gameId, targetCoordinate, currentTimeMillis)) {
+            logger.debug("Cannot eliminate: Target {} is in a safe zone", targetId);
+            return false;
+        }
         
         // Get map configuration for proximity settings
         MapConfiguration mapConfig = mapConfigService.getEffectiveMapConfiguration(gameId);
@@ -159,23 +230,27 @@ public class ProximityDetectionService {
         // Add buffer for GPS inaccuracy
         double effectiveDistance = eliminationDistance + GPS_ACCURACY_BUFFER;
         
-        logger.debug("Checking proximity for elimination in game {}. Players: {} -> {}. Required distance: {}m ({}m base + {}m GPS buffer)",
-                   gameId, playerId, targetId, effectiveDistance, eliminationDistance, GPS_ACCURACY_BUFFER);
+        logger.debug("Checking proximity for elimination in game {}. Killer: {} ({}), Victim: {} ({}). Weapon: {}. Required distance: {:.2f}m ({:.2f}m base + {:.2f}m buffer)",
+                   gameId, playerId, killer.getStatus(), targetId, victim.getStatus(), weaponType, effectiveDistance, eliminationDistance, GPS_ACCURACY_BUFFER);
         
-        // Use LocationService to check if players are nearby
-        boolean inRange = locationService.arePlayersNearby(playerId, targetId, effectiveDistance);
+        // Calculate actual distance (now that we know locations exist)
+        double actualDistance = calculateDistanceBetweenPlayersInternal(killer, victim);
         
-        // If we need the actual distance for the cache, we need to get player locations and calculate
-        double distance = calculateDistanceBetweenPlayers(playerId, targetId);
+        // Check if the actual distance is within the effective range
+        boolean inRange = actualDistance <= effectiveDistance;
         
-        // Cache the result
-        proximityCache.put(generateCacheKey(gameId, playerId, targetId), new ProximityResult(playerId, targetId, distance, inRange));
+        logger.info("Elimination check result for {} -> {}: In Range = {} (Actual: {:.2f}m, Required: {:.2f}m)", 
+                   playerId, targetId, inRange, actualDistance, effectiveDistance);
+
+        // Cache the result (using actual distance)
+        proximityCache.put(generateCacheKey(gameId, playerId, targetId), new ProximityResult(playerId, targetId, actualDistance, inRange));
         
         return inRange;
     }
     
     /**
      * Calculate the actual distance between two players.
+     * Delegates to internal method after fetching players.
      * 
      * @param player1Id First player ID
      * @param player2Id Second player ID
@@ -188,48 +263,42 @@ public class ProximityDetectionService {
         Player player2 = playerDao.getPlayerById(player2Id)
                 .orElseThrow(() -> new PlayerNotFoundException("Player not found: " + player2Id));
 
-        Double lat1 = player1.getLatitude();
-        Double lon1 = player1.getLongitude();
-        Double lat2 = player2.getLatitude();
-        Double lon2 = player2.getLongitude();
-
-        if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) {
-            logger.warn("Cannot calculate distance between {} and {}: one or both players have unknown locations", 
-                      player1Id, player2Id);
-            return Double.MAX_VALUE;
-        }
-
-        return GeoUtils.calculateDistance(
-            new Coordinate(lat1, lon1), 
-            new Coordinate(lat2, lon2)
-        );
+        return calculateDistanceBetweenPlayersInternal(player1, player2);
     }
     
     /**
      * Determine the elimination distance based on game settings and weapon type.
+     * Prioritizes weapon-specific distance, then map default, then global default.
      * 
      * @param mapConfig Map configuration for game
-     * @param weaponType Type of weapon being used
+     * @param weaponType Type of weapon being used (case-insensitive lookup)
      * @return Distance in meters required for elimination
      */
     private double getEliminationDistance(MapConfiguration mapConfig, String weaponType) {
-        // Get default from map config, fallback to constant if null
-        double distance = mapConfig.getEliminationDistanceMeters() != null 
-                            ? mapConfig.getEliminationDistanceMeters() 
-                            : DEFAULT_ELIMINATION_DISTANCE;
-        
-        // TODO: Implement logic for weapon-specific distances based on mapConfig or game settings if needed.
-        // For now, we just use the base elimination distance from mapConfig.
-        if (weaponType != null) {
-             logger.warn("Weapon-specific distance logic not yet implemented in getEliminationDistance, using base: {}", distance);
-            // Example placeholder logic if weapon distances were stored in mapConfig:
-            // Map<String, Double> weaponDistances = mapConfig.getWeaponDistances(); 
-            // if (weaponDistances != null && weaponDistances.containsKey(weaponType)) {
-            //     distance = weaponDistances.get(weaponType);
-            // }
+        // 1. Check for weapon-specific distance in map config
+        if (weaponType != null && mapConfig.getWeaponDistances() != null) {
+            // Perform case-insensitive lookup if desired, or store keys consistently
+            String lookupKey = weaponType.toUpperCase(); // Example: Store/lookup keys in uppercase
+            Double weaponDistance = mapConfig.getWeaponDistances().get(lookupKey);
+            if (weaponDistance != null) {
+                 logger.debug("Using weapon-specific distance for '{}': {}m", weaponType, weaponDistance);
+                 return weaponDistance;
+            } else {
+                 logger.debug("Weapon type '{}' not found in map config weaponDistances, checking default.", weaponType);
+            }
         }
-        
-        return distance;
+
+        // 2. Fall back to map default elimination distance
+        Double mapDefaultDistance = mapConfig.getEliminationDistanceMeters();
+        if (mapDefaultDistance != null) {
+             logger.debug("Using map default elimination distance: {}m", mapDefaultDistance);
+             return mapDefaultDistance;
+        }
+
+        // 3. Fall back to global default if nothing else is defined
+        logger.warn("Elimination distance not specified in map config (mapId: {}), using global default: {}m", 
+                    mapConfig.getMapId(), DEFAULT_ELIMINATION_DISTANCE);
+        return DEFAULT_ELIMINATION_DISTANCE;
     }
     
     /**
@@ -417,13 +486,29 @@ public class ProximityDetectionService {
      *
      * @param player1 First player object
      * @param player2 Second player object
-     * @return Distance in meters.
+     * @return Distance in meters, or Double.MAX_VALUE if locations are unknown or calculation fails.
      */
     private double calculateDistanceBetweenPlayersInternal(Player player1, Player player2) {
-        return GeoUtils.calculateDistance(
-            new Coordinate(player1.getLatitude(), player1.getLongitude()),
-            new Coordinate(player2.getLatitude(), player2.getLongitude())
-        );
+        if (player1 == null || player2 == null || 
+            player1.getLatitude() == null || player1.getLongitude() == null ||
+            player2.getLatitude() == null || player2.getLongitude() == null) {
+            
+            logger.warn("Cannot calculate distance: one or both players/locations are null. P1: {}, P2: {}", 
+                      player1 != null ? player1.getPlayerID() : "null", 
+                      player2 != null ? player2.getPlayerID() : "null");
+            return Double.MAX_VALUE; 
+        }
+        
+        try {
+            return GeoUtils.calculateDistance(
+                new Coordinate(player1.getLatitude(), player1.getLongitude()),
+                new Coordinate(player2.getLatitude(), player2.getLongitude())
+            );
+        } catch (Exception e) {
+             logger.error("Error calculating distance between {} and {}: {}", 
+                        player1.getPlayerID(), player2.getPlayerID(), e.getMessage(), e);
+             return Double.MAX_VALUE; // Return max value on calculation error
+        }
     }
 
     /**

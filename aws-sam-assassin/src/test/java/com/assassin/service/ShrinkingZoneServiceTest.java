@@ -161,8 +161,9 @@ class ShrinkingZoneServiceTest {
         initialZoneState.setTargetCenterLatitude(INITIAL_CENTER.getLatitude());
         initialZoneState.setTargetCenterLongitude(INITIAL_CENTER.getLongitude());
         initialZoneState.setStageStartTimeEpochMillis(testGameForZoneTest.getStartTimeEpochMillis());
-        long phase1WaitTimeMillis = zonePhases.get(0).getWaitTimeSeconds() * 1000L;
-        initialZoneState.setNextShrinkTimeEpochMillis(testGameForZoneTest.getStartTimeEpochMillis() + phase1WaitTimeMillis);
+        // Use the start time offset from the first phase
+        long phase1StartTimeOffsetMillis = zonePhases.get(0).getStartTimeOffsetMillis(); 
+        initialZoneState.setNextShrinkTimeEpochMillis(testGameForZoneTest.getStartTimeEpochMillis() + phase1StartTimeOffsetMillis);
         initialZoneState.setLastUpdateTimeEpochMillis(testGameForZoneTest.getStartTimeEpochMillis());
 
         lenient().when(gameDao.getGameById(TEST_GAME_ID)).thenReturn(Optional.of(testGameForZoneTest));
