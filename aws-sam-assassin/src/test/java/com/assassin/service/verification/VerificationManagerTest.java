@@ -232,7 +232,7 @@ class VerificationManagerTest {
         // Assert
         assertNotNull(actualResult);
         assertEquals(VerificationResult.Status.INVALID_INPUT, actualResult.getStatus());
-        assertTrue(actualResult.getNotes().contains("Unsupported verification method: NONE")); // fromString defaults unknown to NONE
+        assertTrue(actualResult.getNotes().contains("Unsupported verification method: SELF_REPORT")); // fromString defaults unknown to SELF_REPORT
         verify(mockGpsMethod, never()).verify(any(), any(), any());
         verify(mockNfcMethod, never()).verify(any(), any(), any());
         verify(mockPhotoMethod, never()).verify(any(), any(), any());

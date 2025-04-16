@@ -1,33 +1,37 @@
 package com.assassin.service;
 
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import com.assassin.dao.GameDao;
 import com.assassin.dao.PlayerDao;
-import com.assassin.exception.GameNotFoundException;
-import com.assassin.exception.GameStateException;
-import com.assassin.exception.PlayerNotFoundException;
 import com.assassin.model.Coordinate;
 import com.assassin.model.Game;
 import com.assassin.model.GameZoneState;
 import com.assassin.model.Player;
 import com.assassin.model.ShrinkingZoneStage;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
-
-import com.assassin.util.GeoUtils;
 
 @ExtendWith(MockitoExtension.class)
 class PlayerStatusServiceTest {
@@ -70,11 +74,12 @@ class PlayerStatusServiceTest {
         testStage.setStageIndex(0);
         testStage.setDamagePerSecond(10.0);
 
-        testGame.setSettings(Map.of(
-            "shrinkingZoneConfig", List.of(testStage),
-            "zoneDamageIntervalSeconds", 1,
-            "zoneEliminationThresholdSeconds", 5
-        ));
+        // Initialize with a mutable HashMap
+        Map<String, Object> settings = new HashMap<>();
+        settings.put("shrinkingZoneConfig", List.of(testStage));
+        settings.put("zoneDamageIntervalSeconds", 1);
+        settings.put("zoneEliminationThresholdSeconds", 5);
+        testGame.setSettings(settings);
 
         testZoneState = new GameZoneState();
         testZoneState.setGameId(gameId);

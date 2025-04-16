@@ -23,9 +23,11 @@ import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
 import software.amazon.awssdk.enhanced.dynamodb.model.ScanEnhancedRequest;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.DescribeTableRequest; // Needed for DescribeTable
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue; // Needed for DescribeTable
+import software.amazon.awssdk.services.dynamodb.model.DescribeTableRequest;
 import software.amazon.awssdk.services.dynamodb.model.DescribeTableResponse;
-import software.amazon.awssdk.services.dynamodb.model.DynamoDbException;
+import software.amazon.awssdk.services.dynamodb.model.DynamoDbException; // Import AttributeValue
+
 public class DynamoDbPlayerDao implements PlayerDao {
 
     private static final Logger logger = LoggerFactory.getLogger(DynamoDbPlayerDao.class);
@@ -33,11 +35,13 @@ public class DynamoDbPlayerDao implements PlayerDao {
     private static final String EMAIL_INDEX_NAME = "EmailIndex";
     private static final String KILL_COUNT_INDEX_NAME = "KillCountIndex";
     private static final String GAME_ID_INDEX_NAME = "GameIdIndex"; // Name of the new index
+    private static final String TARGET_ID_INDEX_NAME = "TargetIdIndex"; // Name for the TargetID index
 
     private final DynamoDbTable<Player> playerTable;
     private final DynamoDbIndex<Player> emailIndex;
     private final DynamoDbIndex<Player> killCountIndex;
     private final DynamoDbIndex<Player> gameIdIndex; // Add index reference
+    private final DynamoDbIndex<Player> targetIdIndex; // Add index reference for TargetID
     private final DynamoDbEnhancedClient enhancedClient;
     private final String tableName; // Store table name for DescribeTable
 
@@ -53,6 +57,7 @@ public class DynamoDbPlayerDao implements PlayerDao {
         this.emailIndex = playerTable.index(EMAIL_INDEX_NAME);
         this.killCountIndex = playerTable.index(KILL_COUNT_INDEX_NAME);
         this.gameIdIndex = playerTable.index(GAME_ID_INDEX_NAME); // Initialize the index
+        this.targetIdIndex = playerTable.index(TARGET_ID_INDEX_NAME); // Initialize the TargetID index
     }
 
     @Override
@@ -320,6 +325,61 @@ public class DynamoDbPlayerDao implements PlayerDao {
         } catch (Exception e) { // Catch broader exceptions
             logger.error("Unexpected error getting players for game {}: {}", gameId, e.getMessage(), e);
             throw new PlayerPersistenceException("Unexpected error getting players by game ID", e);
+        }
+    }
+
+    /**
+     * Retrieves all players targeting a specific player within a game.
+     * Uses the TargetIdIndex GSI.
+     *
+     * @param targetId The ID of the player being targeted.
+     * @param gameId The ID of the game.
+     * @return A list of players (hunters) targeting the specified player.
+     * @throws PlayerPersistenceException if there is an error querying the index.
+     */
+    @Override
+    public List<Player> getPlayersTargeting(String targetId, String gameId) throws PlayerPersistenceException {
+        logger.debug("Getting players targeting player ID: {} in game ID: {} using index: {}", 
+                   targetId, gameId, TARGET_ID_INDEX_NAME);
+        if (targetId == null || targetId.isEmpty() || gameId == null || gameId.isEmpty()) {
+             logger.warn("targetId and gameId cannot be null or empty for getPlayersTargeting");
+             return List.of(); // Return empty list for invalid input
+        }
+
+        try {
+            // Query based on the targetId (partition key of the GSI)
+            QueryConditional queryConditional = QueryConditional.keyEqualTo(Key.builder().partitionValue(targetId).build());
+
+            // Filter expression to match the gameId (assuming gameId is not part of the GSI key)
+            // Adjust the attribute name "GameID" if it's different in your Player model mapping.
+            Expression filterExpression = Expression.builder()
+                                                    .expression("GameID = :gid") // Use mapped attribute name
+                                                    .putExpressionValue(":gid", AttributeValue.builder().s(gameId).build())
+                                                    .build();
+
+            QueryEnhancedRequest request = QueryEnhancedRequest.builder()
+                                                               .queryConditional(queryConditional)
+                                                               .filterExpression(filterExpression) // Apply the filter
+                                                               .build();
+
+            // Query the GSI
+            List<Player> players = targetIdIndex.query(request).stream()
+                                                .flatMap(page -> page.items().stream())
+                                                .collect(Collectors.toList());
+
+            logger.debug("Found {} players targeting player ID: {} in game ID: {}", 
+                       players.size(), targetId, gameId);
+            return players;
+
+        } catch (DynamoDbException e) {
+            String errorMessage = e.awsErrorDetails() != null ? e.awsErrorDetails().errorMessage() : e.getMessage();
+            logger.error("Error querying TargetIdIndex for target {} in game {}: {}", 
+                       targetId, gameId, errorMessage, e);
+            throw new PlayerPersistenceException("Error finding players by target ID", e);
+        } catch (Exception e) { // Catch broader exceptions
+            logger.error("Unexpected error getting players targeting {} in game {}: {}", 
+                       targetId, gameId, e.getMessage(), e);
+            throw new PlayerPersistenceException("Unexpected error finding players by target ID", e);
         }
     }
 

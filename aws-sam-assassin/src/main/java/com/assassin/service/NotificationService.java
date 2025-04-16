@@ -274,28 +274,36 @@ public class NotificationService {
     }
     
     /**
-     * Marks a notification as read.
-     * 
+     * Marks a specific notification as read for a recipient.
+     *
      * @param recipientPlayerId The ID of the player who received the notification
      * @param notificationId The ID of the notification to mark as read
      * @return true if the notification was successfully marked as read, false otherwise
      */
     public boolean markNotificationAsRead(String recipientPlayerId, String notificationId) {
-        logger.info("Marking notification as read: recipient={}, id={}", recipientPlayerId, notificationId);
+        // Add null/empty checks before calling DAO
+        if (recipientPlayerId == null || recipientPlayerId.isEmpty()) {
+            logger.warn("Attempted to mark notification as read with null or empty recipientPlayerId.");
+            return false;
+        }
+        if (notificationId == null || notificationId.isEmpty()) {
+            logger.warn("Attempted to mark notification as read with null or empty notificationId for recipient: {}", recipientPlayerId);
+            return false;
+        }
         
+        logger.info("Marking notification as read for recipient: {}, notification ID: {}", 
+                   recipientPlayerId, notificationId);
+                   
         try {
-            // Call the DAO method to update the notification status
+            // Call the DAO method which returns Optional<Notification>
             Optional<Notification> updatedNotification = notificationDao.markNotificationAsRead(recipientPlayerId, notificationId);
-            
-            // Return true if the update was successful (Optional is present)
-            return updatedNotification.isPresent();
-        } catch (IllegalArgumentException e) {
-            logger.error("Invalid arguments provided for marking notification as read: {}", e.getMessage());
-            return false;
-        } catch (RuntimeException e) {
-            // Catch potential runtime exceptions from the DAO layer
-            logger.error("Error marking notification as read: {}", e.getMessage(), e);
-            return false;
+            // Return true if the DAO call was successful (Optional is present)
+            return updatedNotification.isPresent(); 
+        } catch (Exception e) {
+            logger.error("Error marking notification as read for recipient {}, ID {}: {}", 
+                       recipientPlayerId, notificationId, e.getMessage(), e);
+            // Depending on DAO behavior, you might want to throw or return false
+            return false; 
         }
     }
 

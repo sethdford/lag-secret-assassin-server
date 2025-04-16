@@ -16,11 +16,14 @@ public class Notification {
 
     private String notificationId; // Unique ID for the notification
     private String recipientPlayerId; // ID of the player receiving the notification (partition key)
+    private String gameId;
     private String type; // Type of notification (e.g., "KILL_VERIFIED", "TARGET_ASSIGNED", "GAME_START", "ADMIN_MESSAGE")
+    private String title;
     private String message; // Human-readable message content
     private String timestamp; // ISO 8601 timestamp when the event occurred or notification was generated (sort key)
     private Map<String, String> data; // Optional structured data related to the notification (e.g., killerId, victimId)
     private String status; // Status of the notification (e.g., "UNREAD", "READ", "ARCHIVED") - may not be needed initially
+    private boolean read;
 
     // Default constructor
     public Notification() {
@@ -58,6 +61,15 @@ public class Notification {
         this.recipientPlayerId = recipientPlayerId;
     }
 
+    @DynamoDbAttribute("GameID")
+    public String getGameId() {
+        return gameId;
+    }
+
+    public void setGameId(String gameId) {
+        this.gameId = gameId;
+    }
+
     @DynamoDbAttribute("Type")
     public String getType() {
         return type;
@@ -65,6 +77,15 @@ public class Notification {
 
     public void setType(String type) {
         this.type = type;
+    }
+
+    @DynamoDbAttribute("Title")
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
     }
 
     @DynamoDbAttribute("Message")
@@ -104,16 +125,28 @@ public class Notification {
         this.status = status;
     }
 
+    @DynamoDbAttribute("Read")
+    public boolean isRead() {
+        return read;
+    }
+
+    public void setRead(boolean read) {
+        this.read = read;
+    }
+
     @Override
     public String toString() {
         return "Notification{" +
                "notificationId='" + notificationId + '\'' +
                ", recipientPlayerId='" + recipientPlayerId + '\'' +
+               ", gameId='" + gameId + '\'' +
                ", type='" + type + '\'' +
+               ", title='" + title + '\'' +
                ", message='" + message + '\'' +
                ", timestamp='" + timestamp + '\'' +
                ", data=" + data +
                ", status='" + status + '\'' +
+               ", read=" + read +
                '}';
     }
 } 

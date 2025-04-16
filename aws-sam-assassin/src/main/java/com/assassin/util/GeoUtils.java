@@ -229,4 +229,109 @@ public class GeoUtils {
         
         return new double[] {minLat, minLon, maxLat, maxLon};
     }
+
+    /**
+     * Calculates the distance from a point to a line segment in meters.
+     * 
+     * @param pointLat Latitude of the point
+     * @param pointLon Longitude of the point
+     * @param lineLat1 Latitude of the first endpoint of the line segment
+     * @param lineLon1 Longitude of the first endpoint of the line segment
+     * @param lineLat2 Latitude of the second endpoint of the line segment
+     * @param lineLon2 Longitude of the second endpoint of the line segment
+     * @return Distance in meters from the point to the closest point on the line segment
+     */
+    public static double distanceToLineSegment(double pointLat, double pointLon, 
+                                        double lineLat1, double lineLon1, 
+                                        double lineLat2, double lineLon2) {
+        // Convert to radians for calculations
+        double pLat = Math.toRadians(pointLat);
+        double pLon = Math.toRadians(pointLon);
+        double l1Lat = Math.toRadians(lineLat1);
+        double l1Lon = Math.toRadians(lineLon1);
+        double l2Lat = Math.toRadians(lineLat2);
+        double l2Lon = Math.toRadians(lineLon2);
+        
+        // Validate inputs
+        if (l1Lat == l2Lat && l1Lon == l2Lon) {
+            // Line segment is actually a point, so just calculate distance to that point
+            return calculateDistanceRadians(pLat, pLon, l1Lat, l1Lon);
+        }
+        
+        // Step 1: Find the closest point on the infinite line
+        // Calculate direction vector of the line
+        double dLon = l2Lon - l1Lon;
+        double dLat = l2Lat - l1Lat;
+        
+        // Calculate the squared length of the line segment
+        double lineSegmentLengthSquared = dLon * dLon + dLat * dLat;
+        
+        // Calculate projection scalar parameter t (0 <= t <= 1 for points on the segment)
+        double t = ((pLon - l1Lon) * dLon + (pLat - l1Lat) * dLat) / lineSegmentLengthSquared;
+        
+        // Clamp t to the line segment bounds
+        t = Math.max(0, Math.min(1, t));
+        
+        // Calculate the closest point on the line segment
+        double closestLat = l1Lat + t * dLat;
+        double closestLon = l1Lon + t * dLon;
+        
+        // Step 2: Calculate distance from point to closest point on segment
+        return calculateDistanceRadians(pLat, pLon, closestLat, closestLon);
+    }
+
+    /**
+     * Helper method that calculates the distance between two points given in radians.
+     * Uses the Haversine formula.
+     * 
+     * @param lat1 Latitude of point 1 in radians
+     * @param lon1 Longitude of point 1 in radians
+     * @param lat2 Latitude of point 2 in radians
+     * @param lon2 Longitude of point 2 in radians
+     * @return Distance in meters
+     */
+    private static double calculateDistanceRadians(double lat1, double lon1, double lat2, double lon2) {
+        double dLat = lat2 - lat1;
+        double dLon = lon2 - lon1;
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + 
+                   Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return EARTH_RADIUS_METERS * c;
+    }
+
+    /**
+     * Calculates the geometric centroid of a polygon.
+     * For simple polygons, this often approximates the visual center.
+     * Note: This is a simplified calculation (average of vertices) and may not be
+     * accurate for complex, self-intersecting, or geographically large polygons
+     * where Earth's curvature is significant.
+     *
+     * @param polygon A list of coordinates defining the polygon boundary (at least 3 points).
+     * @return The calculated centroid Coordinate, or null if input is invalid.
+     */
+    public static Coordinate calculateCentroid(List<Coordinate> polygon) {
+        if (polygon == null || polygon.isEmpty()) {
+            return null;
+        }
+
+        double sumLat = 0.0;
+        double sumLon = 0.0;
+        int n = polygon.size();
+
+        // If the last point is the same as the first, ignore it for centroid calculation
+        if (n > 1 && polygon.get(0).equals(polygon.get(n - 1))) {
+            n--;
+        }
+
+        if (n < 1) { // Need at least one unique point
+             return null;
+        }
+        
+        for (int i = 0; i < n; i++) {
+            sumLat += polygon.get(i).getLatitude();
+            sumLon += polygon.get(i).getLongitude();
+        }
+
+        return new Coordinate(sumLat / n, sumLon / n);
+    }
 } 

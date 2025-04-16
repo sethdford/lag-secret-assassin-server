@@ -43,6 +43,9 @@ public class Player {
 
     // Constants for GSI
     private static final String EMAIL_INDEX = "EmailIndex";
+    private static final String GAME_ID_INDEX = "GameIdIndex";
+    private static final String TARGET_ID_INDEX = "TargetIdIndex";
+    private static final String KILL_COUNT_INDEX = "KillCountIndex";
 
     @DynamoDbPartitionKey
     @DynamoDbAttribute("PlayerID") // Explicit attribute name matching schema
@@ -73,6 +76,7 @@ public class Player {
         this.playerName = playerName;
     }
 
+    @DynamoDbSecondaryPartitionKey(indexNames = {TARGET_ID_INDEX})
     @DynamoDbAttribute("TargetID")
     public String getTargetID() {
         return targetID;
@@ -118,7 +122,7 @@ public class Player {
         this.lastWill = lastWill;
     }
 
-    @DynamoDbSecondaryPartitionKey(indexNames = {"GameIdIndex"})
+    @DynamoDbSecondaryPartitionKey(indexNames = {GAME_ID_INDEX})
     @DynamoDbAttribute("GameID")
     public String getGameID() {
         return gameID;

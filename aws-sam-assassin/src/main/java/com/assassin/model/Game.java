@@ -37,6 +37,8 @@ public class Game {
     private Map<String, Object> settings; // Flexible map for game settings
     private List<Coordinate> boundary; // Game boundary coordinates
     private Boolean shrinkingZoneEnabled; // Flag if shrinking zone is active
+    private String mapId; // ID of the map configuration used
+    private Long startTimeEpochMillis; // Epoch millis when the game officially started
 
     // Constants for GSI
     private static final String STATUS_CREATED_AT_INDEX = "StatusCreatedAtIndex";
@@ -202,6 +204,24 @@ public class Game {
         this.shrinkingZoneEnabled = shrinkingZoneEnabled;
     }
 
+    // Getters and Setters for new fields
+    public String getMapId() {
+        return mapId;
+    }
+
+    public void setMapId(String mapId) {
+        this.mapId = mapId;
+    }
+
+    public Long getStartTimeEpochMillis() {
+        return startTimeEpochMillis;
+    }
+
+    public void setStartTimeEpochMillis(Long startTimeEpochMillis) {
+        this.startTimeEpochMillis = startTimeEpochMillis;
+    }
+    // End of Getters and Setters for new fields
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -227,6 +247,8 @@ public class Game {
                ", settings=" + settings +
                ", boundary=" + boundary +
                ", shrinkingZoneEnabled=" + shrinkingZoneEnabled +
+               ", mapId='" + mapId + '\'' +
+               ", startTimeEpochMillis=" + startTimeEpochMillis +
                '}';
     }
 } 

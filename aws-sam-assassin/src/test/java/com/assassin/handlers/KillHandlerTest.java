@@ -3,6 +3,7 @@ package com.assassin.handlers;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.BeforeEach;
@@ -94,7 +95,7 @@ public class KillHandlerTest {
         
         // Mock HandlerUtils.getPlayerIdFromRequest to return killerId
         try (MockedStatic<HandlerUtils> handlerUtils = Mockito.mockStatic(HandlerUtils.class)) {
-            handlerUtils.when(() -> HandlerUtils.getPlayerIdFromRequest(request)).thenReturn(killerId);
+            handlerUtils.when(() -> HandlerUtils.getPlayerIdFromRequest(request)).thenReturn(Optional.of(killerId));
             handlerUtils.when(HandlerUtils::getResponseHeaders).thenCallRealMethod();
             handlerUtils.when(() -> HandlerUtils.isPreflightRequest(request)).thenCallRealMethod();
             
@@ -152,7 +153,7 @@ public class KillHandlerTest {
         
         // Mock HandlerUtils.getPlayerIdFromRequest to return killerId
         try (MockedStatic<HandlerUtils> handlerUtils = Mockito.mockStatic(HandlerUtils.class)) {
-            handlerUtils.when(() -> HandlerUtils.getPlayerIdFromRequest(request)).thenReturn(killerId);
+            handlerUtils.when(() -> HandlerUtils.getPlayerIdFromRequest(request)).thenReturn(Optional.of(killerId));
             handlerUtils.when(HandlerUtils::getResponseHeaders).thenCallRealMethod();
             handlerUtils.when(() -> HandlerUtils.isPreflightRequest(request)).thenCallRealMethod();
             
@@ -167,7 +168,7 @@ public class KillHandlerTest {
             assertEquals(400, response.getStatusCode()); // Bad Request
             Map<String, String> errorBody = gson.fromJson(response.getBody(), 
                 new TypeToken<Map<String, String>>(){}.getType());
-            assertEquals(errorMessage, errorBody.get("message"));
+            assertEquals("Validation error: " + errorMessage, errorBody.get("message"));
         }
     }
     
@@ -190,7 +191,7 @@ public class KillHandlerTest {
         
         // Mock HandlerUtils methods
         try (MockedStatic<HandlerUtils> handlerUtils = Mockito.mockStatic(HandlerUtils.class)) {
-            handlerUtils.when(() -> HandlerUtils.getPlayerIdFromRequest(request)).thenReturn(killerId);
+            handlerUtils.when(() -> HandlerUtils.getPlayerIdFromRequest(request)).thenReturn(Optional.of(killerId));
             handlerUtils.when(HandlerUtils::getResponseHeaders).thenCallRealMethod();
             handlerUtils.when(() -> HandlerUtils.isPreflightRequest(request)).thenCallRealMethod();
             

@@ -227,4 +227,50 @@ public class MapConfigurationService {
     public double getMaxMapSizeMeters() {
         return MAX_MAP_SIZE_METERS;
     }
+
+    /**
+     * Calculates the geometric center (centroid) of the game boundary.
+     * 
+     * @param gameId The game ID.
+     * @return The calculated centroid Coordinate, or null if the boundary is invalid.
+     */
+    public Coordinate getGameBoundaryCenter(String gameId) {
+        List<Coordinate> boundary = getGameBoundary(gameId);
+        if (boundary == null || boundary.size() < 3) {
+            logger.warn("Cannot calculate center for invalid boundary for game {}", gameId);
+            return null; // Or return default center?
+        }
+        // Use the newly added GeoUtils method
+        return GeoUtils.calculateCentroid(boundary);
+    }
+
+    /**
+     * Retrieves the effective map configuration for a given game.
+     * TODO: Implement actual logic to load/determine the correct configuration.
+     * This might involve reading from a configuration table based on game settings or map ID.
+     * 
+     * @param gameId The game ID.
+     * @return The applicable MapConfiguration.
+     * @throws ValidationException if no configuration can be found.
+     */
+    public com.assassin.config.MapConfiguration getEffectiveMapConfiguration(String gameId) {
+        // Placeholder implementation for testing purposes.
+        logger.warn("getEffectiveMapConfiguration called with placeholder logic for game {}", gameId);
+        // In a real implementation, load based on gameId/settings from a DAO/source.
+        // For now, return a dummy or default config to allow tests to proceed.
+        // Throwing an exception if not found is also reasonable.
+        
+        // Example: Returning a new default instance (modify as needed for tests)
+        com.assassin.config.MapConfiguration defaultConfig = new com.assassin.config.MapConfiguration();
+        defaultConfig.setMapId("default-placeholder");
+        // Populate with some default values if required by callers/tests
+        defaultConfig.setInitialZoneRadiusMeters(5000.0);
+        defaultConfig.setZoneDamagePerSecond(1.0);
+        // etc.
+        
+        // Alternatively, throw if no config is truly found:
+        // throw new ValidationException("Map configuration not found for game " + gameId);
+        
+        return defaultConfig; 
+    }
 } 

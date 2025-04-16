@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +23,8 @@ import com.assassin.exception.PlayerPersistenceException;
 import com.assassin.model.Coordinate;
 import com.assassin.model.Game;
 import com.assassin.model.Player;
+import com.assassin.service.GeofenceManager.GeofenceEvent;
+import com.assassin.service.GeofenceManager.GeofenceEventType;
 import com.assassin.util.GeoUtils;
 
 /**
@@ -34,6 +37,7 @@ public class LocationService {
     private final PlayerDao playerDao;
     private final GameDao gameDao;
     private final MapConfigurationService mapConfigService;
+    private final GeofenceManager geofenceManager;
     
     // Constants for location validation
     private static final double DEFAULT_SPEED_LIMIT_METERS_PER_SECOND = 30.0; // ~108 km/h or ~67 mph
@@ -41,19 +45,21 @@ public class LocationService {
 
     // Default constructor
     public LocationService() {
-        this(new DynamoDbPlayerDao(), 
-             new DynamoDbGameDao(), 
-             new MapConfigurationService(
-                new DynamoDbGameDao(), 
+        MapConfigurationService mapConfig = new MapConfigurationService(
+            new DynamoDbGameDao(), 
+            new DynamoDbGameZoneStateDao(),
+            new DynamoDbSafeZoneDao(),
+            new ShrinkingZoneService(
+                new DynamoDbGameDao(),
                 new DynamoDbGameZoneStateDao(),
-                new DynamoDbSafeZoneDao(),
-                new ShrinkingZoneService(
-                    new DynamoDbGameDao(),
-                    new DynamoDbGameZoneStateDao(),
-                    new DynamoDbPlayerDao()
-                )
-             )
+                new DynamoDbPlayerDao()
+            )
         );
+        
+        this.playerDao = new DynamoDbPlayerDao();
+        this.gameDao = new DynamoDbGameDao();
+        this.mapConfigService = mapConfig;
+        this.geofenceManager = new GeofenceManager(mapConfig);
     }
 
     // Constructor for dependency injection (testing)
@@ -61,46 +67,54 @@ public class LocationService {
         // This constructor might need to be adjusted or removed depending on testing strategy,
         // as MapConfigurationService now has required dependencies.
         // For now, initialize MapConfigurationService with default DAOs/Services.
-        this(playerDao, 
-             gameDao, 
-             new MapConfigurationService(
-                new DynamoDbGameDao(), 
+        MapConfigurationService mapConfig = new MapConfigurationService(
+            new DynamoDbGameDao(), 
+            new DynamoDbGameZoneStateDao(),
+            new DynamoDbSafeZoneDao(),
+            new ShrinkingZoneService(
+                new DynamoDbGameDao(),
                 new DynamoDbGameZoneStateDao(),
-                new DynamoDbSafeZoneDao(),
-                new ShrinkingZoneService(
-                    new DynamoDbGameDao(),
-                    new DynamoDbGameZoneStateDao(),
-                    new DynamoDbPlayerDao()
-                )
-             )
+                new DynamoDbPlayerDao()
+            )
         );
+        
+        this.playerDao = Objects.requireNonNull(playerDao, "playerDao cannot be null");
+        this.gameDao = Objects.requireNonNull(gameDao, "gameDao cannot be null");
+        this.mapConfigService = mapConfig;
+        this.geofenceManager = new GeofenceManager(mapConfig);
     }
     
     // Full constructor for all dependencies
-    public LocationService(PlayerDao playerDao, GameDao gameDao, MapConfigurationService mapConfigService) {
+    public LocationService(PlayerDao playerDao, GameDao gameDao, 
+                          MapConfigurationService mapConfigService,
+                          GeofenceManager geofenceManager) {
         this.playerDao = Objects.requireNonNull(playerDao, "playerDao cannot be null");
         this.gameDao = Objects.requireNonNull(gameDao, "gameDao cannot be null");
         this.mapConfigService = Objects.requireNonNull(mapConfigService, "mapConfigService cannot be null");
+        this.geofenceManager = Objects.requireNonNull(geofenceManager, "geofenceManager cannot be null");
     }
 
     /**
      * Updates a player's location after validation and boundary checks.
      * Performs enhanced validation including coordinate range checking and movement speed validation.
+     * Also notifies the GeofenceManager to monitor for boundary crossings.
      *
      * @param playerId The ID of the player.
      * @param latitude The reported latitude.
      * @param longitude The reported longitude.
      * @param accuracy The reported accuracy in meters.
+     * @return Optional GeofenceEvent if a boundary event occurred, empty otherwise
      * @throws PlayerNotFoundException If the player doesn't exist.
      * @throws GameNotFoundException If the player's game doesn't exist.
      * @throws InvalidLocationException If the location is invalid (outside boundaries, impossible movement).
      * @throws PlayerPersistenceException If the database update fails.
      * @throws IllegalArgumentException If input parameters are invalid.
      */
-    public void updatePlayerLocation(String playerId, Double latitude, Double longitude, Double accuracy)
+    public Optional<GeofenceEvent> updatePlayerLocation(String playerId, Double latitude, Double longitude, Double accuracy)
             throws PlayerNotFoundException, GameNotFoundException, InvalidLocationException, PlayerPersistenceException {
         
         logger.debug("Attempting to update location for player: {}", playerId);
+        Optional<GeofenceEvent> geofenceEvent = Optional.empty();
         
         // 1. Basic Validation
         if (playerId == null || playerId.isEmpty()) {
@@ -127,11 +141,12 @@ public class LocationService {
             playerDao.updatePlayerLocation(playerId, latitude, longitude, timestamp, accuracy);
             logger.info("Updated location for player {} not in a game: ({}, {})", 
                       playerId, latitude, longitude);
-            return;
+            return Optional.empty();
         }
         
-        Game game = gameDao.getGameById(player.getGameID())
-                .orElseThrow(() -> new GameNotFoundException("Game not found for player: " + playerId + ", Game ID: " + player.getGameID()));
+        String gameId = player.getGameID();
+        Game game = gameDao.getGameById(gameId)
+                .orElseThrow(() -> new GameNotFoundException("Game not found for player: " + playerId + ", Game ID: " + gameId));
                 
         // 3. Movement speed validation (if previous location exists)
         if (player.getLatitude() != null && player.getLongitude() != null && 
@@ -143,23 +158,37 @@ public class LocationService {
                 game);
         }
         
-        // 4. Boundary Check (if boundaries are defined for the game)
+        // 4. Create coordinate object
         Coordinate location = new Coordinate(latitude, longitude);
+        
+        // 5. Boundary Check (if boundaries are defined for the game)
         if (!isWithinBoundaries(location, game)) {
             logger.warn("Player {} reported location ({}, {}) outside game boundaries for game {}",
-                        playerId, latitude, longitude, game.getGameID());
+                        playerId, latitude, longitude, gameId);
             throw new InvalidLocationException("Reported location is outside the defined game boundaries.");
         }
         
-        // 5. Update Player Location in DAO
+        // 6. Update GeofenceManager to check for boundary events
+        geofenceEvent = geofenceManager.updatePlayerLocation(gameId, playerId, location);
+        
+        // 7. Update Player Location in DAO
         String timestamp = Instant.now().toString();
         try {
             playerDao.updatePlayerLocation(playerId, latitude, longitude, timestamp, accuracy);
             logger.info("Successfully updated location for player: {}, Timestamp: {}", playerId, timestamp);
             
-            // 6. Add to location history if needed
-            // In a full implementation, we would store the location history
-            // updateLocationHistory(playerId, latitude, longitude, timestamp);
+            // 8. Log any boundary events
+            if (geofenceEvent.isPresent()) {
+                GeofenceEvent event = geofenceEvent.get();
+                if (event.getEventType() == GeofenceEventType.EXIT_BOUNDARY) {
+                    logger.warn("Player {} has exited the game boundary for game {}", playerId, gameId);
+                } else if (event.getEventType() == GeofenceEventType.ENTER_BOUNDARY) {
+                    logger.info("Player {} has entered the game boundary for game {}", playerId, gameId);
+                } else if (event.getEventType() == GeofenceEventType.APPROACHING_BOUNDARY) {
+                    logger.debug("Player {} is approaching the boundary for game {}, distance: {}m", 
+                                playerId, gameId, String.format("%.2f", event.getDistanceToBoundary()));
+                }
+            }
             
         } catch (PlayerNotFoundException pnfe) { 
             // Should ideally not happen if fetched above, but handle defensively
@@ -169,6 +198,8 @@ public class LocationService {
             logger.error("Failed to persist location update for player {}: {}", playerId, ppe.getMessage(), ppe);
             throw ppe;
         }
+        
+        return geofenceEvent;
     }
 
     /**

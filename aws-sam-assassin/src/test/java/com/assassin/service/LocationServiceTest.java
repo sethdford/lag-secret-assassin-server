@@ -7,8 +7,10 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,6 +44,9 @@ public class LocationServiceTest {
 
     @Mock
     private MapConfigurationService mapConfigService;
+
+    @Mock
+    private GeofenceManager geofenceManager;
 
     @InjectMocks
     private LocationService locationService;
@@ -83,8 +88,6 @@ public class LocationServiceTest {
         // Arrange
         when(playerDao.getPlayerById(playerId)).thenReturn(Optional.of(testPlayer));
         when(gameDao.getGameById(gameId)).thenReturn(Optional.of(testGame));
-        // Mock getGameBoundary for boundary checks used within updatePlayerLocation
-        when(mapConfigService.getGameBoundary(gameId)).thenReturn(testGame.getBoundary()); 
         // Assume GeoUtils.isPointInBoundary returns true for this setup
         
         // Act
@@ -151,7 +154,6 @@ public class LocationServiceTest {
         double outsideLon = -76.0;
         when(playerDao.getPlayerById(playerId)).thenReturn(Optional.of(testPlayer));
         when(gameDao.getGameById(gameId)).thenReturn(Optional.of(testGame));
-        when(mapConfigService.getGameBoundary(gameId)).thenReturn(testGame.getBoundary());
         // We test the boundary check logic by ensuring InvalidLocationException is thrown
         // This implicitly tests the internal call to isWithinBoundaries, which uses GeoUtils
 
@@ -170,7 +172,6 @@ public class LocationServiceTest {
         testPlayer.setLocationTimestamp(Instant.now().minusSeconds(1).toString()); // 1 second ago
         when(playerDao.getPlayerById(playerId)).thenReturn(Optional.of(testPlayer));
         when(gameDao.getGameById(gameId)).thenReturn(Optional.of(testGame));
-        when(mapConfigService.getGameBoundary(gameId)).thenReturn(testGame.getBoundary());
         // Implicitly tests validateMovementSpeed which uses GeoUtils.calculateDistance
 
         // Act & Assert
@@ -194,6 +195,60 @@ public class LocationServiceTest {
         verify(playerDao).updatePlayerLocation(eq(playerId), eq(validLat), eq(validLon), anyString(), eq(10.0));
         verify(gameDao, never()).getGameById(any());
         verify(mapConfigService, never()).getGameBoundary(any());
+    }
+    
+    @Test
+    void updatePlayerLocation_TriggersGeofenceManager() throws Exception {
+        // Arrange
+        when(playerDao.getPlayerById(playerId)).thenReturn(Optional.of(testPlayer));
+        when(gameDao.getGameById(gameId)).thenReturn(Optional.of(testGame));
+        
+        // Setup mock for GeofenceManager to return an APPROACHING_BOUNDARY event
+        Coordinate expectedCoordinate = new Coordinate(validLat, validLon);
+        GeofenceManager.GeofenceEvent mockEvent = new GeofenceManager.GeofenceEvent(
+            gameId, playerId, expectedCoordinate, 
+            GeofenceManager.GeofenceEventType.APPROACHING_BOUNDARY, 30.0);
+        when(geofenceManager.updatePlayerLocation(eq(gameId), eq(playerId), any(Coordinate.class)))
+            .thenReturn(Optional.of(mockEvent));
+        
+        // Act
+        Optional<GeofenceManager.GeofenceEvent> result = 
+            locationService.updatePlayerLocation(playerId, validLat, validLon, 10.0);
+        
+        // Assert
+        assertTrue(result.isPresent(), "Should return geofence event");
+        assertEquals(GeofenceManager.GeofenceEventType.APPROACHING_BOUNDARY, result.get().getEventType());
+        assertEquals(30.0, result.get().getDistanceToBoundary());
+        
+        // Verify geofence manager was called with correct parameters
+        verify(geofenceManager).updatePlayerLocation(eq(gameId), eq(playerId), eq(expectedCoordinate));
+        
+        // Verify player location was updated
+        verify(playerDao).updatePlayerLocation(eq(playerId), eq(validLat), eq(validLon), anyString(), eq(10.0));
+    }
+    
+    @Test
+    void updatePlayerLocation_NoGeofenceEvent() throws Exception {
+        // Arrange
+        when(playerDao.getPlayerById(playerId)).thenReturn(Optional.of(testPlayer));
+        when(gameDao.getGameById(gameId)).thenReturn(Optional.of(testGame));
+        
+        // Setup mock for GeofenceManager to return no event
+        when(geofenceManager.updatePlayerLocation(eq(gameId), eq(playerId), any(Coordinate.class)))
+            .thenReturn(Optional.empty());
+        
+        // Act
+        Optional<GeofenceManager.GeofenceEvent> result = 
+            locationService.updatePlayerLocation(playerId, validLat, validLon, 10.0);
+        
+        // Assert
+        assertFalse(result.isPresent(), "Should not return geofence event");
+        
+        // Verify geofence manager was called
+        verify(geofenceManager).updatePlayerLocation(eq(gameId), eq(playerId), any(Coordinate.class));
+        
+        // Verify player location was updated
+        verify(playerDao).updatePlayerLocation(eq(playerId), eq(validLat), eq(validLon), anyString(), eq(10.0));
     }
     
     // --- Tests for getClientMapConfiguration --- 

@@ -106,6 +106,15 @@ public interface PlayerDao {
      */
     List<Player> getPlayersByGameId(String gameId) throws PlayerPersistenceException;
 
+    /**
+     * Retrieves all players targeting a specific player within a game.
+     *
+     * @param targetId The ID of the player being targeted.
+     * @param gameId The ID of the game.
+     * @return A list of players (hunters) targeting the specified player.
+     */
+    List<Player> getPlayersTargeting(String targetId, String gameId);
+
     // Potentially add methods for finding player by targetID, listing alive players, etc.
     // Player findByTargetId(String targetId); // Requires GSI
     // List<Player> findAllAlivePlayers(); // Requires Scan or GSI
