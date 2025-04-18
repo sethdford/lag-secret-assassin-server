@@ -24,13 +24,16 @@
         <slf4j.version>2.0.7</slf4j.version>
         <log4j.version>2.20.0</log4j.version> <!-- Consider Logback or java.util.logging as alternatives -->
         <junit.version>5.9.2</junit.version>
-        <mockito.version>5.2.0</mockito.version>
+        <mockito.version>5.10.0</mockito.version> <!-- Updated for JDK 23 compatibility -->
+        <bytebuddy.version>1.14.13</bytebuddy.version> <!-- Added for JDK 23 compatibility -->
         <gson.version>2.10.1</gson.version> <!-- For JSON handling in example handler -->
         <!-- Plugin Versions -->
         <maven.shade.plugin.version>3.4.1</maven.shade.plugin.version>
         <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
         <maven.surefire.plugin.version>3.3.1</maven.surefire.plugin.version>
         <auth0.jwt.version>4.4.0</auth0.jwt.version>
+        <!-- Skip JaCoCo on JDK 23 (not yet compatible with class file version 67) -->
+        <jacoco.skip>true</jacoco.skip>
     </properties>
 
     <dependencyManagement>
@@ -60,13 +63,6 @@
             <version>${aws.lambda.java.events.version}</version>
         </dependency>
 
-        <!-- Full AWS SDK v1 - replaces individual dependencies -->
-        <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk</artifactId>
-            <version>1.12.720</version>
-        </dependency>
-        
         <!-- AWS SDK v2 for DynamoDB Enhanced Client -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
@@ -161,10 +157,23 @@
             <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
-         <dependency>
+        <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
             <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Explicit ByteBuddy dependency for JDK 23 compatibility -->
+        <dependency>
+            <groupId>net.bytebuddy</groupId>
+            <artifactId>byte-buddy</artifactId>
+            <version>${bytebuddy.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.bytebuddy</groupId>
+            <artifactId>byte-buddy-agent</artifactId>
+            <version>${bytebuddy.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -233,8 +242,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>${maven.compiler.plugin.version}</version>
                 <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
+                    <release>${java.version}</release>
                 </configuration>
                 <executions>
                     <execution>
@@ -286,8 +294,25 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven.surefire.plugin.version}</version>
                 <configuration>
-                    <skipTests>false</skipTests>
-                    <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                    <includes>
+                        <include>**/*Test.java</include>
+                    </includes>
+                    <argLine>
+                        -Dnet.bytebuddy.experimental=true
+                    </argLine>
+                    <environmentVariables>
+                        <TEMPLATE_BUCKET_NAME>sam-template-bucket</TEMPLATE_BUCKET_NAME>
+                        <STACK_NAME>test-stack</STACK_NAME>
+                        <ENFORCE_ENVIRONMENT_VARIABLES>false</ENFORCE_ENVIRONMENT_VARIABLES>
+                        <TABLE_NAME>test_data</TABLE_NAME>
+                        <PLAYER_TABLE_NAME>test_player</PLAYER_TABLE_NAME>
+                        <GAME_TABLE_NAME>test_game</GAME_TABLE_NAME>
+                        <ELIMINATION_TABLE_NAME>test_elimination</ELIMINATION_TABLE_NAME>
+                        <GAME_ZONE_STATE_TABLE_NAME>test_game_zone_state</GAME_ZONE_STATE_TABLE_NAME>
+                        <MAP_CONFIG_TABLE_NAME>test_map_config</MAP_CONFIG_TABLE_NAME>
+                        <SAFE_ZONE_TABLE_NAME>test_safe_zone</SAFE_ZONE_TABLE_NAME>
+                        <AWS_REGION>us-east-1</AWS_REGION> <!-- For use in unit tests -->
+                    </environmentVariables>
                 </configuration>
              </plugin>
              <!-- JaCoCo plugin for code coverage -->
@@ -295,6 +320,10 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.11</version>
+                <configuration>
+                    <!-- Skip JaCoCo instrumentation on JDK 23 -->
+                    <skip>${jacoco.skip}</skip>
+                </configuration>
                 <executions>
                     <execution>
                         <id>prepare-agent</id>
