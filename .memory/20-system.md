@@ -1,232 +1,137 @@
-# Assassin Game API Architecture
+# Assassin Game API System Architecture
 
 ## Overview
-
-The Assassin Game API follows a serverless architecture built on AWS services, using AWS SAM (Serverless Application Model) for infrastructure as code. The application employs a microservices approach with AWS Lambda functions handling specific domains of functionality, and Amazon DynamoDB as the persistent data store.
-
-## Architecture Diagram
-
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│                 │     │                 │     │                 │
-│  Mobile Clients │────▶│  API Gateway    │────▶│  Lambda         │
-│  (iOS/Android)  │     │  (REST API)     │     │  Functions      │
-│                 │◀────│                 │◀────│                 │
-└─────────────────┘     └─────────────────┘     └────────┬────────┘
-                                                         │
-                        ┌─────────────────┐              │
-                        │                 │              │
-                        │  Amazon Cognito │◀─────────────┘
-                        │  User Pools     │              │
-                        │                 │              │
-                        └─────────────────┘              │
-                                                         │
-┌─────────────────┐     ┌─────────────────┐     ┌────────▼────────┐
-│                 │     │                 │     │                 │
-│  Amazon SNS     │◀────│  Lambda         │◀────│  DynamoDB       │
-│  Notifications  │     │  Functions      │     │  Tables         │
-│                 │     │                 │     │                 │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-```
+The Assassin Game API is a serverless application built on AWS services, utilizing AWS SAM for infrastructure as code. The architecture follows cloud-native design principles to ensure scalability, reliability, and cost-effectiveness.
 
 ## Key Components
 
-### API Layer
+### Amazon API Gateway
+- Serves as the entry point for all API requests
+- Manages API versioning and stages (dev, test, prod)
+- Handles request validation and authorization
+- Implements rate limiting and throttling
+- Provides WebSocket support for real-time updates
 
-1. **Amazon API Gateway**
-   - Serves as the entry point for all client requests
-   - Provides RESTful API endpoints with proper resource paths
-   - Implements request validation and API key management
-   - Handles CORS for browser-based clients
-   - Routes requests to appropriate Lambda functions
+### AWS Lambda Functions
+- **AuthHandler**: Manages user authentication and token validation
+- **GameHandler**: Handles game creation, configuration, and lifecycle
+- **PlayerHandler**: Manages player registration, profiles, and status
+- **LocationHandler**: Processes location updates and proximity calculations
+- **KillHandler**: Manages kill reporting and verification
+- **SafeZoneHandler**: Handles safe zone creation and validation
+- **NotificationHandler**: Manages push notifications and alerts
+- **AdminHandler**: Provides administrative functions for game management
 
-2. **Amazon Cognito User Pools**
-   - Manages user authentication and authorization
-   - Provides JWT tokens for API access
-   - Supports user registration and profile management
-   - Integrates with API Gateway for request authorization
+### Amazon DynamoDB
+- **UsersTable**: Stores user authentication data
+- **GamesTable**: Stores game configuration and state
+- **PlayersTable**: Stores player data and game associations
+- **LocationsTable**: Tracks player location history with TTL
+- **KillsTable**: Records kill reports and verification status
+- **SafeZonesTable**: Stores safe zone definitions and metadata
+- Uses GSIs (Global Secondary Indexes) for efficient querying
+- On-demand capacity mode for cost optimization
 
-### Compute Layer
+### Amazon Cognito
+- User authentication and identity management
+- Token-based authentication with JWT
+- User pools for managing user accounts
+- Identity pools for granting access to AWS resources
+- Integration with social identity providers
 
-3. **AWS Lambda Functions**
-   - **PlayerManagementFunction**: Handle player registration, profile updates
-   - **GameManagementFunction**: Create, update, delete, and query games
-   - **KillReportingFunction**: Manage kill reports, confirmations, and verifications
-   - **TargetAssignmentFunction**: Assign and reassign targets among players
-   - **NotificationFunction**: Generate and send notifications to players
-   - **LocationHandlerFunction**: Process location updates and proximity events
-   - **SafeZoneHandlerFunction**: Manage and evaluate safe zone status and effects
-
-### Data Layer
-
-4. **Amazon DynamoDB Tables**
-   - **PlayerTable**: Store player profiles and authentication details
-   - **GameTable**: Store game configurations, rules, and status
-   - **KillTable**: Track kill reports, confirmations, and related data
-   - **NotificationTable**: Store notification data and delivery status
-   - **PlayerGameStateTable**: Track player state within specific games
-   - **GameZoneStateTable**: Store game boundary and safe zone information
-   - **LocationHistoryTable**: Record player location history for verification
-
-### Notification Layer
-
-5. **Amazon SNS**
-   - Deliver push notifications to mobile devices
-   - Support for both iOS and Android platforms
-   - Handle message formatting and delivery tracking
+### Amazon SNS
+- Push notification delivery to mobile devices
+- Topic-based notification for game events
+- Event-driven architecture for asynchronous processing
+- Real-time alerts for critical game events
 
 ## Data Flow
 
-### Player Registration and Authentication
-1. Player registers through mobile app
-2. Cognito creates user account and returns credentials
-3. Player authenticates and receives JWT token
-4. Token is used for subsequent API calls
+### Player Registration
+1. User registers through mobile app
+2. Request routed through API Gateway to Lambda function
+3. Cognito creates new user entry
+4. Lambda creates player profile in DynamoDB
+5. Confirmation message sent via SNS
 
 ### Game Creation
-1. Authenticated admin player creates game via API
-2. API Gateway validates request and routes to GameManagementFunction
-3. Lambda function creates game record in GameTable
-4. Confirmation response returned to client
+1. Admin creates game through API
+2. Request validated and routed to GameHandler Lambda
+3. Game details stored in DynamoDB
+4. Game boundaries and settings validated
+5. Notification sent to subscribed players
 
-### Player Joining Game
-1. Player requests to join game
-2. GameManagementFunction validates request
-3. Player added to game's player list
-4. PlayerGameStateTable updated with initial player state
-5. Notification sent to player and game admin
-
-### Location Update
-1. Player app sends location update to API
-2. LocationHandlerFunction processes update
-3. Location stored in LocationHistoryTable
-4. Proximity checks performed against other players
-5. Safe zone status evaluated
-6. State changes trigger appropriate game actions
+### Location Updates
+1. Player app sends location updates at configurable intervals
+2. LocationHandler Lambda receives updates via API Gateway
+3. Updates stored in DynamoDB with TTL for privacy
+4. Proximity calculations performed for nearby players
+5. Game state updated based on proximity rules
 
 ### Kill Reporting
 1. Player reports kill through app
-2. KillReportingFunction validates kill report
-3. Kill record created in KillTable
-4. Verification process initiated (password, proximity, etc.)
-5. Notifications sent to relevant players
-6. Game state updated based on verification outcome
+2. Request routed to KillHandler Lambda
+3. Kill event validated based on game rules and proximity
+4. If valid, player statuses updated in DynamoDB
+5. Notifications sent to affected players
+6. Game state updated accordingly
 
 ## System Properties
 
 ### Scalability
-- Serverless architecture automatically scales based on request volume
-- DynamoDB on-demand capacity mode handles variable workloads
-- Distributed architecture allows independent scaling of components
+- Serverless architecture automatically scales with user load
+- DynamoDB auto-scaling for read/write capacity
+- API Gateway and Lambda scale to handle thousands of concurrent requests
+- Event-driven design for asynchronous processing
 
 ### Reliability
-- AWS managed services provide high availability
-- Redundancy across multiple availability zones
-- Stateless Lambda functions improve fault tolerance
-- DynamoDB global tables for multi-region resilience
+- Multi-AZ deployment for high availability
+- Dead letter queues for failed Lambda executions
+- Retry mechanisms for transient errors
+- Monitoring and alerting for system issues
 
 ### Security
 - Cognito authentication and authorization
-- IAM roles for fine-grained access control
 - API Gateway request validation
-- Data encryption at rest and in transit
-- Input sanitization and validation
+- IAM roles with least privilege principle
+- DynamoDB encryption at rest
+- HTTPS for all communications
+- Input validation on all API endpoints
 
-### Monitoring and Observability
-- CloudWatch Logs for centralized logging
-- CloudWatch Metrics for performance monitoring
-- X-Ray for distributed tracing
-- CloudWatch Alarms for anomaly detection
-- SNS for operational notifications
+### Performance
+- DynamoDB DAX for caching frequent queries
+- Lambda function optimization (memory, timeout settings)
+- Efficient database queries with appropriate indexes
+- Batched writes for high-throughput operations
 
-## Deployment and CI/CD
-
-### AWS SAM
-- Infrastructure as Code for consistent deployments
-- Automated resource provisioning
-- Environment-specific configurations
-
-### CI/CD Pipeline
-- GitHub Actions for automated builds and tests
-- Multi-stage deployment process (dev, test, prod)
-- Automated testing before deployment
-- Rollback capabilities for failed deployments
-
-## Database Design
-
-### DynamoDB Access Patterns
-
-**PlayerTable**
-- Partition Key: `playerId` (UUID)
-- GSI1-PK: `email` for email lookup
-
-**GameTable**
-- Partition Key: `gameId` (UUID)
-- GSI1-PK: `adminPlayerId` for admin's games lookup
-- GSI2-PK: `status` for active game queries
-
-**KillTable**
-- Partition Key: `killId` (UUID)
-- GSI1-PK: `gameId`, GSI1-SK: `timestamp` for game's kills lookup
-- GSI2-PK: `killerId` for killer's kills lookup
-- GSI3-PK: `victimId` for victim's deaths lookup
-
-**PlayerGameStateTable**
-- Partition Key: `playerId`, Sort Key: `gameId` for player's game state
-- GSI1-PK: `gameId`, GSI1-SK: `status` for game's player status queries
-
-**GameZoneStateTable**
-- Partition Key: `gameId` for game's boundary and safe zone data
-- Contains boundary polygon and active safe zones
-
-**SafeZoneTable**
-- Partition Key: `safeZoneId` (UUID)
-- GSI1-PK: `gameId` for game's safe zones lookup
-- Types include permanent, temporary, and shrinking zones
+### Cost Optimization
+- Pay-per-use model with serverless components
+- DynamoDB TTL for automatic data expiration
+- Lambda concurrency limits to prevent runaway costs
+- CloudWatch Alarms for cost monitoring
 
 ## Integration Points
 
-1. **Mobile Client Integration**
-   - RESTful API with JSON payloads
-   - Push notification delivery via FCM and APNS
-   - Authentication flow with Cognito SDK
+### Mobile Applications
+- REST APIs for standard operations
+- WebSocket connections for real-time updates
+- Push notifications via SNS
+- Authentication via Cognito SDK
 
-2. **Third-Party Services**
-   - Maps API for geolocation data
-   - Social media sharing integrations
-   - Analytics services for usage tracking
+### Admin Dashboard
+- Dedicated APIs for administrative functions
+- Real-time monitoring of game state
+- Player management capabilities
+- Game configuration tools
 
-## Performance Considerations
+### Analytics and Reporting
+- CloudWatch Metrics for system monitoring
+- Custom metrics for game statistics
+- Event logging for audit purposes
+- Reporting APIs for game outcomes
 
-1. **DynamoDB Optimization**
-   - Appropriate capacity mode selection (on-demand vs. provisioned)
-   - Efficient access patterns to avoid scans
-   - Careful selection of partition and sort keys
-   - Use of TTL for ephemeral data (location history)
-
-2. **Lambda Optimization**
-   - Appropriate memory allocation
-   - Code optimization to reduce cold starts
-   - Connection pooling for database access
-   - Resource caching where appropriate
-
-3. **API Gateway**
-   - Request validation to reduce invalid requests
-   - Response caching where appropriate
-   - Efficient payload size management
-
-## Future Architectural Considerations
-
-1. **Real-time Updates**
-   - WebSocket API for real-time game state updates
-   - Amazon DynamoDB Streams for event-driven processing
-
-2. **Analytics Pipeline**
-   - Amazon Kinesis for data streaming
-   - Amazon Athena for data analysis
-   - Amazon QuickSight for visualization
-
-3. **Machine Learning Integration**
-   - Cheating detection algorithms
-   - Game balancing based on player behavior
-   - Personalized game recommendations 
+## Deployment Strategy
+- AWS SAM templates for infrastructure as code
+- CI/CD pipeline for automated deployments
+- Staged rollouts (dev, test, prod)
+- Blue/green deployment for zero-downtime updates 

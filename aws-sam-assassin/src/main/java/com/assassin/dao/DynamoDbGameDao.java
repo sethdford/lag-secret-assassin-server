@@ -52,6 +52,18 @@ public class DynamoDbGameDao implements GameDao {
         logger.info("Initialized GameDao for table: {}", this.tableName);
     }
 
+    // Constructor for dependency injection (e.g., for testing or specific client configuration)
+    public DynamoDbGameDao(DynamoDbEnhancedClient enhancedClient) {
+        this.tableName = getTableName(); // Still need to determine table name
+        if (this.tableName == null || this.tableName.isEmpty()) {
+            throw new IllegalStateException("Could not determine Games table name from System Property or Environment Variable '" + GAMES_TABLE_NAME_ENV_VAR + "'");
+        }
+        this.gameTable = enhancedClient.table(this.tableName, TableSchema.fromBean(Game.class));
+        this.statusIndex = enhancedClient.table(this.tableName, TableSchema.fromBean(Game.class))
+                                         .index(STATUS_CREATED_AT_INDEX);
+        logger.info("Initialized GameDao with provided DynamoDbEnhancedClient for table: {}", this.tableName);
+    }
+
     @Override
     public void saveGame(Game game) throws GamePersistenceException {
         try {

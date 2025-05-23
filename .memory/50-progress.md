@@ -3,7 +3,7 @@
 ## Overall Status
 *Phase: Core Feature Implementation*
 
-The project is actively implementing core functionalities based on the initial design. Foundational elements like project setup, database schema, user authentication, profile management, basic game management, target assignment, and elimination verification are complete. The current focus is heavily on the complex geolocation system, followed by monetization, items, and other supporting features.
+The project is actively implementing core functionalities based on the initial design. Foundational elements like project setup, database schema, user authentication, profile management, basic game management, target assignment, elimination verification, and leaderboards/achievements are complete. The current focus is heavily on the complex geolocation system, followed by monetization, items, and other supporting features.
 
 ## Completed Work (Tasks Marked as Done)
 
@@ -19,11 +19,12 @@ The project is actively implementing core functionalities based on the initial d
     *   Subtask 7.4: Create API Endpoint for Current Target
     *   Subtask 7.5: (Optional/Future) Implement Target Reassignment via Items
 *   **Task 8:** Implement Elimination Verification System
+*   **Task 15:** Implement Leaderboards and Achievement System
 
 ## Milestone Progress
 *Progress towards Phase 1 (MVP) Goals:*
 
-*   **Core API implementation:** Partially complete (Auth, Profile, Game Mgmt, Target, Kill Verification done; Geolocation in progress; Monetization, Items pending).
+*   **Core API implementation:** Partially complete (Auth, Profile, Game Mgmt, Target, Kill Verification, Leaderboards done; Geolocation in progress; Monetization, Items pending).
 *   **Basic game mechanics:** Partially complete (Target assignment, Kill verification done; Geolocation-based mechanics pending).
 *   **Essential safety features:** Pending (Task 13).
 *   **Limited monetization:** Pending (Task 9).
@@ -36,7 +37,7 @@ The project is actively implementing core functionalities based on the initial d
 ## Backlog Overview (Tasks Marked as Pending or In-Progress)
 
 *   **Task 6:** Implement Geolocation and Boundary System (In-Progress, High Priority)
-    *   Subtask 6.1: Integrate Mapping Service and Basic Geolocation (Pending)
+    *   Subtask 6.1: Integrate Mapping Service and Basic Geolocation (Done)
     *   Subtask 6.2: Implement Geofencing for Game Boundaries (Pending)
     *   Subtask 6.3: Develop Proximity Detection for Eliminations (Pending)
     *   Subtask 6.4: Implement Safe Zone System (Pending)
@@ -47,7 +48,6 @@ The project is actively implementing core functionalities based on the initial d
 *   **Task 12:** Implement Social Features (Pending, Medium Priority)
 *   **Task 13:** Implement Safety & Moderation Tools (Pending, High Priority)
 *   **Task 14:** Implement Notifications System (Pending, Medium Priority)
-*   **Task 15:** Develop API Documentation (Pending, Medium Priority)
 *   **Task 16:** Set Up CI/CD Pipeline (Pending, Medium Priority)
 *   **Task 17:** Implement Logging and Monitoring (Pending, Medium Priority)
 *   **Task 18:** Comprehensive Testing and QA (Pending, High Priority)

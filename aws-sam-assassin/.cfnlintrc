@@ -1,0 +1,18 @@
+templates:
+  - template.yaml
+  - template.yml
+
+ignore_templates:
+  - .aws-sam/**/*
+
+include_checks:
+  - I
+
+ignore_checks:
+  - I3042 # Ignore hardcoded Availability Zones in examples
+  - W3002 # Ignore warnings about dynamic references in parameters
+
+configure_rules:
+  # Allow SAM transform
+  E1001:
+    strict: false 

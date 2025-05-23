@@ -161,8 +161,8 @@ public class LocationService {
         // 4. Create coordinate object
         Coordinate location = new Coordinate(latitude, longitude);
         
-        // 5. Boundary Check (if boundaries are defined for the game)
-        if (!isWithinBoundaries(location, game)) {
+        // 5. Boundary Check (using MapConfigurationService)
+        if (!mapConfigService.isCoordinateInGameBoundary(gameId, location)) {
             logger.warn("Player {} reported location ({}, {}) outside game boundaries for game {}",
                         playerId, latitude, longitude, gameId);
             throw new InvalidLocationException("Reported location is outside the defined game boundaries.");
@@ -200,35 +200,6 @@ public class LocationService {
         }
         
         return geofenceEvent;
-    }
-
-    /**
-     * Checks if the given coordinates are within the game's defined boundaries.
-     * Uses the game's `boundary` field which is expected to be a List<Coordinate> defining a polygon.
-     *
-     * @param location The Coordinate to check.
-     * @param game The game object containing the boundary field.
-     * @return true if within boundaries or if no boundaries are defined, false otherwise.
-     */
-    public boolean isWithinBoundaries(Coordinate location, Game game) {
-        if (location == null || game == null) {
-            logger.warn("Cannot check boundaries with null location or game.");
-            return false; // Or throw an exception, depending on desired behavior
-        }
-
-        List<Coordinate> boundary = game.getBoundary();
-
-        if (boundary == null || boundary.isEmpty()) {
-            logger.debug("No boundary defined or boundary is empty for game {}, assuming location is valid.", game.getGameID());
-            return true; // No boundaries defined or empty, always considered inside
-        }
-
-        // Use GeoUtils for the point-in-polygon check
-        boolean inside = GeoUtils.isPointInBoundary(location, boundary);
-
-        logger.debug("Point ({}, {}) is {} polygon boundary for game {}",
-                     location.getLatitude(), location.getLongitude(), inside ? "inside" : "outside", game.getGameID());
-        return inside;
     }
 
     /**

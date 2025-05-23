@@ -16,6 +16,7 @@ import com.assassin.dao.GameZoneStateDao;
 import com.assassin.dao.SafeZoneDao;
 import com.assassin.exception.ConfigurationNotFoundException;
 import com.assassin.exception.GameNotFoundException;
+import com.assassin.exception.PersistenceException;
 import com.assassin.exception.GameStateException;
 import com.assassin.model.Coordinate;
 import com.assassin.model.Game;
@@ -33,18 +34,20 @@ import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
  */
 public class MapConfigurationService {
     private static final Logger logger = LoggerFactory.getLogger(MapConfigurationService.class);
-    private static final String MAP_CONFIG_TABLE_ENV_VAR = "MAP_CONFIG_TABLE_NAME";
-    private static final String DEFAULT_MAP_CONFIG_TABLE_NAME = "dev-MapConfigurations";
-    private static final String DEFAULT_MAP_ID = "default_map";
+    public static final String MAP_CONFIG_TABLE_ENV_VAR = "MAP_CONFIG_TABLE_NAME";
+    public static final String DEFAULT_MAP_CONFIG_TABLE_NAME = "dev-MapConfigurations";
+    public static final String DEFAULT_MAP_ID = "default_map";
 
     private final GameDao gameDao;
     private final GameZoneStateDao gameZoneStateDao;
     private final SafeZoneDao safeZoneDao;
+    private final SafeZoneService safeZoneService;
     private final ShrinkingZoneService shrinkingZoneService;
     private final DynamoDbTable<MapConfiguration> mapConfigTable;
 
     private final Map<String, MapConfiguration> mapConfigCache;
     private final Map<String, List<Coordinate>> gameBoundaryCache;
+    private final Map<String, MapConfiguration> effectiveMapConfigCache;
 
     private static final List<Coordinate> DEFAULT_GAME_BOUNDARY;
 
@@ -59,6 +62,28 @@ public class MapConfigurationService {
         DEFAULT_GAME_BOUNDARY = Collections.unmodifiableList(defaultBoundary);
     }
 
+    // Constructor for testing with mocked enhanced client
+    public MapConfigurationService(
+            GameDao gameDao,
+            GameZoneStateDao gameZoneStateDao,
+            SafeZoneDao safeZoneDao,
+            ShrinkingZoneService shrinkingZoneService,
+            DynamoDbEnhancedClient enhancedClient) {
+        this.gameDao = gameDao;
+        this.gameZoneStateDao = gameZoneStateDao;
+        this.safeZoneDao = safeZoneDao;
+        this.shrinkingZoneService = shrinkingZoneService;
+        this.gameBoundaryCache = new ConcurrentHashMap<>();
+        this.mapConfigCache = new ConcurrentHashMap<>();
+        this.effectiveMapConfigCache = new ConcurrentHashMap<>();
+        this.safeZoneService = new SafeZoneService(safeZoneDao); // Or mock if preferred for pure unit test
+
+        String mapConfigTableName = getTableName(MAP_CONFIG_TABLE_ENV_VAR, DEFAULT_MAP_CONFIG_TABLE_NAME);
+        this.mapConfigTable = enhancedClient.table(mapConfigTableName, TableSchema.fromBean(MapConfiguration.class));
+        logger.info("Initialized MapConfigurationService with (potentially mocked) MapConfiguration table: {}", mapConfigTableName);
+    }
+
+    // Original constructor for production use
     public MapConfigurationService(
             GameDao gameDao,
             GameZoneStateDao gameZoneStateDao,
@@ -70,6 +95,9 @@ public class MapConfigurationService {
         this.shrinkingZoneService = shrinkingZoneService;
         this.gameBoundaryCache = new ConcurrentHashMap<>();
         this.mapConfigCache = new ConcurrentHashMap<>();
+        this.effectiveMapConfigCache = new ConcurrentHashMap<>();
+
+        this.safeZoneService = new SafeZoneService(safeZoneDao);
 
         DynamoDbEnhancedClient enhancedClient = DynamoDbClientProvider.getDynamoDbEnhancedClient();
         String mapConfigTableName = getTableName(MAP_CONFIG_TABLE_ENV_VAR, DEFAULT_MAP_CONFIG_TABLE_NAME);
@@ -191,7 +219,8 @@ public class MapConfigurationService {
     public void clearMapConfigurationCache(String mapId) {
         if (mapId == null) {
             mapConfigCache.clear();
-            logger.debug("Cleared all map configuration caches");
+            effectiveMapConfigCache.clear();
+            logger.debug("Cleared all map configuration caches and effective map configuration caches");
         } else {
             mapConfigCache.remove(mapId);
             logger.debug("Cleared map configuration cache for mapId {}", mapId);
@@ -211,130 +240,90 @@ public class MapConfigurationService {
         return GeoUtils.calculateCentroid(boundary);
     }
 
-    public boolean isLocationInSafeZone(String gameId, Coordinate location, long currentTimeMillis) {
-        if (gameId == null || location == null) {
-            logger.warn("Cannot check safe zone: null gameId or location");
+    public boolean isLocationInSafeZone(String gameId, String playerId, Coordinate location, long currentTimeMillis) {
+        if (gameId == null || playerId == null || location == null) {
+            logger.warn("Cannot check safe zone: null gameId, playerId, or location");
             return false;
         }
 
-        if (!isCoordinateInGameBoundary(gameId, location)) {
-            logger.debug("Location is outside game boundary, not in safe zone: {}", location);
-            return false;
-        }
+        // Boundary check can remain here if it's a general pre-condition
+        // before more specific safe zone logic.
+        List<Coordinate> boundary = getGameBoundary(gameId);
+        if (!GeoUtils.isPointInBoundary(location, boundary)) {
+            // Optional buffer check
+            double buffer = 0.00001; // Small latitude/longitude buffer
+            Coordinate bufferedLocN = new Coordinate(location.getLatitude() + buffer, location.getLongitude());
+            Coordinate bufferedLocS = new Coordinate(location.getLatitude() - buffer, location.getLongitude());
+            Coordinate bufferedLocE = new Coordinate(location.getLatitude(), location.getLongitude() + buffer);
+            Coordinate bufferedLocW = new Coordinate(location.getLatitude(), location.getLongitude() - buffer);
 
-        List<com.assassin.model.SafeZone> safeZones = safeZoneDao.getSafeZonesByGameId(gameId);
-        if (safeZones == null || safeZones.isEmpty()) {
-            logger.debug("No safe zones found for game {}", gameId);
-            return false;
-        }
-
-        for (com.assassin.model.SafeZone safeZone : safeZones) {
-            if (safeZone.getExpiresAt() != null) {
-                long expiresAtMillis;
-                try {
-                    expiresAtMillis = Long.parseLong(safeZone.getExpiresAt());
-                    if (expiresAtMillis < currentTimeMillis) {
-                        logger.debug("Safe zone {} has expired at {}, current time: {}", 
-                                safeZone.getSafeZoneId(), safeZone.getExpiresAt(), currentTimeMillis);
-                        continue;
-                    }
-                } catch (NumberFormatException e) {
-                    logger.warn("Invalid expiresAt timestamp for safe zone {}: {}", 
-                            safeZone.getSafeZoneId(), safeZone.getExpiresAt());
-                    continue;
-                }
-            }
-
-            Coordinate safeZoneCenter = safeZone.getCenter();
-            if (safeZoneCenter != null && safeZone.getRadiusMeters() != null) {
-                double distance = GeoUtils.calculateDistance(location, safeZoneCenter);
-                if (distance <= safeZone.getRadiusMeters()) {
-                    logger.debug("Location {} is within safe zone {} (center: {}, radius: {}m)", 
-                            location, safeZone.getSafeZoneId(), safeZoneCenter, safeZone.getRadiusMeters());
-                    return true;
-                }
-            } else {
-                logger.warn("Safe zone {} has invalid center or radius", safeZone.getSafeZoneId());
+            if (!(GeoUtils.isPointInBoundary(bufferedLocN, boundary) ||
+                  GeoUtils.isPointInBoundary(bufferedLocS, boundary) ||
+                  GeoUtils.isPointInBoundary(bufferedLocE, boundary) ||
+                  GeoUtils.isPointInBoundary(bufferedLocW, boundary) ||
+                  GeoUtils.isPointInBoundary(location, boundary)))
+            {
+               logger.debug("Location is outside game boundary (checked with buffer), not in safe zone: {}", location);
+               return false;
             }
         }
 
-        logger.debug("Location {} is not in any active safe zone for game {}", location, gameId);
-        return false;
+        // Delegate to SafeZoneService
+        try {
+            return safeZoneService.isPlayerInActiveSafeZone(gameId, playerId, location.getLatitude(), location.getLongitude(), currentTimeMillis);
+        } catch (PersistenceException e) {
+            logger.error("PersistenceException while checking safe zone status for player {} in game {}: {}", playerId, gameId, e.getMessage(), e);
+            // Depending on desired behavior, you might re-throw, or return true/false (e.g., fail-safe or fail-open)
+            // For now, let's assume if we can't check, the player is NOT in a safe zone (fail-open for kill attempts)
+            return false; 
+        }
     }
 
     public com.assassin.config.MapConfiguration getEffectiveMapConfiguration(String gameId)
             throws ConfigurationNotFoundException {
-
         if (gameId == null || gameId.isEmpty()) {
-            throw new IllegalArgumentException("gameId cannot be null or empty");
+            logger.warn("getEffectiveMapConfiguration called with null or empty gameId. Returning default map configuration.");
+            return getMapConfigurationById(DEFAULT_MAP_ID);
         }
 
-        try {
-            Game game = gameDao.getGameById(gameId)
-                    .orElseThrow(() -> new GameNotFoundException("Game not found: " + gameId));
+        MapConfiguration cachedConfig = effectiveMapConfigCache.get(gameId);
+        if (cachedConfig != null) {
+            logger.debug("Returning effective map configuration from cache for gameId: {}", gameId);
+            return cachedConfig;
+        }
 
-            String mapId = game.getMapId();
-            if (mapId == null || mapId.isEmpty()) {
-                logger.warn("Game {} does not have a mapId specified. Falling back to default mapId: {}", gameId, DEFAULT_MAP_ID);
-                mapId = DEFAULT_MAP_ID;
-            }
+        Optional<Game> gameOptional = gameDao.getGameById(gameId);
 
-            final String effectiveMapId = mapId;
-            MapConfiguration cachedConfig = mapConfigCache.computeIfAbsent(effectiveMapId, id -> {
-                logger.debug("Cache miss for MapConfiguration with mapId: {}. Attempting fetch.", id);
-                try {
-                    return fetchMapConfigurationFromDb(id);
-                } catch (ConfigurationNotFoundException e) {
-                    logger.error("Failed to fetch map configuration for mapId {}: {}", id, e.getMessage());
-                    return null;
-                }
-            });
-
-            if (cachedConfig != null) {
-                logger.debug("Returning map configuration for mapId: {} (from cache or fetch)", effectiveMapId);
-                return cachedConfig;
+        String mapIdToLoad;
+        if (gameOptional.isPresent()) {
+            Game game = gameOptional.get();
+            if (game.getMapId() != null && !game.getMapId().trim().isEmpty()) {
+                mapIdToLoad = game.getMapId();
             } else {
-                logger.warn("Specific map configuration for mapId {} not found or failed to load for game {}. Attempting fallback to default mapId: {}",
-                        effectiveMapId, gameId, DEFAULT_MAP_ID);
-
-                if (DEFAULT_MAP_ID.equals(effectiveMapId)) {
-                    throw new ConfigurationNotFoundException("Default map configuration (mapId: " + DEFAULT_MAP_ID + ") could not be loaded.");
-                }
-
-                MapConfiguration defaultConfig = mapConfigCache.computeIfAbsent(DEFAULT_MAP_ID, id -> {
-                     logger.debug("Cache miss for DEFAULT MapConfiguration (mapId: {}). Attempting fetch.", id);
-                     try {
-                         return fetchMapConfigurationFromDb(id);
-                     } catch (ConfigurationNotFoundException e) {
-                         logger.error("CRITICAL: Failed to fetch DEFAULT map configuration for mapId {}: {}", id, e.getMessage());
-                         return null;
-                     }
-                 });
-
-                if (defaultConfig != null) {
-                    return defaultConfig;
-                } else {
-                    throw new ConfigurationNotFoundException("Default map configuration (mapId: " + DEFAULT_MAP_ID + ") could not be loaded.");
-                }
+                logger.info("Game '{}' has no specific mapId, using default mapId: {}", gameId, DEFAULT_MAP_ID);
+                mapIdToLoad = DEFAULT_MAP_ID;
             }
-
-        } catch (GameNotFoundException e) {
-             logger.error("Cannot get effective map configuration because game {} was not found.", gameId);
-             logger.warn("Falling back to default map configuration due to GameNotFoundException for game {}", gameId);
-             try {
-                 return getMapConfigurationById(DEFAULT_MAP_ID);
-             } catch (ConfigurationNotFoundException ce) {
-                  throw new ConfigurationNotFoundException("Failed to load default map configuration (mapId: " + DEFAULT_MAP_ID + ") after game " + gameId + " not found.", ce);
-             }
-        } catch (Exception e) {
-             logger.error("Unexpected error retrieving effective map configuration for game {}: {}", gameId, e.getMessage(), e);
-             logger.warn("Falling back to default map configuration due to unexpected error for game {}", gameId);
-              try {
-                 return getMapConfigurationById(DEFAULT_MAP_ID);
-             } catch (ConfigurationNotFoundException ce) {
-                  throw new ConfigurationNotFoundException("Failed to load default map configuration (mapId: " + DEFAULT_MAP_ID + ") after unexpected error for game " + gameId + ".", ce);
-             }
+        } else {
+            logger.info("Game '{}' not found, using default map configuration with mapId: {}", gameId, DEFAULT_MAP_ID);
+            mapIdToLoad = DEFAULT_MAP_ID;
         }
+
+        MapConfiguration resultingConfig;
+        try {
+            resultingConfig = getMapConfigurationById(mapIdToLoad);
+        } catch (ConfigurationNotFoundException e) {
+            if (!DEFAULT_MAP_ID.equals(mapIdToLoad)) {
+                logger.warn("Specific map '{}' not found for game '{}'. Falling back to default map '{}'. Error: {}",
+                            mapIdToLoad, gameId, DEFAULT_MAP_ID, e.getMessage());
+                resultingConfig = getMapConfigurationById(DEFAULT_MAP_ID);
+            } else {
+                logger.error("Default map configuration '{}' not found directly or as fallback for game '{}'.", DEFAULT_MAP_ID, gameId);
+                throw e;
+            }
+        }
+        
+        effectiveMapConfigCache.put(gameId, resultingConfig);
+        return resultingConfig;
     }
 
     private MapConfiguration fetchMapConfigurationFromDb(String mapId) throws ConfigurationNotFoundException {

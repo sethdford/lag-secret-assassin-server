@@ -1,3 +1,0 @@
-.separator "|"
-.import db/players.dat Players
-

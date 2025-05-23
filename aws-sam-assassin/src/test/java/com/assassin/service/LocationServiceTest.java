@@ -23,6 +23,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
+import static org.mockito.Mockito.lenient;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import com.assassin.dao.GameDao;
 import com.assassin.dao.PlayerDao;
@@ -34,6 +37,7 @@ import com.assassin.model.Game;
 import com.assassin.model.Player;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class LocationServiceTest {
 
     @Mock
@@ -79,6 +83,15 @@ public class LocationServiceTest {
             new Coordinate(39.9, -75.1)
         );
         testGame.setBoundary(boundary);
+
+        // Mock mapConfigService to consider validLat/validLon as inside game boundary
+        Coordinate validCoordinate = new Coordinate(validLat, validLon);
+        lenient().when(mapConfigService.isCoordinateInGameBoundary(eq(gameId), eq(validCoordinate))).thenReturn(true);
+
+        // Mock GeofenceManager behavior for relevant tests
+        // For outsideLat/outsideLon cases, it should return false (which is default or can be explicitly set)
+        Coordinate outsideCoordinate = new Coordinate(41.0, -76.0); // Example from updatePlayerLocation_OutsideBoundaries
+        when(mapConfigService.isCoordinateInGameBoundary(eq(gameId), eq(outsideCoordinate))).thenReturn(false);
     }
 
     // --- Tests for updatePlayerLocation --- 

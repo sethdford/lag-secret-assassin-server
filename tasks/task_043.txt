@@ -1,9 +1,9 @@
 # Task ID: 43
 # Title: Implement Shrinking Safe Zone Gameplay Mode
-# Status: pending
+# Status: in-progress
 # Dependencies: 6
 # Priority: high
-# Description: Design and implement a new gameplay mode where the safe playable area gradually shrinks over time, damaging players who remain outside the boundaries.
+# Description: Design and implement a new gameplay mode where the safe playable area gradually shrinks over time, damaging players who remain outside the boundaries. This implements the shrinking zone mechanics specified in functional requirement FR-1.5.
 # Details:
 Create a comprehensive system for the shrinking safe zone gameplay mode with the following components:
 

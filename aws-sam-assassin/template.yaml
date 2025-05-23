@@ -1,8 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: >
+Description: |
   Assassin Game
-  
   SAM Template for Assassin Game application
 
 # Metadata section can be added here if needed
@@ -16,7 +15,7 @@ Parameters:
       - test
       - prod
     Description: Environment name
-  
+
   LogRetentionInDays:
     Type: String
     Default: '30'
@@ -39,7 +38,7 @@ Parameters:
       - '1827'
       - '3653'
     Description: Number of days to retain logs in CloudWatch
-  
+
   # Parameters for VPC configuration (used in production)
   DeployInVPC:
     Type: String
@@ -64,16 +63,26 @@ Parameters:
     Default: ''
     Description: Security group ID for Lambda functions in production
 
-Conditions:
-  IsProduction: 
-    Fn::Equals:
-      - !Ref Environment
-      - 'prod'
-  UseVPC: 
-    Fn::Equals:
-      - !Ref DeployInVPC
+  EnableApiGatewayAccessLogs:
+    Type: String
+    Default: 'false'
+    AllowedValues:
       - 'true'
+      - 'false'
+    Description: Enable API Gateway access logging (requires CloudWatch Logs role to be configured in the account)
 
+Conditions:
+  IsProduction: !Equals
+    - !Ref Environment
+    - prod
+  UseVPC: !Equals
+    - !Ref DeployInVPC
+    - 'true'
+  EnableAccessLogs: !Equals
+    - !Ref EnableApiGatewayAccessLogs
+    - 'true'
+
+# Moved Globals to top level, BEFORE Resources
 Globals:
   Function:
     Timeout: 30
@@ -83,81 +92,34 @@ Globals:
       - x86_64
     Environment:
       Variables:
-        JAVA_TOOL_OPTIONS: -XX:+TieredCompilation -XX:TieredStopAtLevel=1
+        JAVA_TOOL_OPTIONS: '-XX:+TieredCompilation -XX:TieredStopAtLevel=1'
         LOG_LEVEL: INFO
         ENV: !Ref Environment
-        PLAYERS_TABLE_NAME: !Ref PlayerTable
-        KILLS_TABLE_NAME: !Ref KillTable
-        GAMES_TABLE_NAME: !Ref GameTable
+        PLAYERS_TABLE_NAME: !Ref PlayersTable
+        KILLS_TABLE_NAME: !Ref KillsTable
+        GAMES_TABLE_NAME: !Ref GamesTable
         SAFE_ZONES_TABLE_NAME: !Ref SafeZoneTable
+        CONNECTION_TABLE: !Ref WebSocketConnectionsTable
+        NOTIFICATIONS_TABLE_NAME: !Ref NotificationsTable
+        GAME_ZONE_STATE_TABLE_NAME: !Ref GameZoneStateTable
+        TRANSACTIONS_TABLE_NAME: !Ref TransactionsTable
+        REPORTS_TABLE_NAME: !Ref ReportsTable
+        STRIPE_SECRET_KEY: !Sub '{{resolve:ssm:/assassin/${Environment}/stripe/secret_key:1}}'
         ASSASSIN_TEST_MODE: false
     Tracing: Active
-    # Add X-Ray tracing
     Tags:
       Application: AssassinGame
-    # VPC Configuration (applied conditionally)
-    VpcConfig:
-      Fn::If:
-        - UseVPC
-        - SecurityGroupIds:
-            - !Ref LambdaSecurityGroup
-          SubnetIds:
-            - !Ref PrivateSubnet1
-            - !Ref PrivateSubnet2
-        - !Ref "AWS::NoValue"
+    VpcConfig: !If
+      - UseVPC
+      - SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds:
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
+      - !Ref AWS::NoValue
 
 Resources:
-  # Cognito resources for authentication
-  AssassinUserPool:
-    Type: AWS::Cognito::UserPool
-    Properties:
-      UserPoolName: !Sub assassin-user-pool-${Environment}
-      AutoVerifiedAttributes:
-        - email
-      UsernameAttributes:
-        - email
-      Policies:
-        PasswordPolicy:
-          MinimumLength: 8
-          RequireLowercase: true
-          RequireNumbers: true
-          RequireSymbols: false
-          RequireUppercase: true
-      Schema:
-        - Name: name
-          AttributeDataType: String
-          Mutable: true
-          Required: true
-        - Name: email
-          AttributeDataType: String
-          Mutable: false
-          Required: true
-      AdminCreateUserConfig:
-        AllowAdminCreateUserOnly: false
-      UserPoolTags:
-        Environment: !Ref Environment
-        Project: AssassinGame
-  
-  AssassinUserPoolClient:
-    Type: AWS::Cognito::UserPoolClient
-    Properties:
-      ClientName: !Sub assassin-app-client-${Environment}
-      UserPoolId: !Ref AssassinUserPool
-      GenerateSecret: false
-      ExplicitAuthFlows:
-        - ALLOW_USER_PASSWORD_AUTH
-        - ALLOW_REFRESH_TOKEN_AUTH
-        - ALLOW_USER_SRP_AUTH
-      PreventUserExistenceErrors: ENABLED
-      RefreshTokenValidity: 30
-      AccessTokenValidity: 1
-      IdTokenValidity: 1
-      TokenValidityUnits:
-        AccessToken: "days"
-        IdToken: "days"
-        RefreshToken: "days"
-
-  # DynamoDB Tables
+  # --- DynamoDB Tables (Define BEFORE Functions that use Globals) ---
   PlayersTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -171,7 +133,7 @@ Resources:
         - AttributeName: LeaderboardStatusPartition
           AttributeType: S
         - AttributeName: KillCount
-          AttributeType: N
+          AttributeType: 'N'
         - AttributeName: GameID
           AttributeType: S
       KeySchema:
@@ -266,24 +228,11 @@ Resources:
           AttributeType: S
         - AttributeName: timestamp
           AttributeType: S
-        - AttributeName: notificationId # Optional, but good for unique identification
-          AttributeType: S
-        # Add other index attributes if needed, e.g., for status-based queries
-        # - AttributeName: status
-        #   AttributeType: S
       KeySchema:
         - AttributeName: recipientPlayerId
           KeyType: HASH
         - AttributeName: timestamp
           KeyType: RANGE
-      # GSI for querying by notification ID if needed
-      # GlobalSecondaryIndexes:
-      #   - IndexName: NotificationIdIndex
-      #     KeySchema:
-      #       - AttributeName: notificationId
-      #         KeyType: HASH
-      #     Projection:
-      #       ProjectionType: ALL
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
       SSESpecification:
@@ -348,16 +297,218 @@ Resources:
         - Key: Project
           Value: AssassinGame
 
-  # API Gateway
+  SafeZoneTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-SafeZones
+      AttributeDefinitions:
+        - AttributeName: SafeZoneID # Partition Key
+          AttributeType: S
+        - AttributeName: GameID # GSI Partition Key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: SafeZoneID
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: GameIdIndex # Must match GAME_ID_INDEX_NAME in Dao
+          KeySchema:
+            - AttributeName: GameID
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL # Or specify projected attributes
+      BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  GameZoneStateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-GameZoneState
+      BillingMode: PAY_PER_REQUEST # Or provisioned if updates are very frequent/predictable
+      AttributeDefinitions:
+        - AttributeName: GameID # Partition Key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: GameID
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: AssassinGame
+
+  TransactionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-Transactions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: TransactionID # PK
+          AttributeType: S
+        - AttributeName: PlayerID # GSI PK
+          AttributeType: S
+        - AttributeName: CreatedAt # GSI SK for PlayerTransactionsIndex and GameTransactionsIndex
+          AttributeType: S
+        - AttributeName: GameID # GSI PK for GameTransactionsIndex, GSI SK for PlayerGameTransactionsIndex
+          AttributeType: S
+      KeySchema:
+        - AttributeName: TransactionID
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: PlayerTransactionsIndex # PlayerID + CreatedAt
+          KeySchema:
+            - AttributeName: PlayerID
+              KeyType: HASH
+            - AttributeName: CreatedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: GameTransactionsIndex # GameID + CreatedAt
+          KeySchema:
+            - AttributeName: GameID
+              KeyType: HASH
+            - AttributeName: CreatedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: PlayerGameTransactionsIndex # PlayerID + GameID
+          KeySchema:
+            - AttributeName: PlayerID # GSI PK
+              KeyType: HASH
+            - AttributeName: GameID # GSI SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL # Consider projecting only necessary attributes for cost/performance
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: AssassinGame
+
+  ReportsTable:
+    # Fixed DynamoDB Table for Reports
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-Reports
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: reportId
+          AttributeType: S
+        - AttributeName: gameId
+          AttributeType: S
+        - AttributeName: reportingPlayerId
+          AttributeType: S
+        - AttributeName: reportedPlayerId
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+      KeySchema:
+        - AttributeName: reportId # Fixed: matches AttributeDefinitions
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: GameReportsIndex
+          KeySchema:
+            - AttributeName: gameId # Fixed: matches AttributeDefinitions
+              KeyType: HASH
+            - AttributeName: status
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: ReportingPlayerReportsIndex
+          KeySchema:
+            - AttributeName: reportingPlayerId # Fixed: matches AttributeDefinitions
+              KeyType: HASH
+            - AttributeName: status
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: ReportedPlayerReportsIndex
+          KeySchema:
+            - AttributeName: reportedPlayerId # Fixed: matches AttributeDefinitions
+              KeyType: HASH
+            - AttributeName: status
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: AssassinGame
+
+  # --- Cognito Resources ---
+  AssassinUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub assassin-user-pool-${Environment}
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          RequireUppercase: true
+      Schema:
+        - Name: name
+          AttributeDataType: String
+          Mutable: true
+          Required: true
+        - Name: email
+          AttributeDataType: String
+          Mutable: false
+          Required: true
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      UserPoolTags:
+        Environment: !Ref Environment
+        Project: AssassinGame
+
+  AssassinUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub assassin-app-client-${Environment}
+      UserPoolId: !Ref AssassinUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+      PreventUserExistenceErrors: ENABLED
+      RefreshTokenValidity: 30
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      TokenValidityUnits:
+        AccessToken: days
+        IdToken: days
+        RefreshToken: days
+
+  # --- API Gateway (REST) ---
   AssassinApi:
     Type: AWS::Serverless::Api
     Properties:
       StageName: !Ref Environment
       Cors:
-        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
-        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,Accept,X-Request-ID'"
-        AllowOrigin: "'*'"
-      EndpointConfiguration: 
+        AllowMethods: '''GET,POST,PUT,DELETE,OPTIONS'''
+        AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,Accept,X-Request-ID'''
+        AllowOrigin: '''*'''
+      EndpointConfiguration:
         Type: REGIONAL
       TracingEnabled: true
       Auth:
@@ -367,94 +518,134 @@ Resources:
             UserPoolArn: !GetAtt AssassinUserPool.Arn
             Identity:
               Header: Authorization
-            # Add other authorizer configurations if needed
       GatewayResponses:
         DEFAULT_4XX:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'http://localhost:3001'"
-              Access-Control-Allow-Methods: "'GET, POST, PUT, DELETE, OPTIONS'"
-              Access-Control-Allow-Headers: "'Content-Type, Authorization, X-Amz-Date, X-Api-Key, X-Amz-Security-Token'"
-              Access-Control-Allow-Credentials: "'true'"
+              Access-Control-Allow-Origin: '''http://localhost:3001'''
+              Access-Control-Allow-Methods: '''GET, POST, PUT, DELETE, OPTIONS'''
+              Access-Control-Allow-Headers: '''Content-Type, Authorization, X-Amz-Date,
+                X-Api-Key, X-Amz-Security-Token'''
+              Access-Control-Allow-Credentials: '''true'''
         DEFAULT_5XX:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'http://localhost:3001'"
-              Access-Control-Allow-Methods: "'GET, POST, PUT, DELETE, OPTIONS'"
-              Access-Control-Allow-Headers: "'Content-Type, Authorization, X-Amz-Date, X-Api-Key, X-Amz-Security-Token'"
-              Access-Control-Allow-Credentials: "'true'"
+              Access-Control-Allow-Origin: '''http://localhost:3001'''
+              Access-Control-Allow-Methods: '''GET, POST, PUT, DELETE, OPTIONS'''
+              Access-Control-Allow-Headers: '''Content-Type, Authorization, X-Amz-Date,
+                X-Api-Key, X-Amz-Security-Token'''
+              Access-Control-Allow-Credentials: '''true'''
         UNAUTHORIZED:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'http://localhost:3001'"
-              Access-Control-Allow-Methods: "'GET, POST, PUT, DELETE, OPTIONS'"
-              Access-Control-Allow-Headers: "'Content-Type, Authorization, X-Amz-Date, X-Api-Key, X-Amz-Security-Token'"
-              Access-Control-Allow-Credentials: "'true'"
+              Access-Control-Allow-Origin: '''http://localhost:3001'''
+              Access-Control-Allow-Methods: '''GET, POST, PUT, DELETE, OPTIONS'''
+              Access-Control-Allow-Headers: '''Content-Type, Authorization, X-Amz-Date,
+                X-Api-Key, X-Amz-Security-Token'''
+              Access-Control-Allow-Credentials: '''true'''
         ACCESS_DENIED:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'http://localhost:3001'"
-              Access-Control-Allow-Methods: "'GET, POST, PUT, DELETE, OPTIONS'"
-              Access-Control-Allow-Headers: "'Content-Type, Authorization, X-Amz-Date, X-Api-Key, X-Amz-Security-Token'"
-              Access-Control-Allow-Credentials: "'true'"
-      AccessLogSetting:
-        DestinationArn: !GetAtt ApiGatewayAccessLogGroup.Arn
-        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","path":"$context.path","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength","errorMessage":"$context.error.message"}'
+              Access-Control-Allow-Origin: '''http://localhost:3001'''
+              Access-Control-Allow-Methods: '''GET, POST, PUT, DELETE, OPTIONS'''
+              Access-Control-Allow-Headers: '''Content-Type, Authorization, X-Amz-Date,
+                X-Api-Key, X-Amz-Security-Token'''
+              Access-Control-Allow-Credentials: '''true'''
+      AccessLogSetting: !If
+        - EnableAccessLogs
+        - DestinationArn: !GetAtt ApiGatewayAccessLogGroup.Arn
+          Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","path":"$context.path","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength","errorMessage":"$context.error.message"}'
+        - !Ref AWS::NoValue
       MethodSettings:
-        - ResourcePath: "/*"
-          HttpMethod: "*"
+        - ResourcePath: /*
+          HttpMethod: '*'
           ThrottlingBurstLimit: 100
           ThrottlingRateLimit: 50
           MetricsEnabled: true
-          DataTraceEnabled: true
-          LoggingLevel: INFO
 
-  # API Gateway (WebSocket)
-  AssassinWebSocketApi:
-    Type: AWS::Serverless::Api
+  # --- API Gateway (WebSocket) ---
+  WebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
     Properties:
       Name: !Sub assassin-websocket-api-${Environment}
-      StageName: !Ref Environment # Consistent stage naming
-      DefinitionBody:
-        openapi: 3.0.1
-        info:
-          title: Assassin Game WebSocket API
-          version: '1.0'
-        paths:
-          /$connect:
-            post:
-              x-amazon-apigateway-integration:
-                type: aws_proxy
-                httpMethod: POST
-                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ConnectFunction.Arn}/invocations'
-                passthroughBehavior: when_no_match
-              responses: {}
-          /$disconnect:
-            post:
-              x-amazon-apigateway-integration:
-                type: aws_proxy
-                httpMethod: POST
-                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DisconnectFunction.Arn}/invocations'
-                passthroughBehavior: when_no_match
-              responses: {}
-          /$default: # Default route for messages not matching other routes
-            post:
-              x-amazon-apigateway-integration:
-                type: aws_proxy
-                httpMethod: POST
-                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DefaultMessageHandlerFunction.Arn}/invocations'
-                passthroughBehavior: when_no_match
-              responses: {}
-          # Add custom routes here if needed, e.g., /sendmessage
-          # /sendmessage:
-          #   post:
-          #     x-amazon-apigateway-integration: ...
-        components: {}
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: $request.body.action
 
-  # Lambda Functions
-  # Uncommented functions to enable full application functionality
+  # WebSocket Routes
+  ConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $connect
+      AuthorizationType: NONE
+      OperationName: ConnectRoute
+      Target: !Sub integrations/${ConnectInteg}
+
+  ConnectInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      Description: Connect Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ConnectFunction.Arn}/invocations
+
+  DisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $disconnect
+      AuthorizationType: NONE
+      OperationName: DisconnectRoute
+      Target: !Sub integrations/${DisconnectInteg}
+
+  DisconnectInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      Description: Disconnect Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DisconnectFunction.Arn}/invocations
+
+  DefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $default
+      AuthorizationType: NONE
+      OperationName: DefaultRoute
+      Target: !Sub integrations/${DefaultInteg}
+
+  DefaultInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      Description: Default Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DefaultMessageFunction.Arn}/invocations
+
+  WebSocketDeployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    DependsOn:
+      - ConnectRoute
+      - DisconnectRoute
+      - DefaultRoute
+    Properties:
+      ApiId: !Ref WebSocketApi
+
+  WebSocketStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref WebSocketApi
+      StageName: !Ref Environment
+      DeploymentId: !Ref WebSocketDeployment
+      AutoDeploy: true
+
+  # --- Lambda Functions (Now correctly inherit Globals) ---
   PlayerManagementFunction:
     Type: AWS::Serverless::Function
+    DependsOn:
+      - PlayersTable
+      - GamesTable
     Properties:
       Handler: com.assassin.handlers.PlayerHandler::handleRequest
       Description: Handles player management operations (create, update, delete, get).
@@ -466,15 +657,14 @@ Resources:
           PLAYERS_TABLE_NAME: !Ref PlayersTable
           GAMES_TABLE_NAME: !Ref GamesTable
           LOG_LEVEL: INFO
-      VpcConfig: 
-        Fn::If:
-          - UseVPC
-          - SubnetIds: 
-              - !Ref PrivateSubnet1
-              - !Ref PrivateSubnet2
-            SecurityGroupIds: 
-              - !Ref LambdaSecurityGroup
-          - !Ref AWS::NoValue
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+          SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+        - !Ref AWS::NoValue
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref PlayersTable
@@ -522,6 +712,9 @@ Resources:
 
   NotificationFunction:
     Type: AWS::Serverless::Function
+    DependsOn:
+      - NotificationsTable
+      - PlayersTable
     Properties:
       Handler: com.assassin.handlers.NotificationHandler::processRequest
       Description: Handles notification operations (sending and retrieving notifications).
@@ -533,15 +726,14 @@ Resources:
           NOTIFICATIONS_TABLE_NAME: !Ref NotificationsTable
           PLAYERS_TABLE_NAME: !Ref PlayersTable
           LOG_LEVEL: INFO
-      VpcConfig: 
-        Fn::If:
-          - UseVPC
-          - SubnetIds: 
-              - !Ref PrivateSubnet1
-              - !Ref PrivateSubnet2
-            SecurityGroupIds: 
-              - !Ref LambdaSecurityGroup
-          - !Ref AWS::NoValue
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+          SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+        - !Ref AWS::NoValue
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref NotificationsTable
@@ -581,6 +773,11 @@ Resources:
 
   KillReportingFunction:
     Type: AWS::Serverless::Function
+    DependsOn:
+      - KillsTable
+      - PlayersTable
+      - GamesTable
+      - GameZoneStateTable
     Properties:
       Handler: com.assassin.handlers.KillHandler::handleRequest
       Description: Handles kill reporting and validation operations.
@@ -594,15 +791,19 @@ Resources:
           GAMES_TABLE_NAME: !Ref GamesTable
           GAME_ZONE_STATE_TABLE_NAME: !Ref GameZoneStateTable
           LOG_LEVEL: INFO
-      VpcConfig: 
-        Fn::If:
-          - UseVPC
-          - SubnetIds: 
-              - !Ref PrivateSubnet1
-              - !Ref PrivateSubnet2
-            SecurityGroupIds: 
-              - !Ref LambdaSecurityGroup
-          - !Ref AWS::NoValue
+          MODERATION_IMAGE_THRESHOLD: '80.0'
+          MODERATION_TEXT_THRESHOLD: '0.7'
+          MODERATION_MANUAL_REVIEW_THRESHOLD: '50.0'
+          MODERATION_CACHE_ENABLED: 'true'
+          MODERATION_CACHE_HOURS: '24'
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+          SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+        - !Ref AWS::NoValue
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref KillsTable
@@ -614,6 +815,19 @@ Resources:
             TableName: !Ref PlayersTable
         - DynamoDBCrudPolicy:
             TableName: !Ref GameZoneStateTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - rekognition:DetectModerationLabels
+              Resource: '*'
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - comprehend:DetectToxicContent
+                - comprehend:DetectSentiment
+              Resource: '*'
       Events:
         ReportKill:
           Type: Api
@@ -637,13 +851,13 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref AssassinApi
-            Path: /kills/killer/{killerID}
+            Path: /kills/killer/{killerId}
             Method: get
         GetKillsByVictim:
           Type: Api
           Properties:
             RestApiId: !Ref AssassinApi
-            Path: /kills/victim/{victimID}
+            Path: /kills/victim/{victimId}
             Method: get
             Auth:
               Authorizer: CognitoAuthorizer
@@ -659,7 +873,7 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref AssassinApi
-            Path: /kills/{killerId}/{killTime}/verify
+            Path: /kills/{killId}/{killTime}/verify
             Method: post
             Auth:
               Authorizer: CognitoAuthorizer
@@ -667,24 +881,25 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref AssassinApi
-            Path: /games/{gameID}/timeline
+            Path: /games/{gameId}/timeline
             Method: get
             Auth:
               Authorizer: CognitoAuthorizer
 
   GameManagementFunction:
     Type: AWS::Serverless::Function
+    DependsOn:
+      - GamesTable
     Properties:
-      FunctionName: !Sub "${Environment}-GameManagementFunction"
+      FunctionName: !Sub ${Environment}-GameManagementFunction
       Handler: com.assassin.handlers.GameManagementHandler::handleRequest
       CodeUri: .
       Runtime: java17
       MemorySize: 512
       Timeout: 30
       Policies:
-        - DynamoDBCrudPolicy: # Allow full access to Game table for management
+        - DynamoDBCrudPolicy:
             TableName: !Ref GamesTable
-        # TODO: Add policies if it needs to interact with PlayerTable or other resources
       Environment:
         Variables:
           ENV: !Ref Environment
@@ -697,24 +912,21 @@ Resources:
             RestApiId: !Ref AssassinApi
             Path: /games/{gameId}/boundary
             Method: put
-            # TODO: Add Authorizer if admin/organizer role needed
-            # Auth:
-            #   Authorizer: CognitoAuthorizer # Or your custom authorizer
 
-  # Safe Zone Handler
   SafeZoneHandlerFunction:
     Type: AWS::Serverless::Function
+    DependsOn:
+      - SafeZoneTable
+      - GamesTable
     Properties:
       Handler: com.assassin.handlers.SafeZoneHandler::handleRequest
       Description: Handles safe zone management operations (create, get, delete).
       CodeUri: ./
-      # Inherits Globals: MemorySize, Timeout, Runtime, Arch, Env, Tracing, Tags, VpcConfig
       Policies:
-        # Requires CRUD on SafeZoneTable and potentially Read on GameTable
         - DynamoDBCrudPolicy:
             TableName: !Ref SafeZoneTable
         - DynamoDBReadPolicy:
-            TableName: !Ref GamesTable # For validation if needed in service
+            TableName: !Ref GamesTable
       Events:
         CreateSafeZone:
           Type: Api
@@ -723,7 +935,7 @@ Resources:
             Path: /games/{gameId}/safezones
             Method: post
             Auth:
-              Authorizer: CognitoAuthorizer # TODO: Consider specific permissions (e.g., game admin)
+              Authorizer: CognitoAuthorizer
         GetSafeZonesByGame:
           Type: Api
           Properties:
@@ -731,7 +943,7 @@ Resources:
             Path: /games/{gameId}/safezones
             Method: get
             Auth:
-              Authorizer: CognitoAuthorizer # TODO: Or allow public access?
+              Authorizer: CognitoAuthorizer
         GetSafeZone:
           Type: Api
           Properties:
@@ -739,7 +951,7 @@ Resources:
             Path: /safezones/{safeZoneId}
             Method: get
             Auth:
-              Authorizer: CognitoAuthorizer # TODO: Or allow public access?
+              Authorizer: CognitoAuthorizer
         DeleteSafeZone:
           Type: Api
           Properties:
@@ -747,8 +959,7 @@ Resources:
             Path: /safezones/{safeZoneId}
             Method: delete
             Auth:
-              Authorizer: CognitoAuthorizer # TODO: Consider specific permissions (e.g., game admin)
-        # Add PUT endpoint for updating safe zones
+              Authorizer: CognitoAuthorizer
         UpdateSafeZone:
           Type: Api
           Properties:
@@ -756,10 +967,38 @@ Resources:
             Path: /safezones/{safeZoneId}
             Method: put
             Auth:
-              Authorizer: CognitoAuthorizer # Requires authentication, potentially game admin
+              Authorizer: CognitoAuthorizer
+        # New Safe Zone Endpoints
+        RelocateSafeZone:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /games/{gameId}/safezones/{safeZoneId}/location
+            Method: put
+            Auth:
+              Authorizer: CognitoAuthorizer # Only owner should be able to relocate
+        GetPlayerOwnedSafeZones:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /players/{playerId}/safezones # Requires gameId as query param
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer # Check if requester can view this player's zones
+        GetActiveGameSafeZones:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /games/{gameId}/safezones/active
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer # Or NONE if active zones are public info for a game
 
   AuthenticationFunction:
     Type: AWS::Serverless::Function
+    DependsOn:
+      - PlayersTable
+      - AssassinUserPool
     Properties:
       Handler: com.assassin.handlers.AuthHandler::handleRequest
       Description: Handles authentication and user management.
@@ -772,15 +1011,15 @@ Resources:
           USER_POOL_ID: !Ref AssassinUserPool
           CLIENT_ID: !Ref AssassinUserPoolClient
           LOG_LEVEL: INFO
-      VpcConfig: 
-        Fn::If:
-          - UseVPC
-          - SubnetIds: 
-              - !Ref PrivateSubnet1
-              - !Ref PrivateSubnet2
-            SecurityGroupIds: 
-              - !Ref LambdaSecurityGroup
-          - !Ref AWS::NoValue
+          STRIPE_SECRET_KEY: !Sub '{{resolve:ssm:/assassin/${Environment}/stripe/secret_key:1}}'
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+          SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+        - !Ref AWS::NoValue
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref PlayersTable
@@ -835,83 +1074,82 @@ Resources:
   ConnectFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: com.assassin.handlers.websocket.ConnectHandler::handleRequest
-      Description: Handles new WebSocket connections.
-      CodeUri: ./
-      MemorySize: 512
-      Timeout: 30
+      CodeUri: .
+      Handler: com.assassin.handlers.websockets.ConnectHandler::handleRequest
       Environment:
         Variables:
-          CONNECTIONS_TABLE_NAME: !Ref WebSocketConnectionsTable
-          LOG_LEVEL: INFO
+          PLAYERS_TABLE: !Ref PlayersTable
+          GAMES_TABLE: !Ref GamesTable
+          CONNECTION_TABLE: !Ref WebSocketConnectionsTable
       Policies:
-        - DynamoDBCrudPolicy: # Need write access to save connection
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PlayersTable
+        - DynamoDBCrudPolicy:
             TableName: !Ref WebSocketConnectionsTable
-        # Add Cognito policy if associating connection with authenticated user on connect
-        # - Statement: ... (cognito-idp:GetUser policy) ...
-      Events:
-        ConnectRoute:
-          Type: WebSocket # Use WebSocket event type
-          Properties:
-            ApiId: !Ref AssassinWebSocketApi
-            RouteKey: $connect
-            # Optional: Add Cognito Authorizer here if needed on connect
-            # Authorizer:
-            #   AuthorizerId: !Ref CognitoAuthorizerId # Need to define Cognito Authorizer for WebSocket
 
   DisconnectFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: com.assassin.handlers.websocket.DisconnectHandler::handleRequest
-      Description: Handles WebSocket disconnections.
-      CodeUri: ./
-      MemorySize: 512
-      Timeout: 30
+      CodeUri: .
+      Handler: com.assassin.handlers.websockets.DisconnectHandler::handleRequest
       Environment:
         Variables:
-          CONNECTIONS_TABLE_NAME: !Ref WebSocketConnectionsTable
-          LOG_LEVEL: INFO
+          PLAYERS_TABLE: !Ref PlayersTable
+          GAMES_TABLE: !Ref GamesTable
+          CONNECTION_TABLE: !Ref WebSocketConnectionsTable
       Policies:
-        - DynamoDBCrudPolicy: # Need delete access to remove connection
+        - DynamoDBCrudPolicy:
             TableName: !Ref WebSocketConnectionsTable
-      Events:
-        DisconnectRoute:
-          Type: WebSocket
-          Properties:
-            ApiId: !Ref AssassinWebSocketApi
-            RouteKey: $disconnect
 
   DefaultMessageFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: com.assassin.handlers.websocket.DefaultMessageHandler::handleRequest
-      Description: Handles incoming WebSocket messages.
-      CodeUri: ./
-      MemorySize: 512
-      Timeout: 30
+      CodeUri: .
+      Handler: com.assassin.handlers.websockets.DefaultMessageHandler::handleRequest
       Environment:
         Variables:
-          CONNECTIONS_TABLE_NAME: !Ref WebSocketConnectionsTable # Might need to look up sender
-          LOG_LEVEL: INFO
+          PLAYERS_TABLE: !Ref PlayersTable
+          GAMES_TABLE: !Ref GamesTable
+          CONNECTION_TABLE: !Ref WebSocketConnectionsTable
       Policies:
-        - DynamoDBReadPolicy: # May need read access
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PlayersTable
+        - DynamoDBCrudPolicy:
             TableName: !Ref WebSocketConnectionsTable
-        # Policy to allow posting messages back to connections
         - Statement:
             - Effect: Allow
               Action:
                 - execute-api:ManageConnections
-              Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AssassinWebSocketApi}/*"
-      Events:
-        DefaultRoute:
-          Type: WebSocket
-          Properties:
-            ApiId: !Ref AssassinWebSocketApi
-            RouteKey: $default # Catch-all for messages not matching other routes
+              Resource:
+                - !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
 
-  # Location Update Function
+  ConnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt ConnectFunction.Arn
+      Principal: apigateway.amazonaws.com
+
+  DisconnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt DisconnectFunction.Arn
+      Principal: apigateway.amazonaws.com
+
+  DefaultMessagePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt DefaultMessageFunction.Arn
+      Principal: apigateway.amazonaws.com
+
   LocationHandlerFunction:
     Type: AWS::Serverless::Function
+    DependsOn:
+      - PlayersTable
+      - GamesTable
+      - GameZoneStateTable
     Properties:
       CodeUri: .
       Handler: com.assassin.handlers.LocationHandler::handleRequest
@@ -923,11 +1161,11 @@ Resources:
           GAME_ZONE_STATE_TABLE_NAME: !Ref GameZoneStateTable
           LOG_LEVEL: INFO
       Policies:
-        - DynamoDBWritePolicy: # Need permission to update player items
+        - DynamoDBWritePolicy:
             TableName: !Ref PlayersTable
-        - DynamoDBReadPolicy: # Need to read game boundaries/state
+        - DynamoDBReadPolicy:
             TableName: !Ref GamesTable
-        - DynamoDBReadPolicy: # Need to read zone state
+        - DynamoDBReadPolicy:
             TableName: !Ref GameZoneStateTable
       Events:
         UpdateLocation:
@@ -937,229 +1175,220 @@ Resources:
             Path: /location
             Method: post
             Auth:
-              Authorizer: CognitoAuthorizer # Requires authentication
+              Authorizer: CognitoAuthorizer
+
+  ZoneUpdateFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - GamesTable
+      - PlayersTable
+      - GameZoneStateTable
+    Properties:
+      Handler: com.assassin.handlers.ZoneUpdateHandler::handleRequest
+      Description: Periodically updates shrinking zone state and applies damage to
+        players outside the zone.
+      CodeUri: ./
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref GamesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PlayersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref GameZoneStateTable
+        - AWSLambdaBasicExecutionRole
+      Events:
+        ZoneUpdateSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 minute)
+            Enabled: true
+
+  PaymentFunction:
+    # New Function for Handling Payments
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - TransactionsTable
+      - GamesTable
+      - PlayersTable
+    Properties:
+      Handler: com.assassin.handlers.PaymentHandler::handleRequest
+      Description: Handles payment operations, such as processing entry fees.
+      CodeUri: ./
+      MemorySize: 512 # Adjust as needed
+      Timeout: 30 # Adjust as needed
+      Environment:
+        Variables:
+          TRANSACTIONS_TABLE_NAME: !Ref TransactionsTable
+          GAMES_TABLE_NAME: !Ref GamesTable # If needed for validation
+          PLAYERS_TABLE_NAME: !Ref PlayersTable # If needed for player context
+          STRIPE_SECRET_KEY: !Sub '{{resolve:ssm:/assassin/${Environment}/stripe/secret_key:1}}'
+          LOG_LEVEL: INFO
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TransactionsTable
+        - DynamoDBReadPolicy:
+            # If game/player validation is done within handler
+            TableName: !Ref GamesTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref PlayersTable
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub /assassin/${Environment}/stripe/secret_key
+      Events:
+        PayEntryFee:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /games/{gameId}/pay-entry-fee
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer # Requires user to be authenticated
 
   # --- Log Groups ---
-  # Uncommented log groups for all functions
   ApiGatewayAccessLogGroup:
     Type: AWS::Logs::LogGroup
+    Condition: EnableAccessLogs
     Properties:
-      LogGroupName: !Sub "/aws/apigateway/${Environment}-AssassinApi-AccessLogs"
-      RetentionInDays: 30
+      LogGroupName: !Sub /aws/apigateway/${Environment}-AssassinApi-AccessLogs
+      RetentionInDays: !Ref LogRetentionInDays
 
   PlayerManagementLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${Environment}-PlayerManagementFunctionLogs"
-      RetentionInDays: 30
+      LogGroupName: !Sub /aws/lambda/${Environment}-PlayerManagementFunctionLogs
+      RetentionInDays: !Ref LogRetentionInDays
 
   NotificationLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${Environment}-NotificationFunctionLogs"
-      RetentionInDays: 30
-      
+      LogGroupName: !Sub /aws/lambda/${Environment}-NotificationFunctionLogs
+      RetentionInDays: !Ref LogRetentionInDays
+
   KillReportingLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${Environment}-KillReportingFunctionLogs"
-      RetentionInDays: 30
+      LogGroupName: !Sub /aws/lambda/${Environment}-KillReportingFunctionLogs
+      RetentionInDays: !Ref LogRetentionInDays
 
   GameManagementLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${Environment}-GameManagementFunctionLogs"
-      RetentionInDays: 30
+      LogGroupName: !Sub /aws/lambda/${Environment}-GameManagementFunctionLogs
+      RetentionInDays: !Ref LogRetentionInDays
 
   AuthenticationLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${Environment}-AuthenticationFunctionLogs"
-      RetentionInDays: 30
-      
+      LogGroupName: !Sub /aws/lambda/${Environment}-AuthenticationFunctionLogs
+      RetentionInDays: !Ref LogRetentionInDays
+
   GetStatisticsLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${Environment}-GetStatisticsFunctionLogs"
-      RetentionInDays: 30
+      LogGroupName: !Sub /aws/lambda/${Environment}-GetStatisticsFunctionLogs
+      RetentionInDays: !Ref LogRetentionInDays
 
   ConnectLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${Environment}-ConnectFunctionLogs"
+      LogGroupName: !Sub /aws/lambda/${Environment}-ConnectFunctionLogs
       RetentionInDays: !Ref LogRetentionInDays
 
   DisconnectLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${Environment}-DisconnectFunctionLogs"
+      LogGroupName: !Sub /aws/lambda/${Environment}-DisconnectFunctionLogs
       RetentionInDays: !Ref LogRetentionInDays
 
   DefaultMessageLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${Environment}-DefaultMessageFunctionLogs"
+      LogGroupName: !Sub /aws/lambda/${Environment}-DefaultMessageFunctionLogs
       RetentionInDays: !Ref LogRetentionInDays
 
-  # CloudWatch Alarms - Keep alarms, they might fail creation if dimensions don't exist yet, but won't cause API error
+  PaymentLogGroup:
+    # Log group for the new PaymentFunction
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${Environment}-PaymentFunctionLogs
+      RetentionInDays: !Ref LogRetentionInDays
+
+  # --- CloudWatch Alarms ---
   ApiGateway5xxErrorAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub "${Environment}-ApiGateway-5xxError"
-      AlarmDescription: "Alarm if API Gateway has too many 5xx errors"
-      Namespace: "AWS/ApiGateway"
-      MetricName: "5XXError"
+      AlarmName: !Sub ${Environment}-ApiGateway-5xxError
+      AlarmDescription: Alarm if API Gateway has too many 5xx errors
+      Namespace: AWS/ApiGateway
+      MetricName: 5XXError
       Dimensions:
         - Name: ApiName
           Value: !Ref AssassinApi
         - Name: Stage
           Value: !Ref Environment
-      Statistic: "Sum"
+      Statistic: Sum
       Period: 60
       EvaluationPeriods: 5
-      Threshold: 5.0
-      ComparisonOperator: "GreaterThanThreshold"
-      TreatMissingData: "notBreaching"
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
 
   LambdaErrorsAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub "${Environment}-Lambda-Errors"
-      AlarmDescription: "Alarm if any Lambda function has too many errors"
-      Namespace: "AWS/Lambda"
-      MetricName: "Errors"
-      Statistic: "Sum"
+      AlarmName: !Sub ${Environment}-Lambda-Errors
+      AlarmDescription: Alarm if any Lambda function has too many errors
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Statistic: Sum
       Period: 60
       EvaluationPeriods: 5
-      Threshold: 5.0
-      ComparisonOperator: "GreaterThanThreshold"
-      TreatMissingData: "notBreaching"
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
 
   DynamoDBThrottlesAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub "${Environment}-DynamoDB-Throttles"
-      AlarmDescription: "Alarm if DynamoDB has too many throttled requests"
-      Namespace: "AWS/DynamoDB"
-      MetricName: "ThrottledRequests"
-      Statistic: "Sum"
+      AlarmName: !Sub ${Environment}-DynamoDB-Throttles
+      AlarmDescription: Alarm if DynamoDB has too many throttled requests
+      Namespace: AWS/DynamoDB
+      MetricName: ThrottledRequests
+      Statistic: Sum
       Period: 60
       EvaluationPeriods: 5
-      Threshold: 10.0
-      ComparisonOperator: "GreaterThanThreshold"
-      TreatMissingData: "notBreaching"
-
-  # Safe Zones Table
-  SafeZoneTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: !Sub "${Environment}-SafeZones"
-      AttributeDefinitions:
-        - AttributeName: SafeZoneID # Partition Key
-          AttributeType: S
-        - AttributeName: GameID     # GSI Partition Key
-          AttributeType: S
-        # Add other GSI key attributes if needed (e.g., Type or ExpiresAt for sorting)
-      KeySchema:
-        - AttributeName: SafeZoneID
-          KeyType: HASH
-      GlobalSecondaryIndexes:
-        - IndexName: GameIdIndex # Must match GAME_ID_INDEX_NAME in Dao
-          KeySchema:
-            - AttributeName: GameID
-              KeyType: HASH
-            # Add Sort Key here if needed for the GSI
-          Projection:
-            ProjectionType: ALL # Or specify projected attributes
-      # ProvisionedThroughput or BillingMode:
-      BillingMode: PAY_PER_REQUEST
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
-
-  # Add new table for dynamic game zone state
-  GameZoneStateTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: !Sub "${Environment}-GameZoneState"
-      BillingMode: PAY_PER_REQUEST # Or provisioned if updates are very frequent/predictable
-      AttributeDefinitions:
-        - AttributeName: GameID # Partition Key
-          AttributeType: S
-      KeySchema:
-        - AttributeName: GameID
-          KeyType: HASH
-      # Consider TTL if state becomes irrelevant shortly after game ends
-      # TimeToLiveSpecification:
-      #   AttributeName: expiryTime
-      #   Enabled: true
-      SSESpecification:
-        SSEEnabled: true
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Project
-          Value: AssassinGame
-
-  # --- Scheduled Task Handler for Zone Updates ---
-  ZoneUpdateFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: com.assassin.handlers.ZoneUpdateHandler::handleRequest
-      Description: Periodically updates shrinking zone state and applies damage to players outside the zone.
-      Runtime: java17
-      MemorySize: 512 # Adjust as needed
-      Timeout: 60 # Allow enough time to process active games
-      CodeUri: ./ # Assumes code is in the root build output
-      Environment:
-        Variables:
-          GAMES_TABLE_NAME: !Ref GameTable
-          PLAYERS_TABLE_NAME: !Ref PlayerTable
-          GAME_ZONE_STATE_TABLE_NAME: !Ref GameZoneStateTable
-          LOG_LEVEL: INFO # Or inherit from Globals
-      Policies:
-        - DynamoDBReadPolicy: # Read active games
-            TableName: !Ref GameTable
-        - DynamoDBCrudPolicy: # Read/update players (status, timestamps)
-            TableName: !Ref PlayerTable
-        - DynamoDBCrudPolicy: # Read/update zone state
-            TableName: !Ref GameZoneStateTable
-        # Add CloudWatch Logs policy if not automatically handled
-        - AWSLambdaBasicExecutionRole # Basic logging permissions
-      Events:
-        ZoneUpdateSchedule:
-          Type: Schedule
-          Properties:
-            Schedule: rate(1 minute) # Run every minute
-            Enabled: True # Set to false to disable
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
 
 Outputs:
   ApiEndpoint:
-    Description: "API Gateway endpoint URL"
-    Value: !Sub "https://${AssassinApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/"
-  
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${AssassinApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/
+
   UserPoolId:
-    Description: "Cognito User Pool ID"
+    Description: Cognito User Pool ID
     Value: !Ref AssassinUserPool
-  
+
   UserPoolClientId:
-    Description: "Cognito User Pool Client ID"
+    Description: Cognito User Pool Client ID
     Value: !Ref AssassinUserPoolClient
-  
+
   PlayerTableName:
-    Description: "Player DynamoDB table name"
+    Description: Player DynamoDB table name
     Value: !Ref PlayersTable
-  
+
   KillTableName:
-    Description: "Kill DynamoDB table name"
+    Description: Kill DynamoDB table name
     Value: !Ref KillsTable
-  
+
   GameTableName:
-    Description: "Game DynamoDB table name"
+    Description: Game DynamoDB table name
     Value: !Ref GamesTable
 
+  TransactionsTableName:
+    Description: Transactions DynamoDB table name
+    Value: !Ref TransactionsTable
+
   WebSocketApiEndpoint:
-    Description: "WebSocket API Gateway endpoint URL"
-    Value: !Sub "wss://${AssassinWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}WebSocket" 
+    Description: WebSocket API Gateway endpoint URL
+    Value: !Sub wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}

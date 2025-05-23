@@ -27,6 +27,7 @@
         <mockito.version>5.10.0</mockito.version> <!-- Updated for JDK 23 compatibility -->
         <bytebuddy.version>1.14.13</bytebuddy.version> <!-- Added for JDK 23 compatibility -->
         <gson.version>2.10.1</gson.version> <!-- For JSON handling in example handler -->
+        <stripe.version>29.1.0</stripe.version> <!-- Stripe Java SDK -->
         <!-- Plugin Versions -->
         <maven.shade.plugin.version>3.4.1</maven.shade.plugin.version>
         <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
@@ -102,6 +103,20 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>apigatewaymanagementapi</artifactId>
+            <!-- Version managed by BOM -->
+        </dependency>
+
+        <!-- AWS SDK v2 Rekognition for image moderation -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>rekognition</artifactId>
+            <!-- Version managed by BOM -->
+        </dependency>
+
+        <!-- AWS SDK v2 Comprehend for text moderation -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>comprehend</artifactId>
             <!-- Version managed by BOM -->
         </dependency>
 
@@ -233,6 +248,14 @@
             <artifactId>jwks-rsa</artifactId>
             <version>0.22.1</version>
         </dependency>
+
+        <!-- Stripe Java SDK -->
+        <dependency>
+            <groupId>com.stripe</groupId>
+            <artifactId>stripe-java</artifactId>
+            <version>${stripe.version}</version>
+        </dependency>
+
     </dependencies>
 
     <build>

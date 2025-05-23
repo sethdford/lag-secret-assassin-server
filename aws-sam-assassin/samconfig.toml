@@ -1,0 +1,20 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "assassin-game"
+#s3_bucket = "assassin-game-deployment-artifacts" 
+# s3_prefix = "assassin-game" # Temporarily commented out
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+disable_rollback = false
+image_repositories = []
+parameter_overrides = "Environment=\"dev\" LogRetentionInDays=\"30\" DeployInVPC=\"false\" PrivateSubnet1=\"\" PrivateSubnet2=\"\" LambdaSecurityGroup=\"\""
+resolve_s3 = true # Use resolve_s3 when bucket is not specified
+s3_prefix = "assassin-game"
+
+
+[default.build]
+[default.build.parameters]
+parallel = true 

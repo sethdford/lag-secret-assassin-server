@@ -31,6 +31,10 @@ public class Kill {
     private String gameId; // Added to associate kill with a game
     private String killStatusPartition; // Partition key for StatusTimeIndex GSI
 
+    // New fields for content moderation
+    private String moderationStatus; // e.g., APPROVED, REJECTED_CONTENT, PENDING_MANUAL_REVIEW
+    private Map<String, String> moderationDetails; // e.g., AI confidence, flagged labels from Rekognition
+
     @DynamoDbPartitionKey
     @DynamoDbAttribute("KillerID")
     public String getKillerID() {
@@ -152,6 +156,24 @@ public class Kill {
 
     public void setKillStatusPartition(String killStatusPartition) {
         this.killStatusPartition = killStatusPartition;
+    }
+
+    @DynamoDbAttribute("ModerationStatus")
+    public String getModerationStatus() {
+        return moderationStatus;
+    }
+
+    public void setModerationStatus(String moderationStatus) {
+        this.moderationStatus = moderationStatus;
+    }
+
+    @DynamoDbAttribute("ModerationDetails")
+    public Map<String, String> getModerationDetails() {
+        return moderationDetails;
+    }
+
+    public void setModerationDetails(Map<String, String> moderationDetails) {
+        this.moderationDetails = moderationDetails;
     }
 
      // Consider adding toString(), equals(), and hashCode() methods

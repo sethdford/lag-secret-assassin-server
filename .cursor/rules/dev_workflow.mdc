@@ -1,1 +1,66 @@
- 
+---
+description: 
+globs: 
+alwaysApply: true
+---
+ - **Global CLI Commands**
+  - Task Master now provides a global CLI through the `task-master` command
+  - All functionality from `scripts/dev.js` is available through this interface
+  - Install globally with `npm install -g claude-task-master` or use locally via `npx`
+  - Use `task-master <command>` instead of `node scripts/dev.js <command>`
+  - Examples:
+    - `task-master list` instead of `node scripts/dev.js list`
+    - `task-master next` instead of `node scripts/dev.js next`
+    - `task-master expand --id=3` instead of `node scripts/dev.js expand --id=3`
+  - All commands accept the same options as their script equivalents
+  - The CLI provides additional commands like `task-master init` for project setup
+
+- **Cursor Rules File Structure**
+  - Cursor rules files (`.mdc` extension) provide persistent guidance to the Cursor AI assistant
+  - Rules files are stored in the `.cursor/rules/` directory and automatically referenced during AI interactions
+  - Each rules file should focus on a specific aspect of development (e.g., architecture, Java standards, workflow)
+  - Rules files require a YAML frontmatter section with:
+    - `description`: Brief explanation of the rule file's purpose
+    - `globs`: File patterns the rules apply to (e.g., `**/*.java` for Java files)
+    - `alwaysApply`: Boolean indicating if rules should be applied to all interactions
+  - The body content should use clear, structured Markdown with hierarchical sections
+  - Code examples should use proper code blocks with language identifiers
+  - Important practices, requirements, or constraints should be clearly highlighted
+  - Example structure:
+    ```md
+    ---
+    description: Java coding standards for the Assassin Game project
+    globs: **/*.java
+    alwaysApply: true
+    ---
+
+    # Section Title
+    - **Subsection**
+      - Rule or guideline detail
+      - More details with *emphasis* on key points
+    ```
+  - Use the Memory Bank (`.memory/` directory) for project knowledge that isn't prescriptive
+  - Reference other rules files when appropriate to maintain clear separation of concerns
+
+- **Development Workflow Process**
+  - Start new projects by running `task-master init` or `node scripts/dev.js parse-prd --input=<prd-file.txt>` to generate initial tasks.json
+  - Begin coding sessions with `task-master list` to see current tasks, status, and IDs
+  - Analyze task complexity with `task-master analyze-complexity --research` before breaking down tasks
+  - Select tasks based on dependencies (all marked 'done'), priority level, and ID order
+  - Clarify tasks by checking task files in tasks/ directory or asking for user input
+  - View specific task details using `task-master show <id>` to understand implementation requirements
+  - Break down complex tasks using `task-master expand --id=<id>` with appropriate flags
+  - Clear existing subtasks if needed using `task-master clear-subtasks --id=<id>` before regenerating
+  - Implement code following task details, dependencies, and project standards defined in `java_standards.mdc` and `architecture.mdc`. Actively leverage modern Java features (e.g., features from Java 17+) where appropriate for clarity and conciseness
+  - Run static analysis tools configured for the project (e.g., Checkstyle, SpotBugs, PMD) using `mvn verify` or a similar command. Fix all reported violations before proceeding
+  - Verify tasks by writing and passing comprehensive unit tests (JUnit 5/Mockito) for new or modified logic, covering happy paths, edge cases, and error conditions. Add integration tests (e.g., using Testcontainers for local DynamoDB) for interactions between components
+  - Ensure dependencies in `pom.xml` are kept up-to-date and audited for vulnerabilities
+  - Mark completed tasks with `task-master set-status --id=<id> --status=done` only after all tests pass and linter errors are fixed
+  - Update dependent tasks when implementation differs from original plan
+  - Generate task files with `task-master generate` after updating tasks.json
+  - Maintain valid dependency structure with `task-master fix-dependencies` when needed
+  - Respect dependency chains and task priorities when selecting work
+  - Report progress regularly using the list command
+  - Remember that all checks (linting, testing, coverage) will also be enforced automatically in the CI/CD pipeline (as defined in `aws_java_workflow.mdc`). Ensure code passes locally to avoid CI failures
+
+// ... existing code ...

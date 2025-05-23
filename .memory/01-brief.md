@@ -1,7 +1,7 @@
 # Assassin Game API Project Overview
 
 ## Project Description
-The Assassin Game API is a serverless application built on AWS to support real-time location-based gameplay for "assassin" style games. The API provides the backend infrastructure for mobile applications that allow players to participate in an elimination-style game commonly played on college campuses and other environments.
+Assassin meets Pokémon Go but way more thrilling. The Assassin Game API is a serverless application built on AWS to support real-time location-based gameplay for "assassin" style games. The API provides the backend infrastructure for mobile applications that allow players to participate in an elimination-style game commonly played on college campuses and other environments.
 
 ## Key Features
 

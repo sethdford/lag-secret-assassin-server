@@ -14,6 +14,8 @@ import com.assassin.dao.DynamoDbPlayerDao;
 import com.assassin.dao.GameDao;
 import com.assassin.dao.KillDao;
 import com.assassin.dao.PlayerDao;
+import com.assassin.dao.DynamoDbSafeZoneDao;
+import com.assassin.dao.SafeZoneDao;
 import com.assassin.exception.GameNotFoundException;
 import com.assassin.exception.InvalidGameStateException;
 import com.assassin.exception.KillNotFoundException;
@@ -32,8 +34,14 @@ import com.assassin.model.PlayerStatus;
 import com.assassin.service.verification.VerificationManager;
 import com.assassin.service.verification.VerificationResult;
 import com.assassin.util.GeoUtils;
+import com.assassin.service.SafeZoneViolationDetector.ViolationCheckResult;
 
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
+
+// Added import for ContentModerationService
+import com.assassin.service.ContentModerationService;
+import com.assassin.model.ModerationRequest;
+import com.assassin.model.ModerationResult;
 
 /**
  * Service layer for handling kill reporting logic.
@@ -46,42 +54,85 @@ public class KillService {
     private final GameDao gameDao; // Added missing GameDao dependency
     private final NotificationService notificationService; // Added NotificationService
     private final VerificationManager verificationManager; // Add VerificationManager dependency
-    private final SafeZoneService safeZoneService; // Add SafeZoneService
+    private final MapConfigurationService mapConfigurationService; // Replace SafeZoneService with MapConfigurationService
+    private final SafeZoneViolationDetector violationDetector; // Add SafeZoneViolationDetector
+    private final ContentModerationService contentModerationService; // Added ContentModerationService
 
-    // Default constructor for frameworks or testing if needed
-    public KillService() {
-        this(new DynamoDbKillDao(), new DynamoDbPlayerDao(), new DynamoDbGameDao(), new NotificationService(), 
-             new VerificationManager(new DynamoDbPlayerDao(), new DynamoDbGameDao()), new SafeZoneService()); // Pass GameDao here too
-    }
-
-    // Constructor for dependency injection (testing)
-    public KillService(KillDao killDao, PlayerDao playerDao, GameDao gameDao, NotificationService notificationService) {
-        this(killDao, playerDao, gameDao, notificationService, 
-             new VerificationManager(playerDao, gameDao), new SafeZoneService()); // Pass GameDao here too
-    }
-
-    // Constructor allowing explicit VerificationManager injection (for testing or different DI setups)
-    public KillService(KillDao killDao, PlayerDao playerDao, GameDao gameDao, 
-                       NotificationService notificationService, VerificationManager verificationManager, SafeZoneService safeZoneService) {
-        this.killDao = killDao;
-        this.playerDao = playerDao;
-        this.gameDao = gameDao; 
-        this.notificationService = notificationService;
-        this.verificationManager = verificationManager; // Assign VerificationManager
-        this.safeZoneService = safeZoneService; // Assign SafeZoneService
-    }
-
-    // Constructor for full dependency injection including the enhanced client for SafeZoneService
+    // Main constructor with all dependencies
     public KillService(KillDao killDao, PlayerDao playerDao, GameDao gameDao, 
                        NotificationService notificationService, VerificationManager verificationManager, 
-                       DynamoDbEnhancedClient enhancedClient) {
+                       MapConfigurationService mapConfigurationService, 
+                       SafeZoneViolationDetector violationDetector,
+                       ContentModerationService contentModerationService) {
         this.killDao = killDao;
         this.playerDao = playerDao;
         this.gameDao = gameDao; 
         this.notificationService = notificationService;
         this.verificationManager = verificationManager;
-        // Instantiate SafeZoneService with the provided client
-        this.safeZoneService = new SafeZoneService(enhancedClient); 
+        this.mapConfigurationService = mapConfigurationService;
+        this.violationDetector = violationDetector;
+        this.contentModerationService = contentModerationService;
+    }
+
+    // Constructor for DI with enhancedClient - builds some internal services
+    public KillService(KillDao killDao, PlayerDao playerDao, GameDao gameDao, 
+                       NotificationService notificationService, VerificationManager verificationManager, 
+                       DynamoDbEnhancedClient enhancedClient) {
+        this(killDao, playerDao, gameDao, notificationService, verificationManager,
+             new MapConfigurationService(
+                (gameDao != null) ? gameDao : new DynamoDbGameDao(enhancedClient),
+                null, // gameZoneStateDao - can be null if MapConfigService handles it
+                new DynamoDbSafeZoneDao(enhancedClient),
+                null  // shrinkingZoneService - can be null
+             ),
+             new SafeZoneViolationDetector(
+                new SafeZoneService(new DynamoDbSafeZoneDao(enhancedClient)), // SZV needs SZS with DAO
+                playerDao, gameDao, notificationService
+             ),
+             new AwsContentModerationService() // Default moderation service
+        );
+    }
+
+    // Simplified constructor for external DI (e.g., tests focusing on some parts)
+    public KillService(KillDao killDao, PlayerDao playerDao, GameDao gameDao, 
+                       NotificationService notificationService, VerificationManager verificationManager, 
+                       MapConfigurationService mapConfigurationService) {
+        this(killDao, playerDao, gameDao, notificationService, verificationManager, mapConfigurationService,
+             // Create default violation detector based on the provided mapConfigService's internal SafeZoneService
+             // This assumes MapConfigurationService exposes or uses a SafeZoneService internally that can be accessed or reconstructed.
+             // For simplicity, we'll new it up here. If mapConfigService has a getSafeZoneService(), use that.
+             new SafeZoneViolationDetector(new SafeZoneService(), playerDao, gameDao, notificationService), 
+             new AwsContentModerationService()
+        );
+         // Note: The SafeZoneViolationDetector created above might not use the same SafeZoneService instance
+         // as the one implicitly used by the mapConfigurationService if it also creates its own. 
+         // This could be an issue if they need to share state or DAO instances. 
+         // Prefer the main constructor for full control.
+    }
+
+    // Constructor for even simpler DI (often used in older tests or basic setup)
+    public KillService(KillDao killDao, PlayerDao playerDao, GameDao gameDao, NotificationService notificationService) {
+        this(killDao, playerDao, gameDao, notificationService, 
+            new VerificationManager(playerDao, gameDao), // Default VerificationManager
+            new MapConfigurationService(gameDao, null, new DynamoDbSafeZoneDao(), null), // Default MapConfigService
+            new SafeZoneViolationDetector(new SafeZoneService(), playerDao, gameDao, notificationService), // Default ViolationDetector
+            new AwsContentModerationService() // Default ModerationService
+        );
+    }
+
+    // Default constructor creating all default dependencies
+    public KillService() {
+        this(new DynamoDbKillDao(), 
+             new DynamoDbPlayerDao(), 
+             new DynamoDbGameDao(), 
+             new NotificationService(), 
+             new VerificationManager(new DynamoDbPlayerDao(), new DynamoDbGameDao()), 
+             new MapConfigurationService(new DynamoDbGameDao(), null, new DynamoDbSafeZoneDao(), null),
+             // Default SafeZoneViolationDetector needs its dependencies. 
+             // SafeZoneService can be default. PlayerDao, GameDao, NotifService are created above.
+             new SafeZoneViolationDetector(new SafeZoneService(), new DynamoDbPlayerDao(), new DynamoDbGameDao(), new NotificationService()),
+             new AwsContentModerationService()
+        );
     }
 
     /**
@@ -155,18 +206,12 @@ public class KillService {
             }
 
             // *** Boundary Check ***
-            List<Coordinate> gameBoundary = game.getBoundary();
-            if (gameBoundary != null && !gameBoundary.isEmpty()) {
-                Coordinate killLocation = new Coordinate(latitude, longitude);
-                if (!GeoUtils.isPointInBoundary(killLocation, gameBoundary)) {
+            if (!mapConfigurationService.isCoordinateInGameBoundary(gameId, new Coordinate(latitude, longitude))) {
                     logger.warn("Kill reported outside game boundary for game {}. Location: ({}, {}). Killer: {}. Victim: {}", 
                                 gameId, latitude, longitude, killerId, victimId);
                     throw new ValidationException("Kill location is outside the defined game boundary.");
                 }
                 logger.debug("Kill location ({}, {}) is within game boundary for game {}", latitude, longitude, gameId);
-            } else {
-                logger.debug("No boundary defined for game {}, skipping boundary check.", gameId);
-            }
             // *** End Boundary Check ***
     
             // Validate the victim is the killer's current target
@@ -174,13 +219,32 @@ public class KillService {
                 throw new ValidationException("Reported victim " + victimId + " is not the killer's current target (" + killer.getTargetID() + ").");
             }
             
-            // Check if the kill location is in a safe zone
+            // *** Enhanced Safe Zone Violation Check using ViolationDetector ***
             if (latitude != null && longitude != null) {
-                Coordinate location = new Coordinate(latitude, longitude);
-                if (safeZoneService.isLocationInSafeZone(gameId, location)) {
-                    throw new SafeZoneException("Kill cannot be reported in a safe zone");
+                long currentTime = System.currentTimeMillis();
+                
+                // Use the enhanced violation detector to check elimination attempt
+                ViolationCheckResult violationResult = violationDetector.checkEliminationAttempt(
+                    gameId, killerId, victimId,
+                    latitude, longitude, // Both attacker and victim at same location for this check
+                    latitude, longitude, // In reality, victim location might be different
+                    currentTime
+                );
+                
+                if (violationResult.isViolation()) {
+                    logger.warn("Kill attempt failed due to safe zone violation: Killer={}, Victim={}, Location=({}, {}), Violation={}", 
+                               killerId, victimId, latitude, longitude, violationResult.getViolationType());
+                    throw new SafeZoneException("Kill cannot be reported: " + violationResult.getMessage());
                 }
+                
+                logger.debug("Safe zone violation check passed for kill at location ({}, {}) in game {}. Killer: {}, Victim: {}", 
+                           latitude, longitude, gameId, killerId, victimId);
+            } else {
+                 // This case should ideally not happen due to earlier validation, but log if it does.
+                logger.warn("Skipping safe zone check due to missing coordinates for kill in game {} (Killer: {}, Victim: {})", 
+                          gameId, killerId, victimId);
             }
+            // *** End Enhanced Safe Zone Check ***
             
             // --- Kill is valid, proceed --- 
     
@@ -195,6 +259,51 @@ public class KillService {
             kill.setVerificationMethod(verificationMethod.toUpperCase());
             kill.setVerificationStatus("PENDING"); // Default status
             kill.setVerificationData(verificationData); // Store any provided data
+            
+            // *** Content Moderation for Photo Kills ***
+            if ("PHOTO".equalsIgnoreCase(verificationMethod) && verificationData != null && verificationData.containsKey("photoUrl")) {
+                String photoUrl = verificationData.get("photoUrl");
+                if (photoUrl != null && !photoUrl.isEmpty()) {
+                    logger.info("Moderating photo kill proof: {}", photoUrl);
+                    ModerationRequest moderationRequest = new ModerationRequest(kill.getKillerID() + "_" + kill.getTime(), photoUrl);
+                    moderationRequest.setUserId(killerId);
+                    moderationRequest.setGameId(gameId); // Use gameId from killer object
+
+                    ModerationResult moderationResult = contentModerationService.moderateImage(moderationRequest);
+                    kill.setModerationStatus(moderationResult.getStatus().name());
+                    // Store some details from moderation, ensure moderationDetails map is initialized
+                    if (kill.getModerationDetails() == null) {
+                        kill.setModerationDetails(new java.util.HashMap<>());
+                    }
+                    kill.getModerationDetails().put("moderationProvider", "AWS Content Moderation"); // Example
+                    kill.getModerationDetails().put("aiDecisionDetails", moderationResult.getReason());
+                    if (moderationResult.getFlags() != null && !moderationResult.getFlags().isEmpty()) {
+                        String flaggedLabels = moderationResult.getFlags().stream()
+                            .map(flag -> flag.getFlagType())
+                            .reduce((a, b) -> a + ", " + b)
+                            .orElse("");
+                        kill.getModerationDetails().put("aiFlaggedLabels", flaggedLabels);
+                    }
+                    kill.getModerationDetails().put("aiConfidence", String.valueOf(moderationResult.getConfidenceScore()));
+
+                    if (moderationResult.getStatus() == ModerationResult.Status.REJECTED) {
+                        logger.warn("Photo kill proof REJECTED by content moderation. Kill by {} of {} at {}. Reason: {}", killerId, victimId, kill.getTime(), moderationResult.getReason());
+                        kill.setVerificationStatus("REJECTED"); // Directly reject the kill
+                        kill.setVerificationNotes("Kill proof rejected by content moderation: " + moderationResult.getReason());
+                        // Potentially throw an exception here or handle differently based on game rules.
+                        // For now, we will save the kill as REJECTED due to content.
+                    } else if (moderationResult.getStatus() == ModerationResult.Status.PENDING_MANUAL_REVIEW) {
+                        logger.info("Photo kill proof PENDING MANUAL REVIEW by content moderation. Kill by {} of {} at {}. Reason: {}", killerId, victimId, kill.getTime(), moderationResult.getReason());
+                        // Keep kill.verificationStatus as PENDING, but notes/moderationStatus reflect AI flag.
+                        kill.setVerificationNotes("Kill proof flagged by AI for manual review: " + moderationResult.getReason());
+                    } else {
+                        // APPROVED by moderation service
+                        logger.info("Photo kill proof APPROVED by content moderation for kill by {} of {} at {}.", killerId, victimId, kill.getTime());
+                        // No change to verificationStatus yet, it remains PENDING for other verification steps.
+                    }
+                }
+            }
+            // *** End Content Moderation ***
             
             // *** Set the KillStatusPartition based on initial status ***
             kill.setKillStatusPartition(kill.getVerificationStatus()); // Initial status is PENDING

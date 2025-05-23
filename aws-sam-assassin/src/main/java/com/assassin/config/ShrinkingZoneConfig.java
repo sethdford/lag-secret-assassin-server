@@ -2,13 +2,14 @@ package com.assassin.config;
 
 import java.util.List;
 
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBDocument;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
 
 /**
  * Configuration for a shrinking zone in the game.
  * This class defines whether the shrinking zone is enabled and its phases.
  */
-@DynamoDBDocument
+// Replace SDK v1 annotation with SDK v2 equivalent
+@DynamoDbBean
 public class ShrinkingZoneConfig {
     
     private Boolean enabled;

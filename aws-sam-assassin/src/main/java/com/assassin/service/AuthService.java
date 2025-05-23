@@ -320,7 +320,7 @@ public class AuthService {
         authParams.put("REDIRECT_URI", System.getenv("COGNITO_REDIRECT_URI"));
 
         InitiateAuthRequest authRequest = InitiateAuthRequest.builder()
-                .authFlow(AuthFlowType.CUSTOM_AUTH) // Use CUSTOM_AUTH for authorization code flow
+                .authFlow(AuthFlowType.USER_PASSWORD_AUTH) // Use USER_PASSWORD_AUTH for authorization code flow
                 .clientId(clientId)
                 .authParameters(authParams)
                 .build();
