@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -71,6 +72,7 @@ import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 @Testcontainers
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @MockitoSettings(strictness = Strictness.LENIENT)
+@EnabledIfSystemProperty(named = "docker.available", matches = "true", disabledReason = "Docker not available")
 public class UserServiceIntegrationTest {
 
     private static final Logger logger = LoggerFactory.getLogger(UserServiceIntegrationTest.class);

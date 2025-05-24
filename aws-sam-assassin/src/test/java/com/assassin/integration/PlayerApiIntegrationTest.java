@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.DYNAMODB;
 import org.testcontainers.junit.jupiter.Container;
@@ -52,6 +53,7 @@ import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
  */
 @Testcontainers
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@EnabledIfSystemProperty(named = "docker.available", matches = "true", disabledReason = "Docker not available")
 public class PlayerApiIntegrationTest {
 
     private static final String TEST_TABLE_NAME = "test-players";

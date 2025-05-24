@@ -6,7 +6,7 @@ info:
     
     This API serves as the backend for the Assassin Game web application, 
     providing endpoints for player management, game management, kill reporting,
-    and statistics tracking.
+    notifications, safe zones, payments, and emergency operations.
     
     ## Authentication
     
@@ -89,6 +89,16 @@ components:
           type: string
           description: Player's email address (only returned to admins/self)
           example: "john@example.com"
+        latitude:
+          type: number
+          format: double
+          description: Player's current latitude
+          example: 40.7128
+        longitude:
+          type: number
+          format: double
+          description: Player's current longitude
+          example: -74.0060
     
     CreatePlayerRequest:
       type: object
@@ -126,8 +136,8 @@ components:
           example: "Spring 2025 Game"
         status:
           type: string
-          description: Game status (CREATED, ACTIVE, COMPLETED)
-          enum: [CREATED, ACTIVE, COMPLETED]
+          description: Game status (CREATED, ACTIVE, COMPLETED, PENDING)
+          enum: [CREATED, ACTIVE, COMPLETED, PENDING]
           example: "ACTIVE"
         createdAt:
           type: string
@@ -151,6 +161,11 @@ components:
         rules:
           type: object
           description: Game-specific rules and settings
+        boundary:
+          type: array
+          items:
+            $ref: '#/components/schemas/Coordinate'
+          description: Geographic boundary coordinates for the game
     
     CreateGameRequest:
       type: object
@@ -262,7 +277,408 @@ components:
           type: string
           description: Victim's last words
           example: "Avenge me!"
-    
+
+    SafeZone:
+      type: object
+      required:
+        - safeZoneId
+        - gameId
+        - type
+        - latitude
+        - longitude
+        - radiusMeters
+      properties:
+        safeZoneId:
+          type: string
+          description: Unique identifier for the safe zone
+          example: "sz-123"
+        gameId:
+          type: string
+          description: ID of the game this safe zone belongs to
+          example: "game-456"
+        name:
+          type: string
+          description: Name of the safe zone
+          example: "Library Safe Zone"
+        description:
+          type: string
+          description: Description of the safe zone
+          example: "Safe zone around the main library"
+        type:
+          type: string
+          description: Type of safe zone
+          enum: [PUBLIC, PRIVATE, TIMED, RELOCATABLE]
+          example: "PUBLIC"
+        latitude:
+          type: number
+          format: double
+          description: Latitude of the safe zone center
+          example: 40.7128
+        longitude:
+          type: number
+          format: double
+          description: Longitude of the safe zone center
+          example: -74.0060
+        radiusMeters:
+          type: number
+          format: double
+          description: Radius of the safe zone in meters
+          example: 50.0
+        isActive:
+          type: boolean
+          description: Whether the safe zone is currently active
+          example: true
+        createdBy:
+          type: string
+          description: ID of the player who created the safe zone
+          example: "player-123"
+        createdAt:
+          type: string
+          format: date-time
+          description: When the safe zone was created
+          example: "2025-04-01T12:00:00Z"
+        lastModifiedAt:
+          type: string
+          format: date-time
+          description: When the safe zone was last modified
+          example: "2025-04-01T12:00:00Z"
+        authorizedPlayerIds:
+          type: array
+          items:
+            type: string
+          description: List of player IDs authorized to use this safe zone (for PRIVATE zones)
+        startTime:
+          type: string
+          format: date-time
+          description: When the safe zone becomes active (for TIMED zones)
+          example: "2025-04-05T12:00:00Z"
+        endTime:
+          type: string
+          format: date-time
+          description: When the safe zone becomes inactive (for TIMED zones)
+          example: "2025-04-05T18:00:00Z"
+        relocationCount:
+          type: integer
+          description: Number of times the safe zone has been relocated (for RELOCATABLE zones)
+          example: 2
+        lastRelocationTime:
+          type: string
+          format: date-time
+          description: When the safe zone was last relocated (for RELOCATABLE zones)
+          example: "2025-04-03T14:30:00Z"
+
+    CreateSafeZoneRequest:
+      type: object
+      required:
+        - name
+        - type
+        - latitude
+        - longitude
+        - radiusMeters
+      properties:
+        name:
+          type: string
+          description: Name of the safe zone
+          example: "Library Safe Zone"
+        description:
+          type: string
+          description: Description of the safe zone
+          example: "Safe zone around the main library"
+        type:
+          type: string
+          description: Type of safe zone
+          enum: [PUBLIC, PRIVATE, TIMED, RELOCATABLE]
+          example: "PUBLIC"
+        latitude:
+          type: number
+          format: double
+          description: Latitude of the safe zone center
+          example: 40.7128
+        longitude:
+          type: number
+          format: double
+          description: Longitude of the safe zone center
+          example: -74.0060
+        radiusMeters:
+          type: number
+          format: double
+          description: Radius of the safe zone in meters
+          example: 50.0
+        authorizedPlayerIds:
+          type: array
+          items:
+            type: string
+          description: List of player IDs authorized to use this safe zone (for PRIVATE zones)
+        startTime:
+          type: string
+          format: date-time
+          description: When the safe zone becomes active (for TIMED zones)
+          example: "2025-04-05T12:00:00Z"
+        endTime:
+          type: string
+          format: date-time
+          description: When the safe zone becomes inactive (for TIMED zones)
+          example: "2025-04-05T18:00:00Z"
+
+    Notification:
+      type: object
+      required:
+        - notificationId
+        - recipientPlayerId
+        - type
+        - message
+        - timestamp
+      properties:
+        notificationId:
+          type: string
+          description: Unique identifier for the notification
+          example: "notif-123"
+        recipientPlayerId:
+          type: string
+          description: ID of the player receiving the notification
+          example: "player-456"
+        gameId:
+          type: string
+          description: ID of the game related to this notification
+          example: "game-123"
+        type:
+          type: string
+          description: Type of notification
+          enum: [
+            GAME_START, GAME_END, TARGET_ASSIGNED, ELIMINATION_CONFIRMED,
+            ELIMINATION_VERIFICATION_NEEDED, PROXIMITY_ALERT, ZONE_WARNING,
+            PLAYER_JOINED, PLAYER_LEFT, ADMIN_MESSAGE, SAFE_ZONE_EVENT,
+            ELIMINATION_BLOCKED, OTHER
+          ]
+          example: "TARGET_ASSIGNED"
+        title:
+          type: string
+          description: Title of the notification
+          example: "New Target Assigned"
+        message:
+          type: string
+          description: Notification message content
+          example: "You have been assigned a new target: John Doe"
+        timestamp:
+          type: string
+          format: date-time
+          description: When the notification was created
+          example: "2025-04-05T12:00:00Z"
+        status:
+          type: string
+          description: Status of the notification
+          enum: [UNREAD, READ, ARCHIVED]
+          example: "UNREAD"
+        read:
+          type: boolean
+          description: Whether the notification has been read
+          example: false
+        data:
+          type: object
+          additionalProperties:
+            type: string
+          description: Additional data related to the notification
+
+    CreateNotificationRequest:
+      type: object
+      required:
+        - recipientPlayerId
+        - type
+        - message
+      properties:
+        recipientPlayerId:
+          type: string
+          description: ID of the player receiving the notification
+          example: "player-456"
+        gameId:
+          type: string
+          description: ID of the game related to this notification
+          example: "game-123"
+        type:
+          type: string
+          description: Type of notification
+          example: "ADMIN_MESSAGE"
+        title:
+          type: string
+          description: Title of the notification
+          example: "Important Announcement"
+        message:
+          type: string
+          description: Notification message content
+          example: "Game will start in 30 minutes"
+        data:
+          type: object
+          additionalProperties:
+            type: string
+          description: Additional data related to the notification
+
+    Transaction:
+      type: object
+      required:
+        - transactionId
+        - playerId
+        - transactionType
+        - status
+        - amount
+        - currency
+      properties:
+        transactionId:
+          type: string
+          description: Unique identifier for the transaction
+          example: "txn-123"
+        playerId:
+          type: string
+          description: ID of the player who made the transaction
+          example: "player-456"
+        gameId:
+          type: string
+          description: ID of the game related to this transaction
+          example: "game-123"
+        itemId:
+          type: string
+          description: ID of the item purchased (if applicable)
+          example: "item-789"
+        transactionType:
+          type: string
+          description: Type of transaction
+          enum: [ENTRY_FEE, IAP_ITEM, IAP_CURRENCY, SUBSCRIPTION_NEW, SUBSCRIPTION_RENEWAL, REFUND, PAYOUT]
+          example: "ENTRY_FEE"
+        status:
+          type: string
+          description: Status of the transaction
+          enum: [PENDING, PROCESSING, COMPLETED, FAILED, REFUNDED, PARTIALLY_REFUNDED, CANCELLED, REQUIRES_ACTION]
+          example: "COMPLETED"
+        amount:
+          type: integer
+          description: Transaction amount in cents
+          example: 1000
+        currency:
+          type: string
+          description: Currency code
+          example: "USD"
+        paymentGateway:
+          type: string
+          description: Payment gateway used
+          example: "Stripe"
+        gatewayTransactionId:
+          type: string
+          description: Transaction ID from the payment gateway
+          example: "pi_1234567890"
+        paymentMethodDetails:
+          type: string
+          description: Details about the payment method used
+          example: "pm_1234567890"
+        description:
+          type: string
+          description: Description of the transaction
+          example: "Entry fee for game game-123"
+        createdAt:
+          type: string
+          format: date-time
+          description: When the transaction was created
+          example: "2025-04-05T12:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: When the transaction was last updated
+          example: "2025-04-05T12:00:00Z"
+
+    PayEntryFeeRequest:
+      type: object
+      required:
+        - paymentMethodId
+      properties:
+        paymentMethodId:
+          type: string
+          description: Stripe payment method ID
+          example: "pm_1234567890"
+        amount:
+          type: integer
+          description: Amount to charge in cents (optional, uses default if not provided)
+          example: 1000
+        currency:
+          type: string
+          description: Currency code (optional, defaults to USD)
+          example: "USD"
+
+    LocationUpdateRequest:
+      type: object
+      required:
+        - latitude
+        - longitude
+      properties:
+        latitude:
+          type: number
+          format: double
+          description: Player's current latitude
+          example: 40.7128
+        longitude:
+          type: number
+          format: double
+          description: Player's current longitude
+          example: -74.0060
+
+    EmergencyStatusResponse:
+      type: object
+      properties:
+        gameId:
+          type: string
+          description: ID of the game
+          example: "game-123"
+        isPaused:
+          type: boolean
+          description: Whether the game is currently paused
+          example: false
+        pausedAt:
+          type: string
+          format: date-time
+          description: When the game was paused (if applicable)
+          example: "2025-04-05T15:30:00Z"
+        pausedBy:
+          type: string
+          description: ID of the player who paused the game (if applicable)
+          example: "player-admin-123"
+        pauseReason:
+          type: string
+          description: Reason for the pause (if applicable)
+          example: "Emergency situation reported"
+
+    GameTimelineEntry:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: When the event occurred
+          example: "2025-04-05T15:30:00Z"
+        eventType:
+          type: string
+          description: Type of event
+          enum: [GAME_START, GAME_END, KILL, PLAYER_JOIN, PLAYER_LEAVE, SAFE_ZONE_CREATED, GAME_PAUSED, GAME_RESUMED]
+          example: "KILL"
+        playerId:
+          type: string
+          description: ID of the player involved in the event
+          example: "player-123"
+        targetId:
+          type: string
+          description: ID of the target player (for kill events)
+          example: "player-456"
+        description:
+          type: string
+          description: Human-readable description of the event
+          example: "John Doe eliminated Jane Smith"
+        location:
+          type: object
+          properties:
+            latitude:
+              type: number
+              format: double
+            longitude:
+              type: number
+              format: double
+          description: Location where the event occurred (if applicable)
+
     PlayerStats:
       type: object
       properties:
@@ -567,6 +983,38 @@ paths:
           description: Player successfully deleted
         '404':
           description: Player not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /players/me/target:
+    get:
+      tags:
+        - Player Management
+      summary: Get my target
+      description: Retrieves the authenticated player's current target
+      responses:
+        '200':
+          description: Successfully retrieved target
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Player'
+        '404':
+          description: Target not found or not assigned
           content:
             application/json:
               schema:
@@ -949,6 +1397,971 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Game or player not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /games/{gameId}/boundary:
+    put:
+      tags:
+        - Game Management
+      summary: Update Game Boundary
+      description: Updates the geographic boundary for a specific game.
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game whose boundary is to be updated.
+          schema:
+            type: string
+      requestBody:
+        description: A list of coordinates defining the new game boundary polygon.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Coordinate'
+              minItems: 3
+              description: List of coordinates defining the polygon boundary.
+      responses:
+        '200':
+          description: Game boundary updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Game boundary updated successfully.
+        '400':
+          description: Invalid request (e.g., invalid boundary data, missing body).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Game not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /games/{gameId}/timeline:
+    get:
+      tags:
+        - Game Management
+      summary: Get game timeline
+      description: Retrieves the timeline of events for a specific game
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum number of timeline entries to return
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+      responses:
+        '200':
+          description: Successfully retrieved game timeline
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GameTimelineEntry'
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Payment Endpoints
+  /games/{gameId}/pay-entry-fee:
+    post:
+      tags:
+        - Payments
+      summary: Pay entry fee for a game
+      description: Process payment for game entry fee using Stripe
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game to pay entry fee for
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayEntryFeeRequest'
+      responses:
+        '200':
+          description: Payment successfully processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Payment successful and entry fee recorded."
+                  transactionId:
+                    type: string
+                    example: "txn-123"
+                  paymentIntentId:
+                    type: string
+                    example: "pi_1234567890"
+                  status:
+                    type: string
+                    example: "succeeded"
+                  clientSecret:
+                    type: string
+                    example: "pi_1234567890_secret_abc123"
+        '400':
+          description: Invalid payment data or payment failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Emergency Endpoints
+  /games/{gameId}/emergency/pause:
+    post:
+      tags:
+        - Emergency
+      summary: Pause a game
+      description: Pauses a game in case of emergency
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game to pause
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Reason for pausing the game
+                  example: "Emergency situation reported"
+      responses:
+        '200':
+          description: Game successfully paused
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Game paused successfully"
+                  gameId:
+                    type: string
+                    example: "game-123"
+                  pausedAt:
+                    type: string
+                    format: date-time
+                    example: "2025-04-05T15:30:00Z"
+        '400':
+          description: Invalid request or game cannot be paused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /games/{gameId}/emergency/resume:
+    post:
+      tags:
+        - Emergency
+      summary: Resume a paused game
+      description: Resumes a previously paused game
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game to resume
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Game successfully resumed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Game resumed successfully"
+                  gameId:
+                    type: string
+                    example: "game-123"
+                  resumedAt:
+                    type: string
+                    format: date-time
+                    example: "2025-04-05T16:00:00Z"
+        '400':
+          description: Invalid request or game cannot be resumed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /games/{gameId}/emergency/status:
+    get:
+      tags:
+        - Emergency
+      summary: Get emergency status
+      description: Gets the current emergency status of a game
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game to check
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved emergency status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmergencyStatusResponse'
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Safe Zone Endpoints
+  /games/{gameId}/safezones:
+    get:
+      tags:
+        - Safe Zones
+      summary: Get safe zones for a game
+      description: Retrieves all safe zones associated with a specific game
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Filter by safe zone type
+          schema:
+            type: string
+            enum: [PUBLIC, PRIVATE, TIMED, RELOCATABLE]
+        - name: active
+          in: query
+          description: Filter by active status
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Successfully retrieved safe zones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SafeZone'
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      tags:
+        - Safe Zones
+      summary: Create a safe zone
+      description: Creates a new safe zone in the specified game
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSafeZoneRequest'
+      responses:
+        '201':
+          description: Safe zone successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeZone'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /games/{gameId}/safezones/active:
+    get:
+      tags:
+        - Safe Zones
+      summary: Get active safe zones for a game
+      description: Retrieves all currently active safe zones for a specific game
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved active safe zones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SafeZone'
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /safezones/{safeZoneId}:
+    get:
+      tags:
+        - Safe Zones
+      summary: Get safe zone by ID
+      description: Retrieves a specific safe zone by its ID
+      parameters:
+        - name: safeZoneId
+          in: path
+          required: true
+          description: ID of the safe zone
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved safe zone
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeZone'
+        '404':
+          description: Safe zone not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    put:
+      tags:
+        - Safe Zones
+      summary: Update safe zone
+      description: Updates an existing safe zone
+      parameters:
+        - name: safeZoneId
+          in: path
+          required: true
+          description: ID of the safe zone to update
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SafeZone'
+      responses:
+        '200':
+          description: Safe zone successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeZone'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Safe zone not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    delete:
+      tags:
+        - Safe Zones
+      summary: Delete safe zone
+      description: Deletes a safe zone from the system
+      parameters:
+        - name: safeZoneId
+          in: path
+          required: true
+          description: ID of the safe zone to delete
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Safe zone successfully deleted
+        '404':
+          description: Safe zone not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /games/{gameId}/safezones/{safeZoneId}/location:
+    put:
+      tags:
+        - Safe Zones
+      summary: Relocate safe zone
+      description: Moves a relocatable safe zone to a new location
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game
+          schema:
+            type: string
+        - name: safeZoneId
+          in: path
+          required: true
+          description: ID of the safe zone to relocate
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - latitude
+                - longitude
+              properties:
+                latitude:
+                  type: number
+                  format: double
+                  description: New latitude for the safe zone
+                  example: 40.7128
+                longitude:
+                  type: number
+                  format: double
+                  description: New longitude for the safe zone
+                  example: -74.0060
+      responses:
+        '200':
+          description: Safe zone successfully relocated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeZone'
+        '400':
+          description: Invalid request or safe zone cannot be relocated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Game or safe zone not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /players/{playerId}/safezones:
+    get:
+      tags:
+        - Safe Zones
+      summary: Get player's safe zones
+      description: Retrieves safe zones owned by a specific player
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          description: ID of the player
+          schema:
+            type: string
+        - name: gameId
+          in: query
+          required: true
+          description: ID of the game to filter safe zones
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved player's safe zones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SafeZone'
+        '404':
+          description: Player not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Notification Endpoints
+  /notifications:
+    post:
+      tags:
+        - Notifications
+      summary: Create a notification
+      description: Creates and sends a new notification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNotificationRequest'
+      responses:
+        '201':
+          description: Notification successfully created and sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '400':
+          description: Invalid notification data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /notifications/player/{playerId}:
+    get:
+      tags:
+        - Notifications
+      summary: Get player notifications
+      description: Retrieves notifications for a specific player
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          description: ID of the player
+          schema:
+            type: string
+        - name: since
+          in: query
+          description: Retrieve notifications after this timestamp (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          description: Maximum number of notifications to return
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+      responses:
+        '200':
+          description: Successfully retrieved notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Player not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /notifications/{notificationId}:
+    get:
+      tags:
+        - Notifications
+      summary: Get notification by ID
+      description: Retrieves a specific notification by its ID
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          description: ID of the notification
+          schema:
+            type: string
+        - name: recipientId
+          in: query
+          required: true
+          description: ID of the recipient player
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved notification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '400':
+          description: Missing required query parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Notification not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /notifications/{notificationId}/read:
+    put:
+      tags:
+        - Notifications
+      summary: Mark notification as read
+      description: Marks a notification as read
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          description: ID of the notification to mark as read
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Notification successfully marked as read
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '404':
+          description: Notification not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Location Endpoint
+  /location:
+    post:
+      tags:
+        - Location
+      summary: Update player location
+      description: Updates the authenticated player's current location
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationUpdateRequest'
+      responses:
+        '200':
+          description: Location successfully updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Location updated successfully"
+                  playerId:
+                    type: string
+                    example: "player-123"
+                  latitude:
+                    type: number
+                    format: double
+                    example: 40.7128
+                  longitude:
+                    type: number
+                    format: double
+                    example: -74.0060
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-04-05T15:30:00Z"
+        '400':
+          description: Invalid location data
           content:
             application/json:
               schema:
@@ -1703,60 +3116,4 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-
-  /games/{gameId}/boundary:
-    put:
-      summary: Update Game Boundary
-      description: Updates the geographic boundary for a specific game.
-      tags:
-        - Games
-      parameters:
-        - name: gameId
-          in: path
-          required: true
-          description: ID of the game whose boundary is to be updated.
-          schema:
-            type: string
-      requestBody:
-        description: A list of coordinates defining the new game boundary polygon.
-        required: true
-        content:
-          application/json:
-            schema:
-              type: array
-              items:
-                $ref: '#/components/schemas/Coordinate'
-              minItems: 3
-              description: List of coordinates defining the polygon boundary.
-      responses:
-        '200':
-          description: Game boundary updated successfully.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: Game boundary updated successfully.
-        '400':
-          description: Invalid request (e.g., invalid boundary data, missing body).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Game not found.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-      # security:
-      #   - CognitoAuth: [] # Assuming security defined globally or needed here 
+                $ref: '#/components/schemas/Error' 

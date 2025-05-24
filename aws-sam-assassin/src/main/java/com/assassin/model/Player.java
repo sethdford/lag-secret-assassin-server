@@ -41,6 +41,12 @@ public class Player {
     private String firstEnteredOutOfZoneTimestamp; // ISO 8601 format
     private String lastZoneDamageTimestamp; // ISO 8601 format
 
+    // Subscription related fields
+    private String currentSubscriptionTierId;
+    private String subscriptionValidUntil; // ISO 8601 format
+    private String stripeSubscriptionId;
+    private String stripeCustomerId;
+
     // Constants for GSI
     private static final String EMAIL_INDEX = "EmailIndex";
     private static final String GAME_ID_INDEX = "GameIdIndex";
@@ -268,28 +274,113 @@ public class Player {
         this.lastZoneDamageTimestamp = lastZoneDamageTimestamp;
     }
 
+    @DynamoDbAttribute("CurrentSubscriptionTierId")
+    public String getCurrentSubscriptionTierId() {
+        return currentSubscriptionTierId;
+    }
+
+    public void setCurrentSubscriptionTierId(String currentSubscriptionTierId) {
+        this.currentSubscriptionTierId = currentSubscriptionTierId;
+    }
+
+    @DynamoDbAttribute("SubscriptionValidUntil")
+    public String getSubscriptionValidUntil() {
+        return subscriptionValidUntil;
+    }
+
+    public void setSubscriptionValidUntil(String subscriptionValidUntil) {
+        this.subscriptionValidUntil = subscriptionValidUntil;
+    }
+
+    @DynamoDbAttribute("StripeSubscriptionId")
+    public String getStripeSubscriptionId() {
+        return stripeSubscriptionId;
+    }
+
+    public void setStripeSubscriptionId(String stripeSubscriptionId) {
+        this.stripeSubscriptionId = stripeSubscriptionId;
+    }
+
+    @DynamoDbAttribute("StripeCustomerId")
+    public String getStripeCustomerId() {
+        return stripeCustomerId;
+    }
+
+    public void setStripeCustomerId(String stripeCustomerId) {
+        this.stripeCustomerId = stripeCustomerId;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Player player = (Player) o;
-        return Objects.equals(playerID, player.playerID);
+        return Objects.equals(playerID, player.playerID) &&
+                Objects.equals(email, player.email) &&
+                Objects.equals(playerName, player.playerName) &&
+                Objects.equals(targetID, player.targetID) &&
+                Objects.equals(targetName, player.targetName) &&
+                Objects.equals(targetSecret, player.targetSecret) &&
+                Objects.equals(secret, player.secret) &&
+                Objects.equals(lastWill, player.lastWill) &&
+                Objects.equals(gameID, player.gameID) &&
+                Objects.equals(killCount, player.killCount) &&
+                Objects.equals(leaderboardStatusPartition, player.leaderboardStatusPartition) &&
+                Objects.equals(status, player.status) &&
+                Objects.equals(version, player.version) &&
+                Objects.equals(passwordHash, player.passwordHash) &&
+                Objects.equals(active, player.active) &&
+                Objects.equals(nfcTagId, player.nfcTagId) &&
+                Objects.equals(lastKnownLatitude, player.lastKnownLatitude) &&
+                Objects.equals(lastKnownLongitude, player.lastKnownLongitude) &&
+                Objects.equals(locationTimestamp, player.locationTimestamp) &&
+                Objects.equals(locationAccuracy, player.locationAccuracy) &&
+                Objects.equals(firstEnteredOutOfZoneTimestamp, player.firstEnteredOutOfZoneTimestamp) &&
+                Objects.equals(lastZoneDamageTimestamp, player.lastZoneDamageTimestamp) &&
+                Objects.equals(currentSubscriptionTierId, player.currentSubscriptionTierId) &&
+                Objects.equals(subscriptionValidUntil, player.subscriptionValidUntil) &&
+                Objects.equals(stripeSubscriptionId, player.stripeSubscriptionId) &&
+                Objects.equals(stripeCustomerId, player.stripeCustomerId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(playerID);
+        return Objects.hash(playerID, email, playerName, targetID, targetName, targetSecret, secret, lastWill, gameID,
+                killCount, leaderboardStatusPartition, status, version, passwordHash, active, nfcTagId,
+                lastKnownLatitude, lastKnownLongitude, locationTimestamp, locationAccuracy,
+                firstEnteredOutOfZoneTimestamp, lastZoneDamageTimestamp,
+                currentSubscriptionTierId, subscriptionValidUntil, stripeSubscriptionId, stripeCustomerId);
     }
 
     @Override
     public String toString() {
         return "Player{" +
-               "playerID='" + playerID + '\'' +
-               ", email='" + email + '\'' +
-               ", playerName='" + playerName + '\'' +
-               ", targetID='" + targetID + '\'' +
-               ", status='" + status + '\'' +
-               ", locationTimestamp='" + locationTimestamp + '\'' +
-               '}';
+                "playerID='" + playerID + '\'' +
+                ", email='" + email + '\'' +
+                ", playerName='" + playerName + '\'' +
+                ", targetID='" + targetID + '\'' +
+                ", targetName='" + targetName + '\'' +
+                ", targetSecret='" + targetSecret + '\'' +
+                ", secret='" + secret + '\'' +
+                ", lastWill='" + lastWill + '\'' +
+                ", gameID='" + gameID + '\'' +
+                ", killCount=" + killCount +
+                ", leaderboardStatusPartition='" + leaderboardStatusPartition + '\'' +
+                ", status='" + status + '\'' +
+                ", version=" + version +
+                ", passwordHash='********'" + // Mask password hash
+                ", active=" + active +
+                ", nfcTagId='" + nfcTagId + '\'' +
+                ", lastKnownLatitude=" + lastKnownLatitude +
+                ", lastKnownLongitude=" + lastKnownLongitude +
+                ", locationTimestamp='" + locationTimestamp + '\'' +
+                ", locationAccuracy=" + locationAccuracy +
+                ", firstEnteredOutOfZoneTimestamp='" + firstEnteredOutOfZoneTimestamp + '\'' +
+                ", lastZoneDamageTimestamp='" + lastZoneDamageTimestamp + '\'' +
+                ", currentSubscriptionTierId='" + currentSubscriptionTierId + '\'' +
+                ", subscriptionValidUntil='" + subscriptionValidUntil + '\'' +
+                ", stripeSubscriptionId='" + stripeSubscriptionId + '\'' +
+                ", stripeCustomerId='" + stripeCustomerId + '\'' +
+                '}';
     }
 } 

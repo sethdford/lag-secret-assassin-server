@@ -1,26 +1,27 @@
 package com.assassin.handlers;
 
+import java.util.Map;
+import java.util.UUID;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
-import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
+import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent; // Assuming this implementation
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.assassin.config.StripeClientProvider;
+import com.assassin.dao.DynamoDbTransactionDao;
 import com.assassin.dao.TransactionDao;
-import com.assassin.dao.DynamoDbTransactionDao; // Assuming this implementation
 import com.assassin.model.Transaction;
 import com.assassin.util.ApiGatewayResponseBuilder;
 import com.assassin.util.RequestUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
 import com.stripe.model.PaymentIntent;
+import com.stripe.model.PaymentMethod;
 import com.stripe.param.PaymentIntentCreateParams;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Map;
-import java.util.UUID;
 
 public class PaymentHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
@@ -134,6 +135,25 @@ public class PaymentHandler implements RequestHandler<APIGatewayProxyRequestEven
                 transaction.setStatus(Transaction.TransactionStatus.COMPLETED);
                 transactionDao.saveTransaction(transaction);
                 LOG.info("Transaction {} recorded successfully for PaymentIntent {}", transaction.getTransactionId(), paymentIntent.getId());
+
+                // Enhance logging with payment method details if available
+                paymentMethodId = paymentIntent.getPaymentMethod();
+                if (paymentMethodId != null) {
+                    try {
+                        PaymentMethod paymentMethod = PaymentMethod.retrieve(paymentMethodId);
+                        if (paymentMethod != null && "card".equals(paymentMethod.getType()) && paymentMethod.getCard() != null) {
+                            LOG.info("Payment method details: Type: {}, Last4: {}, Brand: {}",
+                                    paymentMethod.getType(),
+                                    paymentMethod.getCard().getLast4(),
+                                    paymentMethod.getCard().getBrand());
+                        } else if (paymentMethod != null) {
+                            LOG.info("Payment method details: Type: {}", paymentMethod.getType());
+                        }
+                    } catch (StripeException e) {
+                        LOG.warn("Could not retrieve payment method details for PaymentIntent {}: {}", paymentIntent.getId(), e.getMessage());
+                    }
+                }
+
                 return ApiGatewayResponseBuilder.buildResponse(200, GSON.toJson(Map.of(
                     "message", "Payment successful and entry fee recorded.",
                     "transactionId", transaction.getTransactionId(),

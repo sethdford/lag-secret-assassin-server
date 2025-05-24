@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.localstack.LocalStackContainer;
@@ -64,6 +65,7 @@ import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 @Tag("performance")
 @Testcontainers
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@EnabledIfSystemProperty(named = "docker.available", matches = "true", disabledReason = "Docker not available")
 public class PlayerApiPerformanceTest {
 
     private static final Logger logger = LoggerFactory.getLogger(PlayerApiPerformanceTest.class);

@@ -27,7 +27,7 @@
         <mockito.version>5.10.0</mockito.version> <!-- Updated for JDK 23 compatibility -->
         <bytebuddy.version>1.14.13</bytebuddy.version> <!-- Added for JDK 23 compatibility -->
         <gson.version>2.10.1</gson.version> <!-- For JSON handling in example handler -->
-        <stripe.version>29.1.0</stripe.version> <!-- Stripe Java SDK -->
+        <stripe.version>24.0.0</stripe.version> <!-- Stripe Java SDK -->
         <!-- Plugin Versions -->
         <maven.shade.plugin.version>3.4.1</maven.shade.plugin.version>
         <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
@@ -224,7 +224,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.32</version> <!-- Use the latest version -->
+            <version>1.18.38</version> <!-- Use the latest version -->
             <scope>provided</scope>
         </dependency>
         
@@ -333,7 +333,7 @@
                         <ELIMINATION_TABLE_NAME>test_elimination</ELIMINATION_TABLE_NAME>
                         <GAME_ZONE_STATE_TABLE_NAME>test_game_zone_state</GAME_ZONE_STATE_TABLE_NAME>
                         <MAP_CONFIG_TABLE_NAME>test_map_config</MAP_CONFIG_TABLE_NAME>
-                        <SAFE_ZONE_TABLE_NAME>test_safe_zone</SAFE_ZONE_TABLE_NAME>
+                        <SAFE_ZONES_TABLE_NAME>test_safe_zone</SAFE_ZONES_TABLE_NAME>
                         <AWS_REGION>us-east-1</AWS_REGION> <!-- For use in unit tests -->
                     </environmentVariables>
                 </configuration>

@@ -115,6 +115,17 @@ public interface PlayerDao {
      */
     List<Player> getPlayersTargeting(String targetId, String gameId);
 
+    Optional<Player> getPlayerByNfcTagId(String nfcTagId);
+
+    /**
+     * Finds a player by their Stripe Subscription ID.
+     * Requires a GSI on the stripeSubscriptionId attribute.
+     *
+     * @param stripeSubscriptionId The Stripe Subscription ID.
+     * @return An Optional containing the Player if found, otherwise empty.
+     */
+    Optional<Player> findPlayerByStripeSubscriptionId(String stripeSubscriptionId);
+
     // Potentially add methods for finding player by targetID, listing alive players, etc.
     // Player findByTargetId(String targetId); // Requires GSI
     // List<Player> findAllAlivePlayers(); // Requires Scan or GSI

@@ -33,6 +33,9 @@ class GameServiceTest {
     @Mock
     private PlayerDao playerDao; // Mock PlayerDao even if not directly used in updateBoundary
 
+    @Mock
+    private EmergencyService emergencyService; // Added missing mock for EmergencyService
+
     @InjectMocks
     private GameService gameService;
 

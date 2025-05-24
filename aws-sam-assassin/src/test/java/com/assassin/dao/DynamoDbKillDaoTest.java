@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.testcontainers.containers.localstack.LocalStackContainer;
@@ -48,6 +49,7 @@ import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
  */
 @Testcontainers
 @ExtendWith(MockitoExtension.class)
+@EnabledIfSystemProperty(named = "docker.available", matches = "true", disabledReason = "Docker not available")
 class DynamoDbKillDaoTest {
 
     private static final String TEST_TABLE_NAME = "test-kills";

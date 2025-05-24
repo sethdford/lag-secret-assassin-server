@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.localstack.LocalStackContainer;
@@ -74,6 +75,7 @@ import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 @Testcontainers
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(OrderAnnotation.class)
+@EnabledIfSystemProperty(named = "docker.available", matches = "true", disabledReason = "Docker not available")
 public class GameFlowEndToEndTest {
 
     private static final Logger logger = LoggerFactory.getLogger(GameFlowEndToEndTest.class);

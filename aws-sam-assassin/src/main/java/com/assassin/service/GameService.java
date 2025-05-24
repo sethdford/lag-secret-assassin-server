@@ -33,16 +33,23 @@ public class GameService {
     private static final Logger logger = LoggerFactory.getLogger(GameService.class);
     private final GameDao gameDao;
     private final PlayerDao playerDao;
+    private final EmergencyService emergencyService;
 
     // Default constructor
     public GameService() {
-        this(new DynamoDbGameDao(), new DynamoDbPlayerDao());
+        this(new DynamoDbGameDao(), new DynamoDbPlayerDao(), new EmergencyService());
     }
 
     // Constructor for dependency injection (testing)
     public GameService(GameDao gameDao, PlayerDao playerDao) {
+        this(gameDao, playerDao, new EmergencyService());
+    }
+
+    // Full constructor for dependency injection (testing)
+    public GameService(GameDao gameDao, PlayerDao playerDao, EmergencyService emergencyService) {
         this.gameDao = Objects.requireNonNull(gameDao, "gameDao cannot be null");
         this.playerDao = Objects.requireNonNull(playerDao, "playerDao cannot be null");
+        this.emergencyService = Objects.requireNonNull(emergencyService, "emergencyService cannot be null");
     }
 
     /**
@@ -55,6 +62,9 @@ public class GameService {
      */
     public void startGameAndAssignTargets(String gameId) throws GameNotFoundException, GameStateException, PlayerPersistenceException {
         logger.info("Attempting to start game and assign targets for game ID: {}", gameId);
+
+        // 0. Check if game is in emergency pause mode
+        validateGameNotInEmergencyPause(gameId);
 
         // 1. Fetch the game
         Game game = gameDao.getGameById(gameId)
@@ -217,6 +227,33 @@ public class GameService {
         logger.warn("removePlayerFromGame is not fully implemented yet.");
         // TODO: Implement logic to remove player ID from game's player list (check admin, game status)
         throw new UnsupportedOperationException("Removing player from game not implemented.");
+    }
+
+    /**
+     * Checks if a game is in emergency pause and throws an exception if game operations should be blocked.
+     * This method should be called before performing any game-altering operations.
+     *
+     * @param gameId The ID of the game to check
+     * @throws GameStateException If the game is in emergency pause mode
+     */
+    private void validateGameNotInEmergencyPause(String gameId) throws GameStateException {
+        if (emergencyService.isGameInEmergencyPause(gameId)) {
+            throw new GameStateException("Game " + gameId + " is currently in emergency pause mode. " +
+                                       "Operations are blocked until the emergency is resolved.");
+        }
+    }
+
+    /**
+     * Validates that a game is not in emergency pause before performing operations.
+     * This is a public method that other services can use to check emergency status.
+     *
+     * @param gameId The ID of the game to check
+     * @return true if the game is safe to operate on (not in emergency pause)
+     * @throws GameStateException If the game is in emergency pause mode
+     */
+    public boolean validateGameOperationAllowed(String gameId) throws GameStateException {
+        validateGameNotInEmergencyPause(gameId);
+        return true;
     }
 
     // Other game-related methods can go here (e.g., processGameEnd, etc.)

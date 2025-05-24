@@ -83,6 +83,9 @@ class KillServiceTest {
     @Mock
     private SafeZoneViolationDetector violationDetector;
 
+    @Mock
+    private ContentModerationService contentModerationService;
+
     @InjectMocks
     private KillService killService;
 
@@ -102,14 +105,12 @@ class KillServiceTest {
     void setUp() throws Exception {
         MockitoAnnotations.openMocks(this);
         
-        // Create the KillService with mocked dependencies
-        killService = new KillService(killDao, playerDao, gameDao, notificationService, verificationManager, mapConfigurationService);
+        // Create the KillService with mocked dependencies using the main constructor
+        killService = new KillService(killDao, playerDao, gameDao, 
+                                    notificationService, verificationManager, 
+                                    mapConfigurationService, violationDetector, // Pass the mock
+                                    contentModerationService); // Pass the mock
         
-        // Use reflection to inject the mocked violationDetector
-        Field violationDetectorField = KillService.class.getDeclaredField("violationDetector");
-        violationDetectorField.setAccessible(true);
-        violationDetectorField.set(killService, violationDetector);
-
         // Basic valid game and players setup
         testGame = new Game();
         testGame.setGameID(gameId);

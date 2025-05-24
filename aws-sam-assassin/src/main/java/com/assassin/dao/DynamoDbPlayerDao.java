@@ -3,6 +3,7 @@ package com.assassin.dao;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.Iterator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,21 +28,26 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue; // Needed 
 import software.amazon.awssdk.services.dynamodb.model.DescribeTableRequest;
 import software.amazon.awssdk.services.dynamodb.model.DescribeTableResponse;
 import software.amazon.awssdk.services.dynamodb.model.DynamoDbException; // Import AttributeValue
+import software.amazon.awssdk.enhanced.dynamodb.model.Page;
+import software.amazon.awssdk.core.pagination.sync.SdkIterable;
 
 public class DynamoDbPlayerDao implements PlayerDao {
 
-    private static final Logger logger = LoggerFactory.getLogger(DynamoDbPlayerDao.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DynamoDbPlayerDao.class);
     private static final String PLAYER_TABLE_ENV_VAR = "PLAYERS_TABLE_NAME"; // Store the env var *name*
     private static final String EMAIL_INDEX_NAME = "EmailIndex";
     private static final String KILL_COUNT_INDEX_NAME = "KillCountIndex";
     private static final String GAME_ID_INDEX_NAME = "GameIdIndex"; // Name of the new index
     private static final String TARGET_ID_INDEX_NAME = "TargetIdIndex"; // Name for the TargetID index
+    private static final String NFC_TAG_ID_INDEX = "NfcTagIdIndex"; // Added this constant
+    public static final String STRIPE_SUBSCRIPTION_ID_INDEX_NAME = "StripeSubscriptionIdIndex";
 
     private final DynamoDbTable<Player> playerTable;
     private final DynamoDbIndex<Player> emailIndex;
     private final DynamoDbIndex<Player> killCountIndex;
     private final DynamoDbIndex<Player> gameIdIndex; // Add index reference
     private final DynamoDbIndex<Player> targetIdIndex; // Add index reference for TargetID
+    private final DynamoDbIndex<Player> nfcTagIdIndex; // Added this index
     private final DynamoDbEnhancedClient enhancedClient;
     private final String tableName; // Store table name for DescribeTable
 
@@ -52,22 +58,23 @@ public class DynamoDbPlayerDao implements PlayerDao {
             // Throw exception earlier if table name is missing
             throw new IllegalStateException("Could not determine Players table name from System Property or Environment Variable '" + PLAYER_TABLE_ENV_VAR + "'");
         }
-        logger.info("Initializing DynamoDbPlayerDao with table: {}", this.tableName);
+        LOG.info("Initializing DynamoDbPlayerDao with table: {}", this.tableName);
         this.playerTable = enhancedClient.table(this.tableName, TableSchema.fromBean(Player.class));
         this.emailIndex = playerTable.index(EMAIL_INDEX_NAME);
         this.killCountIndex = playerTable.index(KILL_COUNT_INDEX_NAME);
         this.gameIdIndex = playerTable.index(GAME_ID_INDEX_NAME); // Initialize the index
         this.targetIdIndex = playerTable.index(TARGET_ID_INDEX_NAME); // Initialize the TargetID index
+        this.nfcTagIdIndex = playerTable.index(NFC_TAG_ID_INDEX); // Initialize this index
     }
 
     @Override
     public Optional<Player> getPlayerById(String playerId) {
-        logger.debug("Getting player by ID: {}", playerId);
+        LOG.debug("Getting player by ID: {}", playerId);
         try {
             Key key = Key.builder().partitionValue(playerId).build();
             return Optional.ofNullable(playerTable.getItem(key));
         } catch (DynamoDbException e) {
-            logger.error("DynamoDB error getting player {}: {}", playerId, e.getMessage(), e);
+            LOG.error("DynamoDB error getting player {}: {}", playerId, e.getMessage(), e);
             throw new PlayerPersistenceException("Error retrieving player from DynamoDB", e);
         }
     }
@@ -79,7 +86,7 @@ public class DynamoDbPlayerDao implements PlayerDao {
     
     @Override
     public Player findPlayerByEmail(String email) {
-        logger.debug("Attempting to find player by email: {}", email);
+        LOG.debug("Attempting to find player by email: {}", email);
         try {
             QueryConditional queryConditional = QueryConditional.keyEqualTo(Key.builder().partitionValue(email).build());
             var results = emailIndex.query(QueryEnhancedRequest.builder().queryConditional(queryConditional).limit(1).build());
@@ -87,14 +94,14 @@ public class DynamoDbPlayerDao implements PlayerDao {
             List<Player> players = results.stream().flatMap(page -> page.items().stream()).collect(Collectors.toList());
             
             if (!players.isEmpty()) {
-                logger.debug("Found player by email: {}", players.get(0));
+                LOG.debug("Found player by email: {}", players.get(0));
                 return players.get(0);
             }
-            logger.debug("No player found for email: {}", email);
+            LOG.debug("No player found for email: {}", email);
             return null;
         } catch (DynamoDbException e) {
             String errorMessage = e.awsErrorDetails() != null ? e.awsErrorDetails().errorMessage() : e.getMessage();
-            logger.error("Error querying EmailIndex for email {}: {}", email, errorMessage, e);
+            LOG.error("Error querying EmailIndex for email {}: {}", email, errorMessage, e);
             // Propagate as unchecked exception or custom persistence exception
             throw new PlayerPersistenceException("Error finding player by email", e);
         }
@@ -102,36 +109,36 @@ public class DynamoDbPlayerDao implements PlayerDao {
 
     @Override
     public void savePlayer(Player player) {
-        logger.debug("Saving player with ID: {}", player.getPlayerID());
+        LOG.debug("Saving player with ID: {}", player.getPlayerID());
         try {
             playerTable.putItem(player);
         } catch (DynamoDbException e) {
-            logger.error("DynamoDB error saving player {}: {}", player.getPlayerID(), e.getMessage(), e);
+            LOG.error("DynamoDB error saving player {}: {}", player.getPlayerID(), e.getMessage(), e);
             throw new PlayerPersistenceException("Error saving player to DynamoDB", e);
         }
     }
 
     @Override
     public List<Player> getAllPlayers() {
-        logger.debug("Getting all players from table: {}", tableName);
+        LOG.debug("Getting all players from table: {}", tableName);
         try {
             ScanEnhancedRequest request = ScanEnhancedRequest.builder().build();
             return playerTable.scan(request).items().stream().toList();
         } catch (DynamoDbException e) {
-            logger.error("DynamoDB error scanning players: {}", e.getMessage(), e);
+            LOG.error("DynamoDB error scanning players: {}", e.getMessage(), e);
             throw new PlayerPersistenceException("Error retrieving all players from DynamoDB", e);
         }
     }
 
     @Override
     public void deletePlayer(String playerId) {
-        logger.info("Deleting player with ID: {}", playerId);
+        LOG.info("Deleting player with ID: {}", playerId);
         try {
             Key key = Key.builder().partitionValue(playerId).build();
             
             Optional<Player> existingPlayer = getPlayerById(playerId);
             if (existingPlayer.isEmpty()) {
-                logger.warn("Attempted to delete non-existent player: {}", playerId);
+                LOG.warn("Attempted to delete non-existent player: {}", playerId);
                 throw new PlayerNotFoundException("Player not found with ID: " + playerId);
             }
             
@@ -139,16 +146,16 @@ public class DynamoDbPlayerDao implements PlayerDao {
                 .key(key)
                 .build();
             playerTable.deleteItem(deleteRequest);
-            logger.info("Successfully deleted player: {}", playerId);
+            LOG.info("Successfully deleted player: {}", playerId);
         } catch (DynamoDbException e) {
-            logger.error("DynamoDB error deleting player {}: {}", playerId, e.getMessage(), e);
+            LOG.error("DynamoDB error deleting player {}: {}", playerId, e.getMessage(), e);
             throw new PlayerPersistenceException("Error deleting player from DynamoDB", e);
         }
     }
 
     @Override
     public long getPlayerCount() throws PlayerPersistenceException {
-        logger.debug("Getting approximate player count for table: {}", this.tableName);
+        LOG.debug("Getting approximate player count for table: {}", this.tableName);
         try {
             DynamoDbClient ddbClient = DynamoDbClientProvider.getClient(); // Get the standard client
             DescribeTableRequest request = DescribeTableRequest.builder()
@@ -156,20 +163,20 @@ public class DynamoDbPlayerDao implements PlayerDao {
                                                                .build();
             DescribeTableResponse response = ddbClient.describeTable(request);
             long count = response.table().itemCount();
-            logger.info("Approximate player count for table {}: {}", this.tableName, count);
+            LOG.info("Approximate player count for table {}: {}", this.tableName, count);
             return count;
         } catch (DynamoDbException e) {
-            logger.error("DynamoDB error describing table {}: {}", this.tableName, e.getMessage(), e);
+            LOG.error("DynamoDB error describing table {}: {}", this.tableName, e.getMessage(), e);
             throw new PlayerPersistenceException("Failed to describe table to get player count", e);
         } catch (Exception e) { // Catch broader exceptions for unexpected errors
-             logger.error("Unexpected error getting player count for table {}: {}", this.tableName, e.getMessage(), e);
+             LOG.error("Unexpected error getting player count for table {}: {}", this.tableName, e.getMessage(), e);
             throw new PlayerPersistenceException("Unexpected error getting player count", e);
         }
     }
 
     @Override
     public List<Player> getLeaderboardByKillCount(String statusPartitionKey, int limit) {
-        logger.debug("Querying KillCountIndex with partitionKey='{}' and limit={}", statusPartitionKey, limit);
+        LOG.debug("Querying KillCountIndex with partitionKey='{}' and limit={}", statusPartitionKey, limit);
         try {
              QueryConditional queryConditional = QueryConditional.keyEqualTo(Key.builder()
                 .partitionValue(statusPartitionKey)
@@ -187,11 +194,11 @@ public class DynamoDbPlayerDao implements PlayerDao {
                                             .flatMap(page -> page.items().stream())
                                             .collect(Collectors.toList());
                                             
-            logger.debug("Found {} players on KillCountIndex leaderboard", topPlayers.size());
+            LOG.debug("Found {} players on KillCountIndex leaderboard", topPlayers.size());
             return topPlayers;
         } catch (DynamoDbException e) {
             String errorMessage = e.awsErrorDetails() != null ? e.awsErrorDetails().errorMessage() : e.getMessage();
-            logger.error("Error querying KillCountIndex for partitionKey {}: {}", statusPartitionKey, errorMessage, e);
+            LOG.error("Error querying KillCountIndex for partitionKey {}: {}", statusPartitionKey, errorMessage, e);
             // Propagate as unchecked exception or custom persistence exception
             throw new PlayerPersistenceException("Error getting leaderboard", e);
         }
@@ -208,7 +215,7 @@ public class DynamoDbPlayerDao implements PlayerDao {
      */
     @Override
     public int incrementPlayerKillCount(String playerId) throws PlayerPersistenceException, PlayerNotFoundException {
-        logger.debug("Attempting to increment kill count for player ID: {}", playerId);
+        LOG.debug("Attempting to increment kill count for player ID: {}", playerId);
         try {
             // First check if the player exists
             Optional<Player> existingPlayer = getPlayerById(playerId);
@@ -224,15 +231,15 @@ public class DynamoDbPlayerDao implements PlayerDao {
             // Save the updated player
             playerTable.updateItem(player);
             
-            logger.info("Successfully incremented kill count for player ID {} to {}", playerId, player.getKillCount());
+            LOG.info("Successfully incremented kill count for player ID {} to {}", playerId, player.getKillCount());
             return player.getKillCount();
         } catch (PlayerNotFoundException e) {
             throw e;
         } catch (DynamoDbException e) {
-            logger.error("DynamoDB error incrementing kill count for player {}: {}", playerId, e.getMessage(), e);
+            LOG.error("DynamoDB error incrementing kill count for player {}: {}", playerId, e.getMessage(), e);
             throw new PlayerPersistenceException("Error incrementing kill count", e);
         } catch (Exception e) {
-            logger.error("Unexpected error incrementing kill count for player {}: {}", playerId, e.getMessage(), e);
+            LOG.error("Unexpected error incrementing kill count for player {}: {}", playerId, e.getMessage(), e);
             throw new PlayerPersistenceException("Unexpected error incrementing kill count", e);
         }
     }
@@ -252,7 +259,7 @@ public class DynamoDbPlayerDao implements PlayerDao {
     @Override
     public void updatePlayerLocation(String playerId, Double latitude, Double longitude, String timestamp, Double accuracy)
             throws PlayerPersistenceException, PlayerNotFoundException {
-        logger.debug("Updating location for player ID: {} - Lat={}, Lon={}, Timestamp={}, Accuracy={}", 
+        LOG.debug("Updating location for player ID: {} - Lat={}, Lon={}, Timestamp={}, Accuracy={}", 
                    playerId, latitude, longitude, timestamp, accuracy);
         
         if (playerId == null || playerId.isEmpty()) {
@@ -288,42 +295,39 @@ public class DynamoDbPlayerDao implements PlayerDao {
                                                                        .expression("attribute_exists(PlayerID)")
                                                                        .build()));
             
-            logger.info("Successfully updated location for player ID: {}", playerId);
+            LOG.info("Successfully updated location for player ID: {}", playerId);
             
         } catch (software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException e) {
-             logger.warn("Update location failed because player not found: {}", playerId);
+             LOG.warn("Update location failed because player not found: {}", playerId);
             throw new PlayerNotFoundException("Player not found with ID: " + playerId + " during location update.", e);
         } catch (DynamoDbException e) {
-            logger.error("DynamoDB error updating location for player {}: {}", playerId, e.getMessage(), e);
+            LOG.error("DynamoDB error updating location for player {}: {}", playerId, e.getMessage(), e);
             throw new PlayerPersistenceException("Error updating player location", e);
         } catch (Exception e) {
-            logger.error("Unexpected error updating location for player {}: {}", playerId, e.getMessage(), e);
+            LOG.error("Unexpected error updating location for player {}: {}", playerId, e.getMessage(), e);
             throw new PlayerPersistenceException("Unexpected error updating player location", e);
         }
     }
 
     @Override
     public List<Player> getPlayersByGameId(String gameId) throws PlayerPersistenceException {
-        logger.debug("Getting players by game ID: {} using index: {}", gameId, GAME_ID_INDEX_NAME);
+        LOG.debug("Getting players by game ID: {} using index: {}", gameId, GAME_ID_INDEX_NAME);
         try {
             QueryConditional queryConditional = QueryConditional.keyEqualTo(Key.builder().partitionValue(gameId).build());
             QueryEnhancedRequest request = QueryEnhancedRequest.builder()
                                                                .queryConditional(queryConditional)
                                                                .build();
-
-            // Query the GSI
             List<Player> players = gameIdIndex.query(request).stream()
                                              .flatMap(page -> page.items().stream())
                                              .collect(Collectors.toList());
-                                             
-            logger.debug("Found {} players for game ID: {}", players.size(), gameId);
+            LOG.debug("Found {} players for game ID: {}", players.size(), gameId);
             return players;
         } catch (DynamoDbException e) {
             String errorMessage = e.awsErrorDetails() != null ? e.awsErrorDetails().errorMessage() : e.getMessage();
-            logger.error("Error querying GameIdIndex for game {}: {}", gameId, errorMessage, e);
+            LOG.error("Error querying GameIdIndex for game {}: {}", gameId, errorMessage, e);
             throw new PlayerPersistenceException("Error finding players by game ID", e);
-        } catch (Exception e) { // Catch broader exceptions
-            logger.error("Unexpected error getting players for game {}: {}", gameId, e.getMessage(), e);
+        } catch (Exception e) {
+            LOG.error("Unexpected error getting players for game {}: {}", gameId, e.getMessage(), e);
             throw new PlayerPersistenceException("Unexpected error getting players by game ID", e);
         }
     }
@@ -339,10 +343,10 @@ public class DynamoDbPlayerDao implements PlayerDao {
      */
     @Override
     public List<Player> getPlayersTargeting(String targetId, String gameId) throws PlayerPersistenceException {
-        logger.debug("Getting players targeting player ID: {} in game ID: {} using index: {}", 
+        LOG.debug("Getting players targeting player ID: {} in game ID: {} using index: {}", 
                    targetId, gameId, TARGET_ID_INDEX_NAME);
         if (targetId == null || targetId.isEmpty() || gameId == null || gameId.isEmpty()) {
-             logger.warn("targetId and gameId cannot be null or empty for getPlayersTargeting");
+             LOG.warn("targetId and gameId cannot be null or empty for getPlayersTargeting");
              return List.of(); // Return empty list for invalid input
         }
 
@@ -367,19 +371,89 @@ public class DynamoDbPlayerDao implements PlayerDao {
                                                 .flatMap(page -> page.items().stream())
                                                 .collect(Collectors.toList());
 
-            logger.debug("Found {} players targeting player ID: {} in game ID: {}", 
+            LOG.debug("Found {} players targeting player ID: {} in game ID: {}", 
                        players.size(), targetId, gameId);
             return players;
 
         } catch (DynamoDbException e) {
             String errorMessage = e.awsErrorDetails() != null ? e.awsErrorDetails().errorMessage() : e.getMessage();
-            logger.error("Error querying TargetIdIndex for target {} in game {}: {}", 
+            LOG.error("Error querying TargetIdIndex for target {} in game {}: {}", 
                        targetId, gameId, errorMessage, e);
             throw new PlayerPersistenceException("Error finding players by target ID", e);
         } catch (Exception e) { // Catch broader exceptions
-            logger.error("Unexpected error getting players targeting {} in game {}: {}", 
+            LOG.error("Unexpected error getting players targeting {} in game {}: {}", 
                        targetId, gameId, e.getMessage(), e);
             throw new PlayerPersistenceException("Unexpected error finding players by target ID", e);
+        }
+    }
+
+    @Override
+    public Optional<Player> getPlayerByNfcTagId(String nfcTagId) {
+        if (nfcTagId == null || nfcTagId.trim().isEmpty()) {
+            LOG.warn("getPlayerByNfcTagId called with null or empty nfcTagId.");
+            return Optional.empty();
+        }
+        LOG.debug("Querying for player by NFC Tag ID: {}", nfcTagId);
+        try {
+            QueryConditional queryConditional = QueryConditional.keyEqualTo(Key.builder().partitionValue(nfcTagId).build());
+            DynamoDbIndex<Player> index = playerTable.index(NFC_TAG_ID_INDEX); // Use the initialized index
+            var results = index.query(queryConditional);
+            Iterator<Player> iterator = results.stream().flatMap(page -> page.items().stream()).iterator(); // Corrected iteration
+            if (iterator.hasNext()) {
+                Player player = iterator.next();
+                if (iterator.hasNext()) {
+                    LOG.warn("Multiple players found with the same NFC Tag ID: {}. Returning the first one.", nfcTagId);
+                }
+                return Optional.of(player);
+            } else {
+                LOG.info("No player found with NFC Tag ID: {}", nfcTagId);
+                return Optional.empty();
+            }
+        } catch (DynamoDbException e) {
+            LOG.error("Error querying player by NFC Tag ID '{}': {}", nfcTagId, e.getMessage(), e);
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public Optional<Player> findPlayerByStripeSubscriptionId(String stripeSubscriptionId) {
+        if (stripeSubscriptionId == null || stripeSubscriptionId.trim().isEmpty()) {
+            LOG.warn("findPlayerByStripeSubscriptionId called with null or empty stripeSubscriptionId.");
+            return Optional.empty();
+        }
+        LOG.debug("Querying for player by Stripe Subscription ID: {}", stripeSubscriptionId);
+        try {
+            DynamoDbIndex<Player> index = playerTable.index(STRIPE_SUBSCRIPTION_ID_INDEX_NAME);
+            QueryConditional queryConditional = QueryConditional.keyEqualTo(Key.builder().partitionValue(stripeSubscriptionId).build());
+            SdkIterable<Page<Player>> results = index.query(queryConditional);
+            
+            for (Page<Player> page : results) {
+                Iterator<Player> playerIterator = page.items().iterator(); // Correct iteration for pages
+                if (playerIterator.hasNext()) {
+                    Player player = playerIterator.next();
+                    // Check if there are more items on the current page OR if there are more pages
+                    boolean hasMoreItems = playerIterator.hasNext();
+                    boolean hasMorePages = false;
+                    if (!hasMoreItems) { // Only check for more pages if current page is exhausted
+                        Iterator<Page<Player>> pageIterator = results.iterator();
+                        if (pageIterator.hasNext()) { // Move to current page
+                             pageIterator.next(); 
+                             if (pageIterator.hasNext()) { // Check if there is a next page
+                                hasMorePages = true;
+                             }
+                        }
+                    }
+                    if (hasMoreItems || hasMorePages) {
+                        LOG.warn("Multiple players found with the same Stripe Subscription ID: {}. Returning the first one.", stripeSubscriptionId);
+                    }
+                    return Optional.of(player); // Return the first player found
+                }
+            }
+            LOG.info("No player found with Stripe Subscription ID: {}", stripeSubscriptionId);
+            return Optional.empty();
+        } catch (DynamoDbException e) {
+            LOG.error("Error querying player by Stripe Subscription ID '{}': {}", stripeSubscriptionId, e.getMessage(), e);
+            return Optional.empty();
         }
     }
 
@@ -387,18 +461,18 @@ public class DynamoDbPlayerDao implements PlayerDao {
     private String getTableName() {
         String systemPropTableName = System.getProperty(PLAYER_TABLE_ENV_VAR);
         if (systemPropTableName != null && !systemPropTableName.isEmpty()) {
-            logger.info("Using players table name from system property: {}", systemPropTableName);
+            LOG.info("Using players table name from system property: {}", systemPropTableName);
             return systemPropTableName;
         }
 
         String envTableName = System.getenv(PLAYER_TABLE_ENV_VAR);
         if (envTableName != null && !envTableName.isEmpty()) {
-             logger.info("Using players table name from environment variable: {}", envTableName);
+             LOG.info("Using players table name from environment variable: {}", envTableName);
              return envTableName;
         }
         
         String defaultTable = "dev-Players"; // Default if not set
-        logger.warn("'{}' system property or environment variable not set, using default '{}'", 
+        LOG.warn("'{}' system property or environment variable not set, using default '{}'", 
                     PLAYER_TABLE_ENV_VAR, defaultTable);
         return defaultTable;
     }

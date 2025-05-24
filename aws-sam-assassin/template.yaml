@@ -17,26 +17,26 @@ Parameters:
     Description: Environment name
 
   LogRetentionInDays:
-    Type: String
-    Default: '30'
+    Type: Number
+    Default: 30
     AllowedValues:
-      - '1'
-      - '3'
-      - '5'
-      - '7'
-      - '14'
-      - '30'
-      - '60'
-      - '90'
-      - '120'
-      - '150'
-      - '180'
-      - '365'
-      - '400'
-      - '545'
-      - '731'
-      - '1827'
-      - '3653'
+      - 1
+      - 3
+      - 5
+      - 7
+      - 14
+      - 30
+      - 60
+      - 90
+      - 120
+      - 150
+      - 180
+      - 365
+      - 400
+      - 545
+      - 731
+      - 1827
+      - 3653
     Description: Number of days to retain logs in CloudWatch
 
   # Parameters for VPC configuration (used in production)
@@ -104,6 +104,9 @@ Globals:
         GAME_ZONE_STATE_TABLE_NAME: !Ref GameZoneStateTable
         TRANSACTIONS_TABLE_NAME: !Ref TransactionsTable
         REPORTS_TABLE_NAME: !Ref ReportsTable
+        ITEMS_TABLE_NAME: !Ref ItemsTable
+        PLAYER_INVENTORY_TABLE_NAME: !Ref PlayerInventoryTable
+        SUBSCRIPTION_TIERS_TABLE_NAME: !Ref SubscriptionTiersTable
         STRIPE_SECRET_KEY: !Sub '{{resolve:ssm:/assassin/${Environment}/stripe/secret_key:1}}'
         ASSASSIN_TEST_MODE: false
     Tracing: Active
@@ -136,6 +139,8 @@ Resources:
           AttributeType: 'N'
         - AttributeName: GameID
           AttributeType: S
+        - AttributeName: stripeSubscriptionId
+          AttributeType: S
       KeySchema:
         - AttributeName: PlayerID
           KeyType: HASH
@@ -159,6 +164,12 @@ Resources:
         - IndexName: GameIdIndex
           KeySchema:
             - AttributeName: GameID
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: StripeSubscriptionIdIndex
+          KeySchema:
+            - AttributeName: stripeSubscriptionId
               KeyType: HASH
           Projection:
             ProjectionType: ALL
@@ -436,6 +447,86 @@ Resources:
             - AttributeName: reportedPlayerId # Fixed: matches AttributeDefinitions
               KeyType: HASH
             - AttributeName: status
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: AssassinGame
+
+  ItemsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-Items
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: ItemID
+          AttributeType: S
+        - AttributeName: ItemType
+          AttributeType: S
+        - AttributeName: IsActive
+          AttributeType: S
+      KeySchema:
+        - AttributeName: ItemID
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: ItemTypeIndex
+          KeySchema:
+            - AttributeName: ItemType
+              KeyType: HASH
+            - AttributeName: IsActive
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: AssassinGame
+
+  PlayerInventoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-PlayerInventory
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PlayerID
+          AttributeType: S
+        - AttributeName: InventoryItemID
+          AttributeType: S
+        - AttributeName: ItemID
+          AttributeType: S
+        - AttributeName: GameID
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PlayerID
+          KeyType: HASH
+        - AttributeName: InventoryItemID
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: ItemIdIndex
+          KeySchema:
+            - AttributeName: ItemID
+              KeyType: HASH
+            - AttributeName: PlayerID
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: PlayerGameInventoryIndex
+          KeySchema:
+            - AttributeName: PlayerID
+              KeyType: HASH
+            - AttributeName: GameID
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
@@ -1243,6 +1334,200 @@ Resources:
             Auth:
               Authorizer: CognitoAuthorizer # Requires user to be authenticated
 
+  EmergencyFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - GamesTable
+      - PlayersTable
+      - NotificationsTable
+    Properties:
+      Handler: com.assassin.handlers.EmergencyHandler::handleRequest
+      Description: Handles emergency game operations including pause, resume, and status checks.
+      CodeUri: ./
+      MemorySize: 512
+      Timeout: 30
+      Environment:
+        Variables:
+          GAMES_TABLE_NAME: !Ref GamesTable
+          PLAYERS_TABLE_NAME: !Ref PlayersTable
+          NOTIFICATIONS_TABLE_NAME: !Ref NotificationsTable
+          CONNECTIONS_TABLE_NAME: !Ref WebSocketConnectionsTable
+          WEBSOCKET_API_ENDPOINT: !Sub wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+          LOG_LEVEL: INFO
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref GamesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PlayersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref WebSocketConnectionsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource:
+                - !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
+      Events:
+        PauseGame:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /games/{gameId}/emergency/pause
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+        ResumeGame:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /games/{gameId}/emergency/resume
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetEmergencyStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /games/{gameId}/emergency/status
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  ItemHandlerFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - ItemsTable
+      - PlayerInventoryTable
+      - PlayersTable
+    Properties:
+      Handler: com.assassin.handlers.ItemHandler::handleRequest
+      Description: Handles item and inventory-related API endpoints including listing items, purchasing items, viewing inventory, and using items.
+      CodeUri: ./
+      MemorySize: 512
+      Timeout: 30
+      Environment:
+        Variables:
+          ITEMS_TABLE_NAME: !Ref ItemsTable
+          PLAYER_INVENTORY_TABLE_NAME: !Ref PlayerInventoryTable
+          PLAYERS_TABLE_NAME: !Ref PlayersTable
+          TRANSACTIONS_TABLE_NAME: !Ref TransactionsTable
+          LOG_LEVEL: INFO
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ItemsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PlayerInventoryTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref PlayersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref TransactionsTable
+      Events:
+        GetItems:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /items
+            Method: get
+            Auth:
+              Authorizer: NONE
+        PurchaseItem:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /players/me/inventory/purchase
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetPlayerInventory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /players/me/inventory
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+        UseInventoryItem:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /players/me/inventory/{inventoryItemId}/use
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  ZoneStateFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - GameZoneStateTable
+      - GamesTable
+    Properties:
+      Handler: com.assassin.handlers.ZoneStateHandler::handleRequest
+      Description: Handles API queries for current shrinking zone state (center, radius, timer).
+      CodeUri: ./
+      MemorySize: 512
+      Timeout: 30
+      Environment:
+        Variables:
+          GAME_ZONE_STATE_TABLE_NAME: !Ref GameZoneStateTable
+          GAMES_TABLE_NAME: !Ref GamesTable
+          LOG_LEVEL: INFO
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref GameZoneStateTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref GamesTable
+      Events:
+        GetZoneState:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /games/{gameId}/zone/state
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetZoneStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /games/{gameId}/zone/status
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  StripeWebhookHandlerFunction: # New function for Stripe Webhooks
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - PlayersTable
+      - SubscriptionTiersTable # Depends on the new table as well
+    Properties:
+      Handler: com.assassin.handlers.StripeWebhookHandler::handleRequest
+      Description: Handles incoming Stripe webhook events for subscriptions.
+      CodeUri: ./
+      # MemorySize and Timeout will use Globals unless overridden
+      Environment:
+        Variables:
+          # PLAYERS_TABLE_NAME and SUBSCRIPTION_TIERS_TABLE_NAME inherited from Globals
+          STRIPE_WEBHOOK_SECRET: !Sub '{{resolve:ssm:/assassin/${Environment}/stripe/webhook_secret:1}}' # Needs to be created in SSM
+          LOG_LEVEL: INFO
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PlayersTable
+        - DynamoDBReadPolicy: # Webhook might only need to read tiers, or write if it de-normalizes tier info to Player
+            TableName: !Ref SubscriptionTiersTable 
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub /assassin/${Environment}/stripe/webhook_secret
+      Events:
+        StripeWebhook: 
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /stripe/webhooks # Standard path for Stripe webhooks
+            Method: post
+            Auth:
+              Authorizer: NONE # Stripe webhooks are secured by signature verification, not Cognito
+
   # --- Log Groups ---
   ApiGatewayAccessLogGroup:
     Type: AWS::Logs::LogGroup
@@ -1312,6 +1597,12 @@ Resources:
       LogGroupName: !Sub /aws/lambda/${Environment}-PaymentFunctionLogs
       RetentionInDays: !Ref LogRetentionInDays
 
+  StripeWebhookHandlerLogGroup: # Log group for the new function
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${Environment}-StripeWebhookHandlerFunctionLogs
+      RetentionInDays: !Ref LogRetentionInDays
+
   # --- CloudWatch Alarms ---
   ApiGateway5xxErrorAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -1359,6 +1650,40 @@ Resources:
       Threshold: 10
       ComparisonOperator: GreaterThanThreshold
       TreatMissingData: notBreaching
+
+  SubscriptionTiersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-SubscriptionTiers
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: TierId # Partition Key
+          AttributeType: S
+        - AttributeName: IsActive # For GSI to fetch active tiers
+          AttributeType: S # Store as 'TRUE'/'FALSE' string or use N for 0/1 if number
+        - AttributeName: DisplayOrder # For GSI sort key
+          AttributeType: N
+      KeySchema:
+        - AttributeName: TierId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: ActiveTiersOrderedIndex
+          KeySchema:
+            - AttributeName: IsActive # PK of GSI
+              KeyType: HASH
+            - AttributeName: DisplayOrder # SK of GSI
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: AssassinGame
 
 Outputs:
   ApiEndpoint:

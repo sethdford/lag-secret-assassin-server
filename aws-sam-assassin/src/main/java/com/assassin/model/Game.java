@@ -39,6 +39,10 @@ public class Game {
     private Boolean shrinkingZoneEnabled; // Flag if shrinking zone is active
     private String mapId; // ID of the map configuration used
     private Long startTimeEpochMillis; // Epoch millis when the game officially started
+    private Boolean emergencyPause; // Flag indicating if the game is in emergency pause
+    private String emergencyReason; // Reason for the emergency pause
+    private String emergencyTimestamp; // Timestamp when emergency was triggered
+    private String emergencyTriggeredBy; // Player ID who triggered the emergency
 
     // Constants for GSI
     private static final String STATUS_CREATED_AT_INDEX = "StatusCreatedAtIndex";
@@ -220,6 +224,39 @@ public class Game {
     public void setStartTimeEpochMillis(Long startTimeEpochMillis) {
         this.startTimeEpochMillis = startTimeEpochMillis;
     }
+
+    // Emergency pause related getters and setters
+    public Boolean getEmergencyPause() {
+        return emergencyPause == null ? Boolean.FALSE : emergencyPause;
+    }
+
+    public void setEmergencyPause(Boolean emergencyPause) {
+        this.emergencyPause = emergencyPause;
+    }
+
+    public String getEmergencyReason() {
+        return emergencyReason;
+    }
+
+    public void setEmergencyReason(String emergencyReason) {
+        this.emergencyReason = emergencyReason;
+    }
+
+    public String getEmergencyTimestamp() {
+        return emergencyTimestamp;
+    }
+
+    public void setEmergencyTimestamp(String emergencyTimestamp) {
+        this.emergencyTimestamp = emergencyTimestamp;
+    }
+
+    public String getEmergencyTriggeredBy() {
+        return emergencyTriggeredBy;
+    }
+
+    public void setEmergencyTriggeredBy(String emergencyTriggeredBy) {
+        this.emergencyTriggeredBy = emergencyTriggeredBy;
+    }
     // End of Getters and Setters for new fields
 
     @Override
@@ -249,6 +286,10 @@ public class Game {
                ", shrinkingZoneEnabled=" + shrinkingZoneEnabled +
                ", mapId='" + mapId + '\'' +
                ", startTimeEpochMillis=" + startTimeEpochMillis +
+               ", emergencyPause=" + emergencyPause +
+               ", emergencyReason='" + emergencyReason + '\'' +
+               ", emergencyTimestamp='" + emergencyTimestamp + '\'' +
+               ", emergencyTriggeredBy='" + emergencyTriggeredBy + '\'' +
                '}';
     }
 } 

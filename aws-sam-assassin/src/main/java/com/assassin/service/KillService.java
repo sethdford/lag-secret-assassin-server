@@ -93,23 +93,6 @@ public class KillService {
         );
     }
 
-    // Simplified constructor for external DI (e.g., tests focusing on some parts)
-    public KillService(KillDao killDao, PlayerDao playerDao, GameDao gameDao, 
-                       NotificationService notificationService, VerificationManager verificationManager, 
-                       MapConfigurationService mapConfigurationService) {
-        this(killDao, playerDao, gameDao, notificationService, verificationManager, mapConfigurationService,
-             // Create default violation detector based on the provided mapConfigService's internal SafeZoneService
-             // This assumes MapConfigurationService exposes or uses a SafeZoneService internally that can be accessed or reconstructed.
-             // For simplicity, we'll new it up here. If mapConfigService has a getSafeZoneService(), use that.
-             new SafeZoneViolationDetector(new SafeZoneService(), playerDao, gameDao, notificationService), 
-             new AwsContentModerationService()
-        );
-         // Note: The SafeZoneViolationDetector created above might not use the same SafeZoneService instance
-         // as the one implicitly used by the mapConfigurationService if it also creates its own. 
-         // This could be an issue if they need to share state or DAO instances. 
-         // Prefer the main constructor for full control.
-    }
-
     // Constructor for even simpler DI (often used in older tests or basic setup)
     public KillService(KillDao killDao, PlayerDao playerDao, GameDao gameDao, NotificationService notificationService) {
         this(killDao, playerDao, gameDao, notificationService, 
