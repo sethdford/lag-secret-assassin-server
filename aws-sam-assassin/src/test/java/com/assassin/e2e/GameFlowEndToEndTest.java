@@ -43,6 +43,7 @@ import com.assassin.model.Kill;
 import com.assassin.model.Player;
 import com.assassin.service.KillService;
 import com.assassin.service.NotificationService;
+import com.assassin.service.PlayerService;
 import com.assassin.service.verification.VerificationManager;
 import com.assassin.util.DynamoDbClientProvider;
 import com.google.gson.Gson;
@@ -104,6 +105,7 @@ public class GameFlowEndToEndTest {
     private PlayerHandler playerHandler;
     private KillHandler killHandler;
     private KillService killService;
+    private PlayerService playerService;
     private Gson gson;
     private Context mockContext;
     
@@ -156,11 +158,12 @@ public class GameFlowEndToEndTest {
         killDao = new DynamoDbKillDao();
         gameDao = new DynamoDbGameDao();
         NotificationService notificationService = new NotificationService();
+        playerService = new PlayerService(playerDao);
         VerificationManager verificationManager = new VerificationManager(playerDao, gameDao); // Use DAOs created above
         // Instantiate KillService using the constructor that accepts the enhancedClient
         killService = new KillService(killDao, playerDao, gameDao, notificationService, verificationManager, enhancedClient);
         
-        playerHandler = new PlayerHandler(playerDao);
+        playerHandler = new PlayerHandler(playerDao, playerService);
         killHandler = new KillHandler(killService);
         
         // Initialize Gson and context

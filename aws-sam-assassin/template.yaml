@@ -800,6 +800,54 @@ Resources:
             Method: get
             Auth:
               Authorizer: CognitoAuthorizer
+        GetMyLocationVisibilitySettings:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /players/me/settings/location-visibility
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+        UpdateMyLocationVisibilitySettings:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /players/me/settings/location-visibility
+            Method: put
+            Auth:
+              Authorizer: CognitoAuthorizer
+        PauseMyLocationSharing:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /players/me/location/pause
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+        ResumeMyLocationSharing:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /players/me/location/resume
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+        UpdateMyLocationPrecisionSettings:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /players/me/settings/location-precision
+            Method: put
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetMyLocationPrecisionSettings:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /players/me/settings/location-precision
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   NotificationFunction:
     Type: AWS::Serverless::Function

@@ -19,11 +19,11 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
-import static org.mockito.Mockito.lenient;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
@@ -51,6 +51,9 @@ public class LocationServiceTest {
 
     @Mock
     private GeofenceManager geofenceManager;
+
+    @Mock
+    private PlayerService mockPlayerService;
 
     @InjectMocks
     private LocationService locationService;
@@ -102,6 +105,7 @@ public class LocationServiceTest {
         when(playerDao.getPlayerById(playerId)).thenReturn(Optional.of(testPlayer));
         when(gameDao.getGameById(gameId)).thenReturn(Optional.of(testGame));
         // Assume GeoUtils.isPointInBoundary returns true for this setup
+        when(mockPlayerService.checkAndApplySensitiveAreaRules(any(Player.class))).thenReturn(false);
         
         // Act
         assertDoesNotThrow(() -> 
@@ -110,6 +114,26 @@ public class LocationServiceTest {
         
         // Assert
         verify(playerDao).updatePlayerLocation(eq(playerId), eq(validLat), eq(validLon), anyString(), eq(10.0));
+        verify(mockPlayerService).checkAndApplySensitiveAreaRules(eq(testPlayer));
+        verify(playerDao, never()).savePlayer(any(Player.class));
+    }
+
+    @Test
+    void updatePlayerLocation_Success_SensitiveAreaStatusChanges() throws Exception {
+        // Arrange
+        when(playerDao.getPlayerById(playerId)).thenReturn(Optional.of(testPlayer));
+        when(gameDao.getGameById(gameId)).thenReturn(Optional.of(testGame));
+        when(mockPlayerService.checkAndApplySensitiveAreaRules(any(Player.class))).thenReturn(true);
+        
+        // Act
+        assertDoesNotThrow(() -> 
+            locationService.updatePlayerLocation(playerId, validLat, validLon, 10.0)
+        );
+        
+        // Assert
+        verify(playerDao).updatePlayerLocation(eq(playerId), eq(validLat), eq(validLon), anyString(), eq(10.0));
+        verify(mockPlayerService).checkAndApplySensitiveAreaRules(eq(testPlayer));
+        verify(playerDao).savePlayer(eq(testPlayer));
     }
 
     @Test
@@ -215,6 +239,7 @@ public class LocationServiceTest {
         // Arrange
         when(playerDao.getPlayerById(playerId)).thenReturn(Optional.of(testPlayer));
         when(gameDao.getGameById(gameId)).thenReturn(Optional.of(testGame));
+        when(mockPlayerService.checkAndApplySensitiveAreaRules(any(Player.class))).thenReturn(false);
         
         // Setup mock for GeofenceManager to return an APPROACHING_BOUNDARY event
         Coordinate expectedCoordinate = new Coordinate(validLat, validLon);
@@ -245,6 +270,7 @@ public class LocationServiceTest {
         // Arrange
         when(playerDao.getPlayerById(playerId)).thenReturn(Optional.of(testPlayer));
         when(gameDao.getGameById(gameId)).thenReturn(Optional.of(testGame));
+        when(mockPlayerService.checkAndApplySensitiveAreaRules(any(Player.class))).thenReturn(false);
         
         // Setup mock for GeofenceManager to return no event
         when(geofenceManager.updatePlayerLocation(eq(gameId), eq(playerId), any(Coordinate.class)))

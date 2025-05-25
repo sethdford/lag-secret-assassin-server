@@ -16,9 +16,12 @@ import com.assassin.dao.PlayerDao;
 import com.assassin.exception.PlayerNotFoundException;
 import com.assassin.exception.ValidationException;
 import com.assassin.model.Player;
+import com.assassin.service.PlayerService;
 import com.assassin.util.HandlerUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
+import com.google.gson.reflect.TypeToken;
 
 /**
  * Handler for player management operations.
@@ -29,21 +32,25 @@ public class PlayerHandler implements RequestHandler<APIGatewayProxyRequestEvent
     private static final Logger logger = LoggerFactory.getLogger(PlayerHandler.class);
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private final PlayerDao playerDao;
+    private final PlayerService playerService;
     
     /**
-     * Default constructor, initializes DAO.
+     * Default constructor, initializes DAO and Service.
      */
     public PlayerHandler() {
         this.playerDao = new DynamoDbPlayerDao();
+        this.playerService = new PlayerService(this.playerDao);
     }
     
     /**
      * Constructor with dependency injection for testability.
      * 
      * @param playerDao The DAO for player operations
+     * @param playerService The Service for player operations
      */
-    public PlayerHandler(PlayerDao playerDao) {
+    public PlayerHandler(PlayerDao playerDao, PlayerService playerService) {
         this.playerDao = playerDao;
+        this.playerService = playerService;
     }
 
     /**
@@ -70,6 +77,16 @@ public class PlayerHandler implements RequestHandler<APIGatewayProxyRequestEvent
                 return createPlayer(request, response);
             } else if (path.matches("/players/me/target") && "GET".equals(httpMethod)) {
                 return getMyTarget(request, response);
+            } else if (path.matches("/players/me/settings/location-visibility") && "GET".equals(httpMethod)) {
+                return handleGetLocationVisibilitySettings(request, response);
+            } else if (path.matches("/players/me/settings/location-visibility") && "PUT".equals(httpMethod)) {
+                return handleUpdateLocationVisibilitySettings(request, response);
+            } else if (path.matches("/players/me/location/pause") && "POST".equals(httpMethod)) {
+                return handlePauseLocationSharing(request, response);
+            } else if (path.matches("/players/me/location/resume") && "POST".equals(httpMethod)) {
+                return handleResumeLocationSharing(request, response);
+            } else if (path.matches("/players/me/settings/location-precision") && "PUT".equals(httpMethod)) {
+                return handleUpdateLocationPrecisionSettings(request, response);
             } else if (path.matches("/players/me") && "GET".equals(httpMethod)) {
                 return getMe(request, response);
             } else if (path.matches("/players/[^/]+") && "GET".equals(httpMethod)) {
@@ -81,7 +98,23 @@ public class PlayerHandler implements RequestHandler<APIGatewayProxyRequestEvent
             } else if (path.matches("/players/[^/]+") && "DELETE".equals(httpMethod)) {
                 String playerId = getResourceIdFromPath(path);
                 return deletePlayer(playerId, response);
+            } else if (("PUT".equals(httpMethod) || "POST".equals(httpMethod)) && path.matches("/players/([\\w-]+)/status")) {
+                // Admin endpoint, not implemented yet
+                return response.withStatusCode(501).withBody(gson.toJson(Map.of("message", "Admin player status update not implemented")));
+            } else if ("GET".equals(httpMethod) && "/players/me/settings/location-visibility".equals(path)) {
+                return handleGetLocationVisibilitySettings(request, response);
+            } else if ("PUT".equals(httpMethod) && "/players/me/settings/location-visibility".equals(path)) {
+                return handleUpdateLocationVisibilitySettings(request, response);
+            } else if ("POST".equals(httpMethod) && "/players/me/location/pause".equals(path)) {
+                return handlePauseLocationSharing(request, response);
+            } else if ("POST".equals(httpMethod) && "/players/me/location/resume".equals(path)) {
+                return handleResumeLocationSharing(request, response);
+            } else if ("PUT".equals(httpMethod) && "/players/me/settings/location-precision".equals(path)) {
+                return handleUpdateLocationPrecisionSettings(request, response);
+            } else if ("GET".equals(httpMethod) && "/players/me/settings/location-precision".equals(path)) {
+                return handleGetLocationPrecisionSettings(request, response);            
             } else {
+                logger.warn("Route not found in PlayerHandler: {} {}", httpMethod, path);
                 return response
                         .withStatusCode(404)
                         .withBody(gson.toJson(Map.of("message", "Route not found")));
@@ -90,6 +123,11 @@ public class PlayerHandler implements RequestHandler<APIGatewayProxyRequestEvent
             logger.warn("Player operation failed: {}", e.getMessage());
             return response
                     .withStatusCode(404)
+                    .withBody(gson.toJson(Map.of("message", e.getMessage())));
+        } catch (ValidationException | JsonSyntaxException | IllegalArgumentException e) {
+            logger.warn("Invalid request: {}", e.getMessage());
+            return response
+                    .withStatusCode(400)
                     .withBody(gson.toJson(Map.of("message", e.getMessage())));
         } catch (Exception e) {
             logger.error("Error processing player request: {}", e.getMessage(), e);
@@ -248,22 +286,242 @@ public class PlayerHandler implements RequestHandler<APIGatewayProxyRequestEvent
                         .withStatusCode(404)
                         .withBody(gson.toJson(Map.of("message", "Player not found")));
             }
+        } catch (ValidationException e) {
+             logger.warn("Validation error getting player target: {}", e.getMessage());
+            return response
+                    .withStatusCode(400)
+                    .withBody(gson.toJson(Map.of("message", e.getMessage())));
         } catch (Exception e) {
-            // Catch potential errors from getPlayerIdFromRequest or DAO
-            logger.error("Error getting target for player: {}", e.getMessage(), e);
+            logger.error("Error getting player target: {}", e.getMessage(), e);
             return response
                     .withStatusCode(500)
                     .withBody(gson.toJson(Map.of("message", "Internal Server Error")));
         }
     }
     
-    // Helper to extract resource ID from path like /resource/{id}
+    /**
+     * Extracts resource ID from a path like /resource/{id}
+     */
     private String getResourceIdFromPath(String path) {
-        try {
-            return path.substring(path.lastIndexOf('/') + 1);
-        } catch (Exception e) {
-            logger.error("Could not extract resource ID from path: {}", path, e);
-            throw new IllegalArgumentException("Invalid resource path format");
+        String[] parts = path.split("/");
+        return parts[parts.length - 1];
+    }
+
+    /**
+     * Handles GET /players/me/settings/location-visibility
+     */
+    private APIGatewayProxyResponseEvent handleGetLocationVisibilitySettings(APIGatewayProxyRequestEvent request, 
+                                                                             APIGatewayProxyResponseEvent response) {
+        String playerId = HandlerUtils.getPlayerIdFromRequest(request)
+                .orElseThrow(() -> new ValidationException("Player ID not found in request context."));
+        
+        logger.info("Getting location visibility settings for player ID: {}", playerId);
+        Optional<Player.LocationVisibility> visibilityOpt = playerService.getLocationVisibilitySettings(playerId);
+
+        if (visibilityOpt.isPresent()) {
+            return response
+                    .withStatusCode(200)
+                    .withBody(gson.toJson(Map.of("locationVisibility", visibilityOpt.get().name())));
+        } else {
+            // This case implies player was found, but settings weren't (shouldn't happen if player exists with default)
+            // or player was not found by the service. PlayerService should throw PlayerNotFoundException.
+            // For robustness, let's assume if service returns empty, it's akin to not found for this specific data.
+            logger.warn("Location visibility settings not found for player ID: {}", playerId);
+            return response
+                    .withStatusCode(404)
+                    .withBody(gson.toJson(Map.of("message", "Location visibility settings not found or player does not exist.")));
         }
+    }
+
+    /**
+     * Handles PUT /players/me/settings/location-visibility
+     */
+    private APIGatewayProxyResponseEvent handleUpdateLocationVisibilitySettings(APIGatewayProxyRequestEvent request, 
+                                                                                APIGatewayProxyResponseEvent response) {
+        String playerId = HandlerUtils.getPlayerIdFromRequest(request)
+            .orElseThrow(() -> new ValidationException("Player ID not found in request context."));
+
+        String requestBody = request.getBody();
+        if (requestBody == null || requestBody.trim().isEmpty()) {
+            logger.warn("Update location visibility request for player {} has missing or empty body", playerId);
+            return response
+                .withStatusCode(400)
+                .withBody(gson.toJson(Map.of("message", "Request body is missing or empty.")));
+        }
+
+        Map<String, String> bodyMap;
+        try {
+            bodyMap = gson.fromJson(requestBody, new TypeToken<Map<String, String>>(){}.getType());
+            if (bodyMap == null) { // Handle case where body is "null" as a string, or other GSON quirks
+                 throw new ValidationException("Request body is invalid or could not be parsed.");
+            }
+        } catch (JsonSyntaxException e) {
+            logger.warn("Invalid JSON in request body for player {}: {}", playerId, e.getMessage());
+            return response
+                .withStatusCode(400)
+                .withBody(gson.toJson(Map.of("message", "Invalid JSON format in request body.")));
+        }
+        
+        String visibilityString = bodyMap.get("locationVisibility");
+        if (visibilityString == null || visibilityString.trim().isEmpty()) {
+            logger.warn("Update location visibility request for player {} is missing 'locationVisibility' field.", playerId);
+            return response
+                .withStatusCode(400)
+                .withBody(gson.toJson(Map.of("message", "Missing 'locationVisibility' in request body.")));
+        }
+
+        Player.LocationVisibility visibility;
+        try {
+            visibility = Player.LocationVisibility.valueOf(visibilityString.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid value for 'locationVisibility' for player {}: {}", playerId, visibilityString);
+            return response
+                .withStatusCode(400)
+                .withBody(gson.toJson(Map.of("message", "Invalid value for 'locationVisibility'. Valid values are: " + 
+                                             java.util.Arrays.stream(Player.LocationVisibility.values())
+                                                             .map(Enum::name)
+                                                             .collect(java.util.stream.Collectors.joining(", ")))));
+        }
+
+        logger.info("Updating location visibility for player ID: {} to {}", playerId, visibility);
+        Player updatedPlayer = playerService.updateLocationVisibilitySettings(playerId, visibility);
+
+        return response
+                .withStatusCode(200)
+                .withBody(gson.toJson(Map.of("message", "Successfully updated location visibility settings.", 
+                                             "locationVisibility", updatedPlayer.getLocationVisibility().name())));
+    }
+
+    /**
+     * Handles POST /players/me/location/pause to pause location sharing for the authenticated player.
+     */
+    private APIGatewayProxyResponseEvent handlePauseLocationSharing(APIGatewayProxyRequestEvent request,
+                                                                    APIGatewayProxyResponseEvent response) {
+        try {
+            Optional<String> playerIdOpt = HandlerUtils.getPlayerIdFromRequest(request);
+            if (playerIdOpt.isEmpty()) {
+                return response.withStatusCode(401).withBody(gson.toJson(Map.of("message", "Unauthorized: Missing player ID")));
+            }
+            String playerId = playerIdOpt.get();
+
+            Player player = playerService.pauseLocationSharing(playerId);
+            // Ensure player and cooldown are not null before creating the response map
+            String cooldownUntil = player.getLocationPauseCooldownUntil();
+            Map<String, Object> responseBody = Map.of(
+                "message", "Successfully paused location sharing.", 
+                "cooldownUntil", cooldownUntil != null ? cooldownUntil : "N/A"
+            );
+            return response.withStatusCode(200).withBody(gson.toJson(responseBody));
+        } catch (PlayerNotFoundException e) {
+            logger.warn("Player operation failed: {}", e.getMessage());
+            return response
+                    .withStatusCode(404)
+                    .withBody(gson.toJson(Map.of("message", e.getMessage())));
+        } catch (Exception e) {
+            logger.error("Error processing player request: {}", e.getMessage(), e);
+            return response
+                    .withStatusCode(500)
+                    .withBody(gson.toJson(Map.of("message", "Internal Server Error")));
+        }
+    }
+
+    /**
+     * Handles POST /players/me/location/resume to resume location sharing for the authenticated player.
+     */
+    private APIGatewayProxyResponseEvent handleResumeLocationSharing(APIGatewayProxyRequestEvent request,
+                                                                     APIGatewayProxyResponseEvent response) {
+        try {
+            Optional<String> playerIdOpt = HandlerUtils.getPlayerIdFromRequest(request);
+            if (playerIdOpt.isEmpty()) {
+                return response.withStatusCode(401).withBody(gson.toJson(Map.of("message", "Unauthorized: Missing player ID")));
+            }
+            String playerId = playerIdOpt.get();
+
+            playerService.resumeLocationSharing(playerId);
+            return response.withStatusCode(200).withBody(gson.toJson(Map.of("message", "Successfully resumed location sharing.")));
+        } catch (PlayerNotFoundException e) {
+            logger.warn("Player operation failed: {}", e.getMessage());
+            return response
+                    .withStatusCode(404)
+                    .withBody(gson.toJson(Map.of("message", e.getMessage())));
+        } catch (Exception e) {
+            logger.error("Error processing player request: {}", e.getMessage(), e);
+            return response
+                    .withStatusCode(500)
+                    .withBody(gson.toJson(Map.of("message", "Internal Server Error")));
+        }
+    }
+
+    /**
+     * Handles PUT /players/me/settings/location-precision
+     */
+    private APIGatewayProxyResponseEvent handleUpdateLocationPrecisionSettings(APIGatewayProxyRequestEvent request, 
+                                                                                APIGatewayProxyResponseEvent response) {
+        String playerId = HandlerUtils.getPlayerIdFromRequest(request)
+            .orElseThrow(() -> new ValidationException("Player ID not found in request context."));
+
+        String requestBody = request.getBody();
+        if (requestBody == null || requestBody.trim().isEmpty()) {
+            logger.warn("Update location precision request for player {} has missing or empty body", playerId);
+            return response
+                .withStatusCode(400)
+                .withBody(gson.toJson(Map.of("message", "Request body is missing or empty.")));
+        }
+
+        Map<String, String> bodyMap;
+        try {
+            bodyMap = gson.fromJson(requestBody, new TypeToken<Map<String, String>>(){}.getType());
+            if (bodyMap == null) {
+                 throw new ValidationException("Request body is invalid or could not be parsed.");
+            }
+        } catch (JsonSyntaxException e) {
+            logger.warn("Invalid JSON in request body for player {}: {}", playerId, e.getMessage());
+            return response
+                .withStatusCode(400)
+                .withBody(gson.toJson(Map.of("message", "Invalid JSON format in request body.")));
+        }
+        
+        String precisionString = bodyMap.get("locationPrecision");
+        if (precisionString == null || precisionString.trim().isEmpty()) {
+            logger.warn("Update location precision request for player {} is missing 'locationPrecision' field.", playerId);
+            return response
+                .withStatusCode(400)
+                .withBody(gson.toJson(Map.of("message", "Missing 'locationPrecision' in request body.")));
+        }
+
+        Player.LocationPrecision precision;
+        try {
+            precision = Player.LocationPrecision.valueOf(precisionString.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid value for 'locationPrecision' for player {}: {}", playerId, precisionString);
+            return response
+                .withStatusCode(400)
+                .withBody(gson.toJson(Map.of("message", "Invalid value for 'locationPrecision'. Valid values are: " + 
+                                             java.util.Arrays.stream(Player.LocationPrecision.values())
+                                                             .map(Enum::name)
+                                                             .collect(java.util.stream.Collectors.joining(", ")))));
+        }
+
+        logger.info("Updating location precision for player ID: {} to {}", playerId, precision);
+        Player updatedPlayer = playerService.updateLocationPrecisionSettings(playerId, precision);
+
+        return response
+                .withStatusCode(200)
+                .withBody(gson.toJson(Map.of("message", "Successfully updated location precision settings.", 
+                                             "locationPrecision", updatedPlayer.getLocationPrecision().name())));
+    }
+
+    private APIGatewayProxyResponseEvent handleGetLocationPrecisionSettings(APIGatewayProxyRequestEvent request, APIGatewayProxyResponseEvent response) {
+        String playerId = HandlerUtils.getPlayerIdFromRequest(request)
+                .orElseThrow(() -> new ValidationException("Player ID not found in request context."));
+
+        logger.debug("Handling get location precision settings for player ID: {}", playerId);
+
+        Player.LocationPrecision precision = playerService.getLocationPrecisionSettings(playerId)
+                .orElseThrow(() -> new PlayerNotFoundException("Player or location precision settings not found for ID: " + playerId));
+        
+        return response
+                .withStatusCode(200)
+                .withBody(gson.toJson(Map.of("locationPrecision", precision.name())));
     }
 } 

@@ -1,5 +1,6 @@
 package com.assassin.model;
 
+import java.time.LocalDateTime;
 import java.util.Objects;
 
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
@@ -13,6 +14,23 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSecon
  */
 @DynamoDbBean
 public class Player {
+
+    // Enum for location visibility settings
+    public enum LocationVisibility {
+        VISIBLE_TO_HUNTER_TARGET, // Default: Only the player's current hunter and target can see them
+        VISIBLE_TO_ALL_IN_GAME,   // Everyone in the same game can see them
+        VISIBLE_TO_FRIENDS_IN_GAME, // Only friends (if/when friend system is implemented) in the same game can see them
+        HIDDEN                    // Location is not shared with anyone, except potentially admins
+    }
+
+    // Enum for location precision settings
+    public enum LocationPrecision {
+        PRECISE,         // Exact location
+        REDUCED_100M,    // Accurate to within ~100 meters
+        REDUCED_500M,    // Accurate to within ~500 meters
+        NOISE_ADDED_LOW, // Precise location with a small amount of random noise
+        NOISE_ADDED_MED  // Precise location with a medium amount of random noise
+    }
 
     private String playerID; // Partition Key
     private String email;    // GSI Partition Key (EmailIndex)
@@ -46,6 +64,19 @@ public class Player {
     private String subscriptionValidUntil; // ISO 8601 format
     private String stripeSubscriptionId;
     private String stripeCustomerId;
+
+    // Location Visibility Setting
+    private LocationVisibility locationVisibility = LocationVisibility.VISIBLE_TO_HUNTER_TARGET; // Default value
+
+    // Manual Location Sharing Pause
+    private boolean locationSharingPaused = false;
+    private String locationPauseCooldownUntil; // ISO 8601 format, stored as String for DynamoDB
+
+    // Location Precision Setting
+    private LocationPrecision locationPrecision = LocationPrecision.PRECISE; // Default value
+
+    // System-initiated location pause (e.g., for sensitive areas)
+    private boolean systemLocationPauseActive = false;
 
     // Constants for GSI
     private static final String EMAIL_INDEX = "EmailIndex";
@@ -310,12 +341,68 @@ public class Player {
         this.stripeCustomerId = stripeCustomerId;
     }
 
+    @DynamoDbAttribute("LocationVisibility")
+    public LocationVisibility getLocationVisibility() {
+        return locationVisibility;
+    }
+
+    public void setLocationVisibility(LocationVisibility locationVisibility) {
+        this.locationVisibility = locationVisibility != null ? locationVisibility : LocationVisibility.VISIBLE_TO_HUNTER_TARGET;
+    }
+
+    @DynamoDbAttribute("LocationSharingPaused")
+    public boolean isLocationSharingPaused() {
+        return locationSharingPaused;
+    }
+
+    public void setLocationSharingPaused(boolean locationSharingPaused) {
+        this.locationSharingPaused = locationSharingPaused;
+    }
+
+    @DynamoDbAttribute("LocationPauseCooldownUntil")
+    public String getLocationPauseCooldownUntil() {
+        return locationPauseCooldownUntil;
+    }
+
+    public void setLocationPauseCooldownUntil(String locationPauseCooldownUntil) {
+        this.locationPauseCooldownUntil = locationPauseCooldownUntil;
+    }
+
+    // Helper to convert to LocalDateTime for service layer logic
+    public LocalDateTime getLocationPauseCooldownUntilAsDateTime() {
+        return this.locationPauseCooldownUntil != null ? LocalDateTime.parse(this.locationPauseCooldownUntil) : null;
+    }
+
+    // Helper to set from LocalDateTime for service layer logic
+    public void setLocationPauseCooldownUntilFromDateTime(LocalDateTime dateTime) {
+        this.locationPauseCooldownUntil = dateTime != null ? dateTime.toString() : null;
+    }
+
+    @DynamoDbAttribute("LocationPrecision")
+    public LocationPrecision getLocationPrecision() {
+        return locationPrecision;
+    }
+
+    public void setLocationPrecision(LocationPrecision locationPrecision) {
+        this.locationPrecision = locationPrecision != null ? locationPrecision : LocationPrecision.PRECISE;
+    }
+
+    @DynamoDbAttribute("SystemLocationPauseActive")
+    public boolean isSystemLocationPauseActive() {
+        return systemLocationPauseActive;
+    }
+
+    public void setSystemLocationPauseActive(boolean systemLocationPauseActive) {
+        this.systemLocationPauseActive = systemLocationPauseActive;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Player player = (Player) o;
-        return Objects.equals(playerID, player.playerID) &&
+        return killCount == player.killCount &&
+                Objects.equals(playerID, player.playerID) &&
                 Objects.equals(email, player.email) &&
                 Objects.equals(playerName, player.playerName) &&
                 Objects.equals(targetID, player.targetID) &&
@@ -324,7 +411,6 @@ public class Player {
                 Objects.equals(secret, player.secret) &&
                 Objects.equals(lastWill, player.lastWill) &&
                 Objects.equals(gameID, player.gameID) &&
-                Objects.equals(killCount, player.killCount) &&
                 Objects.equals(leaderboardStatusPartition, player.leaderboardStatusPartition) &&
                 Objects.equals(status, player.status) &&
                 Objects.equals(version, player.version) &&
@@ -340,7 +426,12 @@ public class Player {
                 Objects.equals(currentSubscriptionTierId, player.currentSubscriptionTierId) &&
                 Objects.equals(subscriptionValidUntil, player.subscriptionValidUntil) &&
                 Objects.equals(stripeSubscriptionId, player.stripeSubscriptionId) &&
-                Objects.equals(stripeCustomerId, player.stripeCustomerId);
+                Objects.equals(stripeCustomerId, player.stripeCustomerId) &&
+                locationVisibility == player.locationVisibility &&
+                locationSharingPaused == player.locationSharingPaused &&
+                Objects.equals(locationPauseCooldownUntil, player.locationPauseCooldownUntil) &&
+                locationPrecision == player.locationPrecision &&
+                systemLocationPauseActive == player.systemLocationPauseActive;
     }
 
     @Override
@@ -349,7 +440,9 @@ public class Player {
                 killCount, leaderboardStatusPartition, status, version, passwordHash, active, nfcTagId,
                 lastKnownLatitude, lastKnownLongitude, locationTimestamp, locationAccuracy,
                 firstEnteredOutOfZoneTimestamp, lastZoneDamageTimestamp,
-                currentSubscriptionTierId, subscriptionValidUntil, stripeSubscriptionId, stripeCustomerId);
+                currentSubscriptionTierId, subscriptionValidUntil, stripeSubscriptionId, stripeCustomerId,
+                locationVisibility, locationSharingPaused, locationPauseCooldownUntil, locationPrecision,
+                systemLocationPauseActive);
     }
 
     @Override
@@ -381,6 +474,11 @@ public class Player {
                 ", subscriptionValidUntil='" + subscriptionValidUntil + '\'' +
                 ", stripeSubscriptionId='" + stripeSubscriptionId + '\'' +
                 ", stripeCustomerId='" + stripeCustomerId + '\'' +
+                ", locationVisibility=" + locationVisibility +
+                ", locationSharingPaused=" + locationSharingPaused +
+                ", locationPauseCooldownUntil='" + locationPauseCooldownUntil + '\'' +
+                ", locationPrecision=" + locationPrecision +
+                ", systemLocationPauseActive=" + systemLocationPauseActive +
                 '}';
     }
 } 

@@ -24,6 +24,7 @@ import com.assassin.dao.DynamoDbPlayerDao;
 import com.assassin.dao.PlayerDao;
 import com.assassin.handlers.PlayerHandler;
 import com.assassin.model.Player;
+import com.assassin.service.PlayerService;
 import com.assassin.util.DynamoDbClientProvider;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -66,6 +67,7 @@ public class PlayerApiIntegrationTest {
     private DynamoDbEnhancedClient enhancedClient;
     private DynamoDbTable<Player> playerTable;
     private PlayerDao playerDao;
+    private PlayerService playerService;
     private PlayerHandler playerHandler;
     private Gson gson;
     
@@ -97,9 +99,10 @@ public class PlayerApiIntegrationTest {
         
         playerTable = enhancedClient.table(TEST_TABLE_NAME, TableSchema.fromBean(Player.class));
         
-        // Initialize DAO and Handler
+        // Initialize DAO, Service and Handler
         playerDao = new DynamoDbPlayerDao();
-        playerHandler = new PlayerHandler(playerDao);
+        playerService = new PlayerService(playerDao);
+        playerHandler = new PlayerHandler(playerDao, playerService);
         
         // Initialize Gson
         gson = new GsonBuilder().setPrettyPrinting().create();

@@ -2,7 +2,6 @@ package com.assassin.service;
 
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -38,6 +37,7 @@ public class LocationService {
     private final GameDao gameDao;
     private final MapConfigurationService mapConfigService;
     private final GeofenceManager geofenceManager;
+    private final PlayerService playerService;
     
     // Constants for location validation
     private static final double DEFAULT_SPEED_LIMIT_METERS_PER_SECOND = 30.0; // ~108 km/h or ~67 mph
@@ -60,6 +60,7 @@ public class LocationService {
         this.gameDao = new DynamoDbGameDao();
         this.mapConfigService = mapConfig;
         this.geofenceManager = new GeofenceManager(mapConfig);
+        this.playerService = new PlayerService(this.playerDao);
     }
 
     // Constructor for dependency injection (testing)
@@ -82,16 +83,19 @@ public class LocationService {
         this.gameDao = Objects.requireNonNull(gameDao, "gameDao cannot be null");
         this.mapConfigService = mapConfig;
         this.geofenceManager = new GeofenceManager(mapConfig);
+        this.playerService = new PlayerService(playerDao);
     }
     
     // Full constructor for all dependencies
     public LocationService(PlayerDao playerDao, GameDao gameDao, 
                           MapConfigurationService mapConfigService,
-                          GeofenceManager geofenceManager) {
+                          GeofenceManager geofenceManager,
+                          PlayerService playerService) {
         this.playerDao = Objects.requireNonNull(playerDao, "playerDao cannot be null");
         this.gameDao = Objects.requireNonNull(gameDao, "gameDao cannot be null");
         this.mapConfigService = Objects.requireNonNull(mapConfigService, "mapConfigService cannot be null");
         this.geofenceManager = Objects.requireNonNull(geofenceManager, "geofenceManager cannot be null");
+        this.playerService = Objects.requireNonNull(playerService, "playerService cannot be null");
     }
 
     /**
@@ -176,6 +180,18 @@ public class LocationService {
         try {
             playerDao.updatePlayerLocation(playerId, latitude, longitude, timestamp, accuracy);
             logger.info("Successfully updated location for player: {}, Timestamp: {}", playerId, timestamp);
+            
+            // After location is updated, check sensitive area rules
+            // We need the full Player object here, so re-fetch or ensure updatePlayerLocation returns it or updates it by reference.
+            // For simplicity, let's re-fetch. If updatePlayerLocation could update by ref and return, that would be better.
+            Player updatedPlayer = playerDao.getPlayerById(playerId)
+                .orElseThrow(() -> new PlayerNotFoundException("Player disappeared after location update: " + playerId));
+
+            boolean sensitiveAreaStatusChanged = playerService.checkAndApplySensitiveAreaRules(updatedPlayer);
+            if (sensitiveAreaStatusChanged) {
+                playerDao.savePlayer(updatedPlayer); // Save player again if system pause status changed
+                logger.info("Player {} system pause status saved after sensitive area check.", playerId);
+            }
             
             // 8. Log any boundary events
             if (geofenceEvent.isPresent()) {
