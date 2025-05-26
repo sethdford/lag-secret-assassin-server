@@ -112,7 +112,7 @@ This document outlines the technical requirements for the Assassin Game applicat
 ### Client Applications
 - **IR-1.1**: Provide comprehensive REST APIs for client integration
 - **IR-1.2**: Support websocket connections for real-time updates
-- **IR-1.3**: Implement appropriate CORS settings for web clients
+- **IR-1.3**: Implement appropriate CORS settings for client applications
 - **IR-1.4**: Provide SDKs or client libraries where appropriate
 
 ### External Services

@@ -1,18 +1,18 @@
-# LAG Secret Assassin Game
+Secret Assassin Game
+The Assassin Game API is a production-ready, serverless backend built on AWS to support real-time location-based gameplay for "assassin" style games. This digital implementation of the classic campus assassination game features advanced geolocation mechanics, AI-powered content moderation, and comprehensive safety systems.
 
-A production-ready, real-time location-based game platform built with AWS Serverless architecture and Next.js. This digital implementation of the classic campus assassination game features advanced geolocation mechanics, AI-powered content moderation, and comprehensive safety systems.
+The API provides the backend infrastructure for client applications that allow players to participate in an elimination-style game commonly played on college campuses and other environments.
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Java](https://img.shields.io/badge/java-17+-orange.svg)
-![Node.js](https://img.shields.io/badge/node.js-18+-green.svg)
 ![AWS](https://img.shields.io/badge/AWS-Serverless-orange.svg)
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)
 
 ## 🎯 Project Status
 
-**Current Phase**: Core Feature Implementation (21% Complete)
-- **✅ Completed**: 12/57 major tasks, 31/110 subtasks
-- **🔄 In Progress**: Content moderation system, shrinking zone gameplay
+**Current Phase**: Core Feature Implementation (Updated based on recent progress)
+- **✅ Completed**: 16/58 major tasks, 59/110 subtasks (Build now consistently passing)
+- **🔄 In Progress**: Subscription tier management, shrinking zone gameplay, emergency controls
 - **📋 Next**: Emergency controls, admin dashboard, social features
 
 ## 🏆 Key Features Implemented
@@ -42,6 +42,7 @@ A production-ready, real-time location-based game platform built with AWS Server
 - **✅ Complete** - Comprehensive reporting system for inappropriate behavior
 - **✅ Complete** - Smart caching system to reduce AWS API costs
 - **✅ Complete** - Configurable confidence thresholds for moderation decisions
+- **✅ Complete** - Privacy Controls (Visibility, Pause, Fuzzing, Sensitive Areas)
 - **🔄 In Progress** - Emergency button and game pause functionality
 - **📋 Pending** - Admin dashboard for report management
 
@@ -49,8 +50,8 @@ A production-ready, real-time location-based game platform built with AWS Server
 - **✅ Complete** - Stripe payment integration for entry fees
 - **✅ Complete** - Transaction tracking and audit trail
 - **✅ Complete** - Payment failure handling and retry mechanisms
+- **🔄 In Progress** - Subscription tier management
 - **📋 Pending** - In-game items and inventory system
-- **📋 Pending** - Subscription tier management
 
 ### 📊 Analytics & Leaderboards
 - **✅ Complete** - Comprehensive leaderboard system
@@ -82,21 +83,11 @@ Core Tables: Players, Games, Kills, SafeZones, Transactions, Reports
 Key Features: Real-time location tracking, target chains, zone detection
 ```
 
-### Frontend (Next.js + TypeScript)
-
-Modern React application with production-ready features:
-
-- **Next.js 13+** with App Router
-- **TypeScript** for type safety
-- **Tailwind CSS** for responsive design
-- **SWR** for optimized data fetching
-- **Real-time WebSocket** integration
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- **Node.js** 18+
 - **Java** 17+
 - **Maven** 3.8+
 - **AWS CLI** configured
@@ -120,21 +111,6 @@ sam build
 sam deploy --guided
 ```
 
-#### 2. Frontend Setup
-
-```bash
-cd web
-
-# Install dependencies
-npm install
-
-# Configure environment
-cp .env.example .env.local
-# Update .env.local with your API endpoint
-
-# Start development server
-npm run dev
-```
 
 #### 3. Environment Configuration
 
@@ -164,32 +140,19 @@ Our testing strategy ensures production readiness:
 # Backend Testing
 cd aws-sam-assassin
 
-# Run all tests (80%+ coverage achieved)
-mvn test
+# Run all tests (80%+ coverage achieved, all passing)
+mvn clean verify -U
+# Or, for quicker test runs if dependencies are up-to-date:
+# mvn test
 
 # Run content moderation tests specifically
-mvn test -Dtest="*Moderation*"
+# mvn test -Dtest="*Moderation*"
 
-# Integration tests with TestContainers
-mvn test -Dtest="*Integration*"
+# Integration tests with TestContainers (part of mvn verify/test)
+# mvn test -Dtest="*Integration*"
 
 # Performance testing
-mvn test -Dtest="*Performance*"
-```
-
-### Frontend Testing
-
-```bash
-cd web
-
-# Unit tests with Jest
-npm test
-
-# E2E tests with Cypress
-npm run cypress
-
-# Type checking
-npm run type-check
+# mvn test -Dtest="*Performance*"
 ```
 
 ## 🔧 Current Development Focus
@@ -245,12 +208,6 @@ npm run type-check
 - **Stripe** (Payment processing)
 - **Maven** (Build & dependency management)
 
-### Frontend
-- **Next.js 13+** with App Router
-- **TypeScript** for type safety
-- **Tailwind CSS** for styling
-- **SWR** for data fetching & caching
-- **React Hook Form** for form management
 
 ### DevOps & Infrastructure
 - **AWS SAM** (Infrastructure as Code)
@@ -259,10 +216,8 @@ npm run type-check
 - **GitHub Actions** (CI/CD pipeline)
 
 ### Testing
-- **JUnit 5** + **Mockito** (Backend unit tests)
+- **JUnit 5** + **Mockito** (Unit tests)
 - **TestContainers** (Integration testing)
-- **Jest** + **React Testing Library** (Frontend unit tests)
-- **Cypress** (E2E testing)
 
 ## 📈 Performance & Scale
 

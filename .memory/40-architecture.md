@@ -7,15 +7,15 @@ This document outlines the architecture and component design of the Assassin Gam
 The Assassin Game is built using a serverless architecture on AWS, with the primary components implemented as AWS Lambda functions exposed through Amazon API Gateway. The system follows a microservices-inspired approach, with clear separation of concerns between different functional areas.
 
 ```
-┌───────────────────┐     ┌───────────────────┐     ┌───────────────────┐
-│                   │     │                   │     │                   │
-│  Mobile Client    │     │  Web Client       │     │  Admin Client     │
-│                   │     │                   │     │                   │
-└─────────┬─────────┘     └─────────┬─────────┘     └─────────┬─────────┘
-          │                         │                         │
-          └─────────────┬───────────┴─────────────┬───────────┘
-                        │                         │
-                        ▼                         ▼
+┌───────────────────┐                             ┌───────────────────┐
+│                   │                             │                   │
+│  Client Apps      │                             │  Admin Client     │
+│                   │                             │                   │
+└─────────┬─────────┘                             └─────────┬─────────┘
+          │                                                 │
+          └─────────────┬───────────────────────────────────┘
+                        │
+                        ▼
 ┌──────────────────────────────────┐   ┌──────────────────────────────────┐
 │                                  │   │                                  │
 │        Amazon CloudFront         │   │      Amazon Cognito              │
@@ -200,7 +200,7 @@ The data access layer abstracts database operations:
 
 ### Kill Reporting Flow
 
-1. Mobile client sends a kill report to `/kills` endpoint
+1. Client application sends a kill report to `/kills` endpoint
 2. API Gateway authenticates the request using Cognito JWT token
 3. Kill API Lambda receives the request and validates input
 4. KillService processes the kill report:

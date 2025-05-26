@@ -4,7 +4,7 @@ info:
   description: |
     # Assassin Game API
     
-    This API serves as the backend for the Assassin Game web application, 
+    This API serves as the backend for the Assassin Game client applications, 
     providing endpoints for player management, game management, kill reporting,
     notifications, safe zones, payments, and emergency operations.
     

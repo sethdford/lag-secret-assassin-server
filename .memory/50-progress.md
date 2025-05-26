@@ -3,7 +3,7 @@
 ## Overall Status
 *Phase: Core Feature Implementation*
 
-The project is actively implementing core functionalities based on the initial design. Foundational elements like project setup, database schema, user authentication, profile management, basic game management, target assignment, elimination verification, and leaderboards/achievements are complete. The current focus is heavily on the complex geolocation system, followed by monetization, items, and other supporting features.
+The project is actively implementing core functionalities based on the initial design. Foundational elements like project setup, database schema, user authentication, profile management, basic game management, target assignment, elimination verification, and leaderboards/achievements are complete. Recent efforts successfully resolved build and test failures related to Stripe SDK integration, leading to a stable build. The current focus is heavily on the complex geolocation system, followed by monetization, items, and other supporting features.
 
 ## Completed Work (Tasks Marked as Done)
 
@@ -20,13 +20,15 @@ The project is actively implementing core functionalities based on the initial d
     *   Subtask 7.5: (Optional/Future) Implement Target Reassignment via Items
 *   **Task 8:** Implement Elimination Verification System
 *   **Task 15:** Implement Leaderboards and Achievement System
+*   **Task 13:** Implement Privacy Controls for Location Sharing (Visibility, Pause, Fuzzing, Sensitive Areas)
+*   Subtask 11.7: Unit and Integration Tests for Subscriptions (related to Task 11)
 
 ## Milestone Progress
 *Progress towards Phase 1 (MVP) Goals:*
 
-*   **Core API implementation:** Partially complete (Auth, Profile, Game Mgmt, Target, Kill Verification, Leaderboards done; Geolocation in progress; Monetization, Items pending).
-*   **Basic game mechanics:** Partially complete (Target assignment, Kill verification done; Geolocation-based mechanics pending).
-*   **Essential safety features:** Pending (Task 13).
+*   **Core API implementation:** Partially complete (Auth, Profile, Game Mgmt, Target, Kill Verification, Leaderboards, Privacy Controls done; Geolocation in progress; Monetization, Items pending).
+*   **Basic game mechanics:** Partially complete (Target assignment, Kill verification done; Geolocation-based mechanics, Privacy Controls supporting these mechanics done).
+*   **Essential safety features:** Partially complete (Privacy Controls implemented, Emergency systems pending).
 *   **Limited monetization:** Pending (Task 9).
 
 *Overall, significant progress has been made on the foundational backend services. The next major hurdle is the geolocation system.* 
@@ -46,7 +48,7 @@ The project is actively implementing core functionalities based on the initial d
 *   **Task 10:** Implement In-Game Items and Inventory System (Pending, Medium Priority)
 *   **Task 11:** Implement Subscription Tiers (Pending, Medium Priority)
 *   **Task 12:** Implement Social Features (Pending, Medium Priority)
-*   **Task 13:** Implement Safety & Moderation Tools (Pending, High Priority)
+*   **Task 13:** Implement Safety & Moderation Tools (Marked as Done, was previously Pending)
 *   **Task 14:** Implement Notifications System (Pending, Medium Priority)
 *   **Task 16:** Set Up CI/CD Pipeline (Pending, Medium Priority)
 *   **Task 17:** Implement Logging and Monitoring (Pending, Medium Priority)
@@ -61,7 +63,7 @@ The project is actively implementing core functionalities based on the initial d
 *Potential risks based on pending tasks:*
 
 *   **Complexity of Geolocation (Task 6):** High risk due to technical challenges (accuracy, battery, performance, security).
-*   **Monetization Implementation (Tasks 9, 10, 11):** Medium risk related to payment gateway integration, security (PCI), and balancing.
+*   **Monetization Implementation (Tasks 9, 10, 11):** Medium risk related to payment gateway integration, security (PCI), and balancing. Core Stripe SDK integration now stable, reducing some immediate technical risk.
 *   **Scalability and Performance:** Medium risk, requires careful testing under load (part of Task 18).
 *   **Security:** Medium risk, requires ongoing diligence, especially with payments and location data.
 *   **Third-Party Dependencies:** Low-Medium risk (mapping services, payment gateways). 

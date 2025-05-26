@@ -45,7 +45,6 @@ This document captures key technical decisions made during the development of th
 
 **Implications**:
 - Authentication flow complexity increases
-- Custom UI needed for sign-up/sign-in flows
 - Token handling logic required in client applications
 
 ## Development Decisions
@@ -168,7 +167,7 @@ This document captures key technical decisions made during the development of th
 
 **Implications**:
 - Game mechanics must account for potentially stale location data
-- UI must handle location update throttling gracefully
+- Client applications must handle location update throttling gracefully
 - Need for client-side timestamps to validate update sequence
 
 ### Kill Verification System
@@ -247,6 +246,43 @@ This document captures key technical decisions made during the development of th
 - Additional testing scenarios for security
 - Careful JWT claims management
 
+## Feature Implementation Decisions
+
+### Privacy Controls (Task 13)
+**Decision**: Implemented comprehensive privacy controls for player location data.
+
+**Rationale**:
+- Enhance player safety and control over their data.
+- Comply with potential data privacy regulations.
+- Provide players with flexible options for location sharing.
+
+**Key Features Implemented**:
+- **Location Visibility Settings**: Players can choose who sees their location (e.g., only hunter/target, all in game, friends, hidden).
+- **Manual Location Sharing Pause**: Players can manually pause and resume location sharing, with a cooldown period to prevent abuse.
+- **Location Precision/Fuzzing**: Players can choose to share their precise location or a fuzzed/approximated location (e.g., reduced to 100m, 500m, or with added noise).
+- **Automatic Location Pausing for Sensitive Areas**: System automatically pauses location sharing if a player enters a predefined sensitive area (e.g., hospital, school). This is a system-level override.
+- **Audit Logging**: All changes to privacy settings are logged for auditing purposes.
+
+**Implications**:
+- Increased complexity in location retrieval logic, as it must respect all active privacy settings.
+- Additional API endpoints for managing these settings.
+- Player model and service layer updated to store and manage these settings.
+- Unit tests added to cover various privacy scenarios.
+- Location-dependent game mechanics (e.g., kill verification, target proximity) must use the `getEffectivePlayerLocation` service method to ensure privacy settings are respected.
+
+### Stripe SDK Version Downgrade
+**Decision**: Downgraded Stripe Java SDK from `29.1.0` to `24.0.0`.
+
+**Rationale**:
+- Encountered persistent compilation errors with SDK version `29.1.0` related to `Subscription.getCurrentPeriodEnd()`, `Invoice.getSubscription()`, `Invoice.getSubscriptionItem()`, and `SubscriptionItem.getSubscription()` methods not being found, despite documentation suggesting they should exist.
+- Multiple troubleshooting steps (clean verify, deleting local .m2 cache, explicit casting) did not resolve the issue with `29.1.0`.
+- Downgrading to `24.0.0` resolved all compilation errors and allowed the build to succeed.
+
+**Implications**:
+- The project now uses an older version of the Stripe SDK. This might mean missing out on newer features or security updates present in later versions.
+- Future Stripe-related development should be tested against `24.0.0`.
+- A future task should be created to investigate upgrading the Stripe SDK again if the issues with newer versions are resolved or better understood.
+
 ## Operational Decisions
 
 ### CloudWatch Alarms for Critical Metrics
@@ -277,4 +313,16 @@ This document captures key technical decisions made during the development of th
 - More complex logging configuration
 - Slightly increased log storage costs
 - Need for log parsing utilities
-- Learning curve for log query syntax 
+- Learning curve for log query syntax
+
+### Stripe SDK Version
+**Decision**: Downgraded Stripe Java SDK from 29.1.0 to 24.0.0.
+**Rationale**:
+- Encountered "cannot find symbol" compilation errors with version 29.1.0 for methods like `Subscription.getCurrentPeriodEnd()` and `Invoice.getSubscription()`.
+- These methods were confirmed to exist in the Stripe API documentation for recent versions.
+- Attempts to resolve via classpath cleaning, forced dependency updates, and explicit casting were unsuccessful.
+- Downgrading to 24.0.0 resolved all compilation errors related to these Stripe SDK calls.
+**Implications**:
+- The project will use Stripe SDK v24.0.0.
+- Future upgrades to the Stripe SDK will require careful testing to ensure compatibility with existing method calls.
+- May miss out on features or fixes available in versions between 24.0.0 and the latest (currently 29.x.x). 

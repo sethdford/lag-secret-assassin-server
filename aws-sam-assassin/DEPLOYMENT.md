@@ -98,7 +98,7 @@ sam deploy --parameter-overrides Environment=prod DeployInVPC=true PrivateSubnet
 ## Post-Deployment Steps
 
 1. Note the API Gateway endpoint URL from the stack outputs
-2. Update your frontend application with the API endpoint
+2. Update your client application with the API endpoint
 3. Create necessary Stripe webhook configurations if using payment features
 4. Configure any monitoring/alerting as needed
 

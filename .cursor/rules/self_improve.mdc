@@ -32,17 +32,15 @@ alwaysApply: true
     - Implementation details have changed
 
 - **Example Pattern Recognition:**
-  ```typescript
+  ```java
   // If you see repeated patterns like:
-  const data = await prisma.user.findMany({
-    select: { id: true, email: true },
-    where: { status: 'ACTIVE' }
-  });
+  Player player = playerDao.getPlayerById(playerId)
+      .orElseThrow(() -> new PlayerNotFoundException("Player not found: " + playerId));
   
-  // Consider adding to [prisma.mdc](mdc:.cursor/rules/prisma.mdc):
-  // - Standard select fields
-  // - Common where conditions
-  // - Performance optimization patterns
+  // Consider adding to [java_standards.mdc](mdc:.cursor/rules/java_standards.mdc):
+  // - Standard exception handling patterns
+  // - Common validation approaches
+  // - DAO interaction patterns
   ```
 
 - **Rule Quality Checks:**

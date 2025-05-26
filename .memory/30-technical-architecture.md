@@ -9,7 +9,7 @@ The Assassin Game application is built using a serverless architecture on AWS, u
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │                 │     │                 │     │                 │
-│  Mobile Client  │━━━━▶│  API Gateway    │━━━━▶│  Lambda         │
+│  Client App     │━━━━▶│  API Gateway    │━━━━▶│  Lambda         │
 │                 │     │                 │     │                 │
 └─────────────────┘     └─────────────────┘     └───────┬─────────┘
                                                         │
@@ -37,7 +37,7 @@ The Assassin Game application is built using a serverless architecture on AWS, u
 - RESTful API endpoints for game operations
 - Request validation and throttling
 - API key management for client authentication
-- CORS support for web clients
+- CORS support for client applications
 - SSL/TLS termination
 
 The API is organized into the following resource paths:
@@ -279,7 +279,7 @@ The development process is structured for quality and maintainability:
 
 The application interfaces with:
 
-1. **Mobile Clients**:
+1. **Client Applications**:
    - REST API for game operations
    - WebSocket API for real-time updates (future enhancement)
    - Push notification integration for alerts

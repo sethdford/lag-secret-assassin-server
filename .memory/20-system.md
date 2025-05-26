@@ -48,7 +48,7 @@ The Assassin Game API is a serverless application built on AWS services, utilizi
 ## Data Flow
 
 ### Player Registration
-1. User registers through mobile app
+1. User registers through client app
 2. Request routed through API Gateway to Lambda function
 3. Cognito creates new user entry
 4. Lambda creates player profile in DynamoDB
@@ -112,7 +112,7 @@ The Assassin Game API is a serverless application built on AWS services, utilizi
 
 ## Integration Points
 
-### Mobile Applications
+### Client Applications
 - REST APIs for standard operations
 - WebSocket connections for real-time updates
 - Push notifications via SNS

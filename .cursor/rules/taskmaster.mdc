@@ -128,10 +128,10 @@ This document provides a detailed reference for interacting with Taskmaster, cov
 *   **Description:** `Update multiple upcoming tasks in Taskmaster based on new context or changes, starting from a specific task ID.`
 *   **Key Parameters/Options:**
     *   `from`: `Required. The ID of the first task Taskmaster should update. All tasks with this ID or higher (and not 'done') will be considered.` (CLI: `--from <id>`)
-    *   `prompt`: `Required. Explain the change or new context for Taskmaster to apply to the tasks (e.g., "We are now using React Query instead of Redux Toolkit for data fetching").` (CLI: `-p, --prompt <text>`)
+    *   `prompt`: `Required. Explain the change or new context for Taskmaster to apply to the tasks (e.g., "We are now using a different authentication library").` (CLI: `-p, --prompt <text>`)
     *   `research`: `Enable Taskmaster to use Perplexity AI for more informed updates based on external knowledge (requires PERPLEXITY_API_KEY).` (CLI: `-r, --research`)
     *   `file`: `Path to your Taskmaster 'tasks.json' file (default relies on auto-detection).` (CLI: `-f, --file <file>`)
-*   **Usage:** Handle significant implementation changes or pivots that affect multiple future tasks. Example CLI: `task-master update --from='18' --prompt='Switching to React Query.\nNeed to refactor data fetching...'`
+*   **Usage:** Handle significant implementation changes or pivots that affect multiple future tasks. Example CLI: `task-master update --from='18' --prompt='Switching to new authentication library.\nNeed to refactor auth handling...'`
 *   **Important:** This MCP tool makes AI calls and can take up to a minute to complete. Please inform users to hang tight while the operation is in progress.
 
 ### 9. Update Task (`update_task`)

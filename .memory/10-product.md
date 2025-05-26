@@ -20,7 +20,7 @@
 * **Needs:** Regular bonuses, exclusive items, priority access, value for subscription/entry fee.
 
 ### Developer
-* **Goal:** Integrates the API to build custom game frontends or applications.
+* **Goal:** Integrates the API to build custom game client applications.
 * **Needs:** Clear documentation, consistent API behavior, easy integration, reliable service.
 
 ## User Journeys
