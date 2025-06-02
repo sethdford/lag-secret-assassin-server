@@ -1,0 +1,11 @@
+# Task ID: 15
+# Title: Implement Leaderboards and Achievement System
+# Status: done
+# Dependencies: 5, 8
+# Priority: medium
+# Description: Develop leaderboards for games and global statistics, along with an achievement system for player engagement.
+# Details:
+Create leaderboards for individual games with various ranking metrics. Implement global player statistics tracking. Add team leaderboards for team games. Create an achievement system with game-specific and global achievements. Implement unlockable abilities and cosmetics through achievements. Add endpoints for retrieving leaderboard data and player achievements.
+
+# Test Strategy:
+Test leaderboard updates with game events. Verify achievement unlocking works correctly. Test leaderboard retrieval with different filtering options. Verify unlockable rewards are correctly applied.

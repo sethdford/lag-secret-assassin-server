@@ -1,0 +1,64 @@
+# Task ID: 50
+# Title: Implement EventBridge/DynamoDB Stream Triggers
+# Status: pending
+# Dependencies: None
+# Priority: medium
+# Description: Configure DynamoDB Streams and EventBridge rules to trigger Lambda functions for asynchronous event-based processing in the Assassin Game application.
+# Details:
+This task involves setting up event-driven architecture to handle asynchronous processing for key game events:
+
+1. **DynamoDB Streams Configuration**:
+   - Enable DynamoDB Streams on relevant tables (Players, Games, Kills)
+   - Configure stream view type to include both old and new images
+   - Set appropriate batch size and retry policies
+
+2. **Lambda Trigger Functions**:
+   - Create Lambda functions for these event types:
+     a. Player Status Changes: Trigger target reassignment when a player is eliminated or deactivated
+     b. Kill Verification Events: Process confirmed kills and update game state
+     c. Game State Updates: Send notifications to players about game events
+
+3. **EventBridge Rules**:
+   - Create rules to route events to appropriate Lambda functions
+   - Implement filtering patterns to process only relevant events
+   - Set up dead-letter queues for failed event processing
+
+4. **Error Handling & Retry Logic**:
+   - Implement idempotent Lambda functions to handle duplicate events
+   - Add appropriate error handling with structured logging
+   - Configure retry policies with exponential backoff
+
+5. **Monitoring**:
+   - Set up CloudWatch alarms for failed invocations
+   - Create metrics for event processing latency
+
+Ensure all Lambda functions follow the principle of least privilege with appropriate IAM permissions.
+
+# Test Strategy:
+Testing should verify the end-to-end event processing flow:
+
+1. **Unit Tests**:
+   - Create unit tests for each Lambda function using mocked event data
+   - Test error handling paths and edge cases
+
+2. **Integration Tests**:
+   - Create test harness to trigger actual DynamoDB changes and verify Lambda execution
+   - Verify correct event data is passed to Lambda functions
+   - Test event filtering logic in EventBridge rules
+
+3. **Specific Test Cases**:
+   - Player Elimination: Update player status to 'eliminated' and verify target reassignment occurs
+   - Kill Verification: Submit kill event and verify game state updates correctly
+   - Game State Change: Update game status and verify notifications are sent
+   - Concurrency: Test multiple simultaneous events to verify correct handling
+   - Failure Scenarios: Test retry logic by forcing Lambda failures
+
+4. **Performance Testing**:
+   - Measure and document event processing latency
+   - Test with batch events to verify scaling behavior
+
+5. **Monitoring Verification**:
+   - Verify CloudWatch alarms trigger correctly on failures
+   - Confirm metrics are recording accurately
+
+Document all test results with evidence of successful event processing.

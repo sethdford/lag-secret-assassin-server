@@ -1,0 +1,75 @@
+# Task ID: 12
+# Title: Implement Safe Zone Management
+# Status: done
+# Dependencies: 6, 10
+# Priority: medium
+# Description: Develop the system for creating, managing, and enforcing different types of safe zones within games.
+# Details:
+Implement different safe zone types (public, private, timed, relocatable). Create functionality for game organizers to define public safe zones. Add support for player-purchased private safe zones. Implement duration tracking for timed safe zones. Create relocation functionality for premium safe zones. Add endpoints for retrieving safe zone information. Implement safe zone violation detection.
+
+# Test Strategy:
+Test safe zone creation with different types. Verify safe zone effects correctly prevent eliminations. Test duration tracking and expiration for timed zones. Verify relocation functionality works as expected.
+
+# Subtasks:
+## 1. Implement SafeZone Model and Types [done]
+### Dependencies: None
+### Description: Define the SafeZone model with support for different zone types (public, private, timed, relocatable) and their specific attributes.
+### Details:
+1. Extend the SafeZone model to include a 'type' field (enum: PUBLIC, PRIVATE, TIMED, RELOCATABLE).
+2. Add type-specific attributes: owner (for private zones), expirationTime (for timed zones), relocationCount/lastRelocationTime (for relocatable zones).
+3. Implement validation logic for each zone type.
+4. Create appropriate constructors/builders for each zone type.
+5. Add serialization/deserialization support for DynamoDB.
+6. Test by creating instances of each zone type and verifying their properties.
+
+## 2. Enhance DynamoDbSafeZoneDao for CRUD Operations [done]
+### Dependencies: 12.1
+### Description: Extend the DynamoDbSafeZoneDao to support creating, retrieving, updating, and deleting different types of safe zones.
+### Details:
+1. Update the save() method to handle all zone types.
+2. Implement getSafeZonesByType() to filter zones by type.
+3. Add getZonesByOwner() to retrieve private zones for a specific player.
+4. Implement updateZoneLocation() for relocatable zones.
+5. Add methods to handle zone expiration for timed zones.
+6. Create queryActiveZones() to get only non-expired zones.
+7. Test each DAO method with different zone types, ensuring proper persistence and retrieval.
+
+## 3. Implement SafeZoneService Business Logic [done]
+### Dependencies: 12.1, 12.2
+### Description: Develop the service layer to handle the business logic for safe zone management, including creation rules, permissions, and zone behavior.
+### Details:
+1. Implement createPublicZone() for game organizers with authorization checks.
+2. Add purchasePrivateZone() for players with validation and payment integration.
+3. Create createTimedZone() with duration calculation and expiration handling.
+4. Implement relocateZone() with premium verification and location validation.
+5. Add isLocationInSafeZone() to check if coordinates are within any active zone.
+6. Develop getActiveZonesForGame() to retrieve all valid zones for a game.
+7. Implement cleanupExpiredZones() scheduled task.
+8. Test each service method with mocked DAO, focusing on business rules enforcement.
+
+## 4. Create REST API Endpoints in SafeZoneHandler [done]
+### Dependencies: 12.3
+### Description: Implement the API endpoints for safe zone management, including creation, retrieval, and modification of zones.
+### Details:
+1. Create POST /games/{gameId}/zones endpoint for zone creation with type-specific request bodies.
+2. Implement GET /games/{gameId}/zones to retrieve all zones with optional type filtering.
+3. Add GET /games/{gameId}/zones/{zoneId} for specific zone details.
+4. Create PUT /games/{gameId}/zones/{zoneId}/location for zone relocation.
+5. Implement DELETE /games/{gameId}/zones/{zoneId} for zone removal.
+6. Add GET /players/{playerId}/zones to retrieve player's private zones.
+7. Create GET /games/{gameId}/zones/active for currently active zones.
+8. Test all endpoints with integration tests, verifying proper request handling and response formatting.
+
+## 5. Implement Safe Zone Violation Detection [done]
+### Dependencies: 12.3, 12.4
+### Description: Develop the system to detect and handle player violations of safe zone rules, including notifications and game state updates.
+### Details:
+1. Create a SafeZoneViolationDetector component that monitors player positions.
+2. Implement checkPlayerPosition() to determine if a player is in a safe zone.
+3. Add logic to handle different violation types based on game rules and zone types.
+4. Create notification system for players entering/exiting safe zones.
+5. Implement game state updates when violations occur (e.g., immunity, scoring adjustments).
+6. Add logging for violation events for audit purposes.
+7. Create a scheduled task to periodically check for violations in active games.
+8. Test with simulated player movements across zone boundaries, verifying correct detection and handling of violations.
+

@@ -1,0 +1,54 @@
+# Task ID: 57
+# Title: Fix Configuration Issues in aws-sam-assassin/template.yaml
+# Status: done
+# Dependencies: None
+# Priority: critical
+# Description: Manually correct several configuration issues in the AWS SAM template file, including attribute naming conventions, missing permissions, and parameter type definitions.
+# Details:
+This task requires making three specific corrections to the aws-sam-assassin/template.yaml file:
+
+1. Fix Attribute Naming in ReportsTable Definition:
+   - Locate all lowercased attribute names in the ReportsTable resource definition
+   - Change 'reportid' to 'reportId'
+   - Change 'gameid' to 'gameId'
+   - Ensure all other attribute names follow proper camelCase convention
+   - Verify that any references to these attributes in other parts of the template are also updated
+
+2. Add RekognitionPolicy to KillReportingFunction:
+   - Locate the KillReportingFunction resource in the template
+   - Add or extend the IAM policy to include the 'rekognition:DetectModerationLabels' permission
+   - Ensure the policy is properly structured with appropriate Action, Effect, and Resource elements
+   - Verify the policy is attached to the correct function role
+
+3. Fix LogRetentionInDays Parameter Type:
+   - Find the LogRetentionInDays parameter definition
+   - Change its type from String to Number
+   - Verify all references to this parameter are compatible with the Number type
+   - Ensure any default values are properly formatted as numbers without quotes
+
+The changes should maintain the overall structure and indentation of the YAML file. After making these changes, validate the template syntax to ensure it remains valid YAML and follows AWS SAM best practices.
+
+# Test Strategy:
+To verify the task has been completed correctly:
+
+1. YAML Validation:
+   - Run 'aws cloudformation validate-template --template-body file://aws-sam-assassin/template.yaml' to ensure the template is syntactically valid
+   - Use a YAML linter (e.g., yamllint) to check for any formatting issues
+
+2. Attribute Naming Verification:
+   - Search the file for any remaining instances of 'reportid' and 'gameid' to ensure all have been properly renamed
+   - Verify that all attribute references in other parts of the template (such as in GetAtt functions or mapping sections) use the correct camelCase format
+
+3. Permission Testing:
+   - Deploy the template to a test environment using 'sam deploy'
+   - Trigger the KillReportingFunction with a test event that requires the Rekognition service
+   - Verify in CloudWatch Logs that the function can successfully call the rekognition:DetectModerationLabels API without permission errors
+
+4. Parameter Type Testing:
+   - Deploy the template with different values for LogRetentionInDays (e.g., 7, 14, 30)
+   - Verify that the CloudWatch Log Groups are created with the correct retention period
+   - Check the CloudFormation console to ensure the parameter is displayed as a number type
+
+5. Regression Testing:
+   - Run any existing integration tests to ensure the changes don't break existing functionality
+   - Verify that applications or services that interact with the ReportsTable can still read/write data correctly

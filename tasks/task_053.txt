@@ -1,0 +1,58 @@
+# Task ID: 53
+# Title: Implement SafeZone Integration Tests for ProximityDetectionService
+# Status: pending
+# Dependencies: None
+# Priority: high
+# Description: Create comprehensive integration tests for the ProximityDetectionService to verify that safe zone protection rules are correctly applied during elimination attempts.
+# Details:
+Extend ProximityDetectionServiceTest.java to add integration tests that verify safe zone protection functionality. The tests should cover the following scenarios:
+
+1. **Basic Safe Zone Protection**:
+   - Test that a player inside a safe zone cannot be eliminated by another player
+   - Test that a player inside a safe zone cannot eliminate another player
+   - Test both scenarios with various player positions (deep inside safe zone, just inside boundary)
+
+2. **Smoothed Location Handling**:
+   - Verify that the service uses smoothed locations (not raw locations) when determining if a player is in a safe zone
+   - Test scenarios where raw location is outside but smoothed location is inside a safe zone and vice versa
+   - Include tests with simulated GPS jitter near boundaries
+
+3. **Boundary Conditions**:
+   - Test players positioned exactly on safe zone boundaries
+   - Test players moving across boundaries (from safe to unsafe and vice versa)
+   - Test edge cases like zero-sized safe zones or overlapping safe zones
+
+4. **Safe Zone Types**:
+   - Verify that public safe zones protect all players
+   - Verify that private safe zones only protect authorized players
+   - Test timed safe zones that activate/deactivate based on game time
+   - Test interaction between different safe zone types when overlapping
+
+Use Mockito to mock dependencies like MapConfigurationService to control the test environment. Create appropriate test fixtures that represent different safe zone configurations. Ensure tests are isolated and don't depend on external state.
+
+# Test Strategy:
+1. **Test Setup**:
+   - Create a test class that extends ProximityDetectionServiceTest.java
+   - Use @Mock annotations for MapConfigurationService and other dependencies
+   - Create helper methods to set up different safe zone configurations
+   - Use @Before to initialize mocks and service under test
+
+2. **Test Cases**:
+   - **testPlayerInSafeZoneCannotBeEliminated**: Verify elimination attempt fails when target is in safe zone
+   - **testPlayerInSafeZoneCannotEliminate**: Verify elimination attempt fails when attacker is in safe zone
+   - **testSmoothedLocationUsedForSafeZoneDetection**: Set up scenarios where raw and smoothed locations differ relative to safe zone boundaries
+   - **testExactBoundaryPositioning**: Test players positioned exactly on safe zone boundaries
+   - **testPublicSafeZoneProtection**: Verify all players are protected in public safe zones
+   - **testPrivateSafeZoneProtection**: Verify only authorized players are protected in private safe zones
+   - **testTimedSafeZoneProtection**: Verify protection only applies during active periods
+
+3. **Verification**:
+   - Use assertions to verify elimination attempts succeed or fail as expected
+   - Verify that appropriate error messages or codes are returned when elimination is prevented
+   - Use Mockito.verify() to ensure the correct methods are called with expected parameters
+   - Test both positive cases (protection works) and negative cases (no protection when expected)
+
+4. **Edge Cases**:
+   - Test with null or invalid safe zone configurations
+   - Test with players at extreme coordinates
+   - Test with multiple overlapping safe zones with different protection rules

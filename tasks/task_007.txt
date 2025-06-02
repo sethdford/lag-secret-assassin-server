@@ -1,0 +1,43 @@
+# Task ID: 7
+# Title: Implement Target Assignment System
+# Status: done
+# Dependencies: 5
+# Priority: high
+# Description: Create the system for assigning targets to players and managing the chain of assignments throughout the game.
+# Details:
+Implement algorithms for fair and random target assignment. Create functionality for reassigning targets when players are eliminated. Add support for circular assignment chains. Implement target history tracking. Create endpoints for retrieving current target information. Add support for target reassignment through special items.
+
+# Test Strategy:
+Test target assignment with various player counts. Verify reassignment works correctly after eliminations. Test edge cases like last few players and single-player scenarios.
+
+# Subtasks:
+## 1. Design and Implement Core Target Assignment Algorithm [done]
+### Dependencies: None
+### Description: Choose and implement the algorithm (e.g., simple circular chain, random shuffling). Handle initial target assignments when a game starts.
+### Details:
+
+
+## 2. Implement Target Reassignment on Elimination [done]
+### Dependencies: 7.1
+### Description: When a kill is verified (integrating with Task 8), update the killer's target to be the victim's target. Handle edge cases (e.g., when the victim was targeting the killer).
+### Details:
+
+
+## 3. Implement Target Data Storage and Retrieval [done]
+### Dependencies: 7.1
+### Description: Update Player model (or create a new TargetAssignment model) to store current target (targetPlayerId). Update PlayerDao (or create TargetAssignmentDao) with methods to update and retrieve target information. Potentially add a field to track assignment history.
+### Details:
+
+
+## 4. Create API Endpoint for Current Target [done]
+### Dependencies: 7.3
+### Description: Create a new handler (e.g., TargetHandler) or extend PlayerHandler. Implement a GET endpoint like /players/me/target or /games/{gameId}/players/{playerId}/target for players to retrieve their current target. Ensure proper authorization.
+### Details:
+
+
+## 5. (Optional/Future) Implement Target Reassignment via Items [done]
+### Dependencies: 7.1, 7.2, 7.3
+### Description: Design how special items (from Task 10) might affect target assignments (e.g., "Reveal Target", "Change Target"). This might be deferred until Task 10 is implemented.
+### Details:
+
+

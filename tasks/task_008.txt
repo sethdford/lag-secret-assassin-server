@@ -1,0 +1,11 @@
+# Task ID: 8
+# Title: Implement Elimination Verification System
+# Status: done
+# Dependencies: 6, 7
+# Priority: high
+# Description: Develop the system for verifying and recording player eliminations with support for different verification methods.
+# Details:
+Create endpoints for submitting elimination proofs (photos, geolocation proximity, QR codes). Implement verification logic for different elimination methods. Add support for manual verification by game organizers. Create Kill records with appropriate metadata. Implement target reassignment after successful eliminations. Add notification system for elimination events.
+
+# Test Strategy:
+Test elimination submissions with different proof types. Verify verification logic correctly approves/rejects eliminations. Test target reassignment after eliminations. Verify Kill records contain correct information.

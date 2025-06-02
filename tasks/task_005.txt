@@ -1,0 +1,11 @@
+# Task ID: 5
+# Title: Implement Game Creation and Management
+# Status: done
+# Dependencies: 2, 3
+# Priority: high
+# Description: Develop endpoints for creating, configuring, and managing Assassin games with customizable rules.
+# Details:
+Create endpoints for game creation with configurable rules (elimination methods, boundaries, time limitations, scoring). Implement game state management (pending, active, completed). Add functionality for game organizers to modify game settings, add/remove players, and monitor game progress. Implement game joining mechanisms for players. Create endpoints for retrieving game information and current state.
+
+# Test Strategy:
+Test game creation with various rule configurations. Verify game state transitions work correctly. Test joining and leaving games. Verify game information retrieval returns correct data.

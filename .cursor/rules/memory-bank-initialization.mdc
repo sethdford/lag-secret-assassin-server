@@ -1,0 +1,222 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: Memory Bank initialization and management for Cursor custom modes. This rule ensures consistent memory bank directory structure and file creation across all Memory Bank custom modes.
+globs: 
+alwaysApply: false
+---
+
+# Memory Bank Initialization for Cursor Custom Modes
+
+## Critical Rules
+
+- **Always check for .memory/ directory existence** before proceeding with any memory bank operations
+- **Create complete directory structure** if .memory/ doesn't exist:
+  - .memory/40-active.md (Active Context)
+  - .memory/10-product.md (Product Context) 
+  - .memory/50-progress.md (Progress Tracking)
+  - .memory/50-decisions.md (Decision Log)
+  - .memory/50-patterns.md (System Patterns)
+- **Initialize with proper file templates** including frontmatter and basic structure
+- **Maintain consistent timestamp format** [YYYY-MM-DD HH:MM:SS] for all updates
+- **Status indicators** must be used in all Memory Bank custom modes:
+  - '[MEMORY BANK: ARCHITECT]' for architect mode
+  - '[MEMORY BANK: ACTIVE]' for code mode when files exist
+  - '[MEMORY BANK: INACTIVE]' for code mode when files don't exist
+  - '[MEMORY BANK: DEBUG]' for debug mode
+  - '[MEMORY BANK: UPDATING]' for update mode
+
+## Memory Bank File Structure & Numbering
+
+### Core Memory Bank Files (Numbered)
+- **40-active.md**: Current session context, priorities, and active work
+- **10-product.md**: Product definition, goals, and scope
+- **50-progress.md**: Progress tracking, completed work, and milestones
+- **50-decisions.md**: Technical decisions, rationale, and implications
+- **50-patterns.md**: System patterns, best practices, and conventions
+
+### Additional Project Files (Pre-existing)
+- **01-brief.md**: Project charter and overview
+- **20-domain-model.md**: Core domain entities and relationships
+- **20-requirements.md**: Functional and non-functional requirements
+- **30-architecture.md**: System architecture and design
+- **60-database-schema.md**: Database schemas and access patterns
+
+## Memory Bank File Templates
+
+### 40-active.md Template
+```markdown
+# Current Focus & State: [Project Name]
+
+## Active Sprint/Cycle
+**Current Session Focus**: [Current session objectives]
+
+## Recent Changes
+**[YYYY-MM-DD Session Updates]**
+- [Recent development activities]
+- [Key accomplishments]
+- [Important updates]
+
+## Immediate Priorities
+**Next Development Tasks (In Priority Order):**
+1. [High priority task with details]
+2. [Next priority task]
+
+## Current Code Quality Status
+**Architecture**: [Status and assessment]
+**Implementation**: [Status and details]
+**Testing**: [Status and coverage]
+
+## Open Questions
+- [Outstanding questions or decisions needed]
+
+## Blockers
+- [Current blockers or dependencies]
+
+## Session Context
+**Development Environment**: [Environment status]
+**Memory Bank**: [Memory bank status]
+**Task Management**: [Task system status]
+```
+
+### 10-product.md Template
+```markdown
+# Product Context
+
+## Project Overview
+- **Purpose**: [Project description and mission]
+- **Goals**: [Main objectives and success criteria]
+- **Scope**: [What's included/excluded in this project]
+
+## Technical Architecture
+- **Stack**: [Technology choices and versions]
+- **Components**: [Main system components and services]
+- **Dependencies**: [Key dependencies and integrations]
+
+## Standards & Conventions
+- **Code Style**: [Coding standards and linting rules]
+- **Documentation**: [Documentation requirements and standards]
+- **Testing**: [Testing approach and coverage requirements]
+
+## Memory Bank Integration
+- **Custom Modes**: [Available custom modes]
+- **Workflow**: [Development workflow patterns]
+```
+
+### 50-progress.md Template
+```markdown
+# Project Trajectory: [Project Name]
+
+## Overall Status
+**Phase**: [Current development phase]
+
+## Recent Session Updates 
+**[YYYY-MM-DD - Description]**
+- ✅ [Completed items]
+- 🔄 [In progress items]
+- 📋 [Planned items]
+
+## Completed Work
+- **Task X:** [Task description and completion details]
+
+## Milestone Progress
+*Progress towards current phase goals:*
+- [Milestone 1]: [Status and details]
+- [Milestone 2]: [Status and details]
+
+## Known Issues/Bugs
+- [YYYY-MM-DD] - [Issue description and status]
+
+## Backlog Overview
+- **Task X:** [Task description and priority]
+```
+
+### 50-decisions.md Template
+```markdown
+# Technical Decisions
+
+This document captures key technical decisions made during development.
+
+## Development Workflow Decisions
+
+### [Decision Name]
+**Decision**: [What was decided]
+
+**Date**: [YYYY-MM-DD]
+
+**Rationale**:
+- [Reason 1]
+- [Reason 2]
+
+**Implications**:
+- [Implication 1]
+- [Implication 2]
+
+## Architecture Decisions
+[Similar format for architectural decisions]
+
+## Infrastructure Decisions
+[Similar format for infrastructure decisions]
+```
+
+### 50-patterns.md Template
+```markdown
+# System Patterns & Best Practices: [Project Name]
+
+## Memory Bank Workflow Patterns
+
+### Custom Mode Usage Pattern
+**Date**: [YYYY-MM-DD]
+**Pattern**: Mode-based development workflow
+**Usage**: 
+- **Architect Mode**: Design, initialization, high-level planning
+- **Code Mode**: Active development, implementation, testing
+- **Debug Mode**: Issue investigation, troubleshooting
+
+## Code Architecture Patterns
+
+### [Pattern Name]
+**Pattern**: [Pattern description]
+**Components**:
+- [Component 1]: [Description]
+- [Component 2]: [Description]
+
+## Development Workflow Patterns
+
+### [Workflow Pattern Name]
+**Pattern**: [Pattern description]
+**Workflow**:
+1. [Step 1]
+2. [Step 2]
+```
+
+## Examples
+
+<example>
+**Memory Bank Architect Mode Initialization:**
+```
+[MEMORY BANK: ARCHITECT]
+
+I've detected that no .memory/ directory exists. Let me initialize the Memory Bank system for this project.
+
+Creating .memory/ directory structure...
+✓ .memory/40-active.md
+✓ .memory/10-product.md  
+✓ .memory/50-progress.md
+✓ .memory/50-decisions.md
+✓ .memory/50-patterns.md
+
+Memory Bank initialized successfully. You can now switch to other Memory Bank modes for development work.
+```
+</example>
+
+<example type="invalid">
+**Incorrect - Missing status indicator:**
+```
+I see you want to initialize the memory bank. Let me create the files...
+(Missing '[MEMORY BANK: ARCHITECT]' status indicator)
+```
+</example>

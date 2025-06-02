@@ -1,0 +1,11 @@
+# Task ID: 2
+# Title: Implement Database Schema Design
+# Status: done
+# Dependencies: 1
+# Priority: high
+# Description: Design and implement the core data models for the Assassin Game API including Game, Player, Kill, and Item schemas.
+# Details:
+Create MongoDB schemas for all core data models specified in section 4.3. Implement proper indexing for performance optimization. Include validation rules for all fields. Ensure relationships between models are properly defined (e.g., Game to Players, Players to Kills). Implement timestamps for all models for tracking creation and updates.
+
+# Test Strategy:
+Write unit tests for each schema to verify validation rules work correctly. Test relationships between models to ensure proper references.

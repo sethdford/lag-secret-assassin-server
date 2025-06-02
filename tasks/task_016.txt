@@ -1,0 +1,55 @@
+# Task ID: 16
+# Title: Implement Social Features
+# Status: pending
+# Dependencies: 4
+# Priority: medium
+# Description: Develop social features including friend systems, team formation, and in-game messaging.
+# Details:
+Implement a friend system with requests and connections. Create team formation functionality for team games. Add in-game messaging with safety filters. Implement an activity feed for game events. Create endpoints for managing friends and teams. Add notification system for social interactions. Implement privacy controls for social features.
+
+# Test Strategy:
+Test friend requests and connections. Verify team formation works correctly. Test in-game messaging with safety filters. Verify activity feed correctly displays relevant events.
+
+# Subtasks:
+## 1. Design and implement friend system database schema [pending]
+### Dependencies: None
+### Description: Create database tables and relationships for the friend system, including friend requests, connections, and status tracking.
+### Details:
+Design a schema with tables for users, friend_requests (with status: pending, accepted, rejected), and friends (for established connections). Include timestamps for all actions. Create appropriate indexes and foreign key constraints. Implement database migrations.
+
+## 2. Develop friend system API endpoints [pending]
+### Dependencies: 16.1
+### Description: Create RESTful API endpoints for sending, accepting, rejecting friend requests, and managing friend connections.
+### Details:
+Implement endpoints for: GET /friends (list friends), POST /friends/requests (send request), PUT /friends/requests/:id (accept/reject), DELETE /friends/:id (remove friend). Include proper authentication, validation, and error handling. Document API with Swagger/OpenAPI.
+
+## 3. Implement team formation functionality [pending]
+### Dependencies: 16.1
+### Description: Create system for players to form, join, and manage teams for team-based games.
+### Details:
+Design and implement database schema for teams (name, creator, members, creation date). Create API endpoints for team CRUD operations, invitations, and joining/leaving teams. Implement team size limits and validation. Add team visibility settings (public/private).
+
+## 4. Develop in-game messaging system with safety filters [pending]
+### Dependencies: 16.1
+### Description: Create a real-time messaging system with content filtering for inappropriate content.
+### Details:
+Implement WebSocket-based messaging service for real-time communication. Create message storage in database with sender, recipient, timestamp, and content. Implement text filtering system to detect and block inappropriate content. Add rate limiting to prevent spam. Support both direct messages and team chat channels.
+
+## 5. Create activity feed for game events [pending]
+### Dependencies: 16.2, 16.3
+### Description: Implement a feed system to display friend activities, achievements, and game events.
+### Details:
+Design activity event schema with type, actor, timestamp, and metadata. Create event generation system for game achievements, friend activities, and team events. Implement feed aggregation logic with pagination. Add API endpoints to retrieve personalized activity feeds.
+
+## 6. Implement notification system for social interactions [pending]
+### Dependencies: 16.2, 16.3, 16.4
+### Description: Create a notification system to alert users about friend requests, team invitations, and messages.
+### Details:
+Design notification schema with type, recipient, read status, and content. Create notification generation for social events (friend requests, team invitations, messages). Implement real-time notification delivery using WebSockets. Add API endpoints for retrieving and marking notifications as read.
+
+## 7. Develop privacy controls for social features [pending]
+### Dependencies: 16.2, 16.3, 16.4, 16.6
+### Description: Implement privacy settings allowing users to control visibility and interaction permissions.
+### Details:
+Create user privacy settings schema (friend requests, visibility, messaging permissions). Implement API endpoints for updating privacy settings. Modify existing social feature endpoints to respect privacy settings. Add visibility controls for activity feed items. Create admin tools for monitoring and moderation.
+

@@ -1,0 +1,31 @@
+# Task ID: 49
+# Title: Configure S3 for Media Storage
+# Status: pending
+# Dependencies: None
+# Priority: medium
+# Description: Set up Amazon S3 buckets with appropriate configurations to handle user-uploaded media including profile pictures and elimination verification photos.
+# Details:
+1. Create two separate S3 buckets: one for profile pictures and one for elimination verification photos.
+2. Configure bucket policies with least privilege principles, allowing only authenticated users to access their own media.
+3. Implement CORS settings to allow uploads from the application domain.
+4. Set up lifecycle policies to manage storage costs (consider moving older verification photos to Glacier after 30 days).
+5. Implement server-side encryption for all stored media.
+6. Create a service layer in the application that generates pre-signed URLs with limited validity (15 minutes) for secure client-side uploads.
+7. Implement file validation to ensure only images of appropriate size (max 5MB) and type (jpg, png) are uploaded.
+8. Set up CloudFront distribution for efficient content delivery of profile pictures.
+9. Implement proper error handling for failed uploads with meaningful user feedback.
+10. Create a cleanup mechanism to remove orphaned media files when user profiles are deleted.
+11. Document the S3 bucket structure and access patterns for the team.
+
+# Test Strategy:
+1. Unit test the pre-signed URL generation service with various file types and sizes.
+2. Verify direct uploads using pre-signed URLs work from both web and mobile clients.
+3. Test file type and size validation by attempting to upload invalid files.
+4. Verify that users can only access their own media files and not others'.
+5. Test the CloudFront distribution by measuring load times from different geographic locations.
+6. Verify lifecycle policies by checking that older files are correctly transitioned to different storage classes.
+7. Test error scenarios: network interruptions during upload, invalid file types, oversized files.
+8. Perform security testing to ensure URLs cannot be manipulated to access unauthorized content.
+9. Verify that when a user is deleted, their associated media is properly removed.
+10. Load test the system with concurrent uploads to ensure performance under load.
+11. Verify that the S3 bucket logging is properly configured for audit purposes.

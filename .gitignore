@@ -43,8 +43,6 @@ target/
 
 # Added by Claude Task Master
 .env
-# Task files
-tasks.json
-tasks/ 
+
 # SpecStory explanation file
 .specstory/.what-is-this.md

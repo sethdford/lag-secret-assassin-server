@@ -1,0 +1,11 @@
+# Task ID: 1
+# Title: Setup Project Repository and Base Structure
+# Status: done
+# Dependencies: None
+# Priority: high
+# Description: Initialize the project repository with the basic folder structure, configuration files, and dependencies for the Assassin Game API.
+# Details:
+Create a new repository with appropriate .gitignore and README.md. Set up the project structure following RESTful architecture principles. Initialize package.json with required dependencies including Express.js for the API server, MongoDB/Mongoose for database, authentication libraries, geolocation libraries, and testing frameworks. Configure ESLint and Prettier for code quality.
+
+# Test Strategy:
+Verify that the project builds successfully and passes linting checks. Ensure all dependencies are correctly installed and the basic server can start.

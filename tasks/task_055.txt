@@ -1,0 +1,82 @@
+# Task ID: 55
+# Title: Implement Team-Based Protection Zones in PrivateSafeZone System
+# Status: pending
+# Dependencies: 53
+# Priority: medium
+# Description: Extend the PrivateSafeZone functionality to support team-based protection zones, allowing players to create safe areas that automatically protect all members of their team.
+# Details:
+This task requires significant modifications to the existing PrivateSafeZone system:
+
+1. Extend the PrivateSafeZone class:
+   - Add a new 'teamId' field (String or UUID)
+   - Add a 'teamMembers' collection (Set<UUID> or similar)
+   - Ensure backward compatibility with existing individual safe zones
+   - Update constructors and builders to support team creation
+
+2. Implement team membership management:
+   - Create addTeamMember(UUID playerId) method
+   - Create removeTeamMember(UUID playerId) method
+   - Add getTeamMembers() method to retrieve all team members
+   - Implement appropriate validation (e.g., prevent duplicates, handle non-existent members)
+
+3. Update authorization logic:
+   - Modify isPlayerAuthorized(UUID playerId) to check if player is in team
+   - Maintain original owner-based authorization as fallback
+   - Add appropriate logging for authorization decisions
+
+4. Update SafeZoneService:
+   - Add methods for creating team-based zones (createTeamSafeZone)
+   - Implement methods to add/remove team members from zones
+   - Update existing query methods to support team-based filtering
+
+5. Database changes:
+   - Add GSI (Global Secondary Index) on teamId in DynamoDB
+   - Create index for efficient queries by team membership
+   - Update data access methods to utilize new indices
+
+6. API endpoints:
+   - Create POST /safezones/team to create team safe zone
+   - Add PUT /safezones/{id}/team/members to manage team membership
+   - Implement GET /safezones/team/{teamId} to retrieve team zones
+   - Ensure proper authentication and authorization checks
+
+7. Update documentation:
+   - Add Javadoc comments to all new methods
+   - Update API documentation to reflect new endpoints
+   - Document the team-based authorization model
+
+# Test Strategy:
+Testing should cover all aspects of the team-based protection system:
+
+1. Unit Tests:
+   - Test PrivateSafeZone class modifications:
+     * Verify team member addition/removal works correctly
+     * Test isPlayerAuthorized with team members and non-members
+     * Ensure backward compatibility with non-team zones
+   - Test SafeZoneService:
+     * Verify team zone creation with various parameters
+     * Test team membership management methods
+     * Validate query methods return correct results for team zones
+
+2. Integration Tests:
+   - Test DynamoDB interactions:
+     * Verify indices work correctly for team-based queries
+     * Test performance of team membership lookups
+     * Ensure data consistency across operations
+   - Test API endpoints:
+     * Verify all team-based endpoints return correct responses
+     * Test error handling for invalid requests
+     * Validate authorization rules are enforced
+
+3. Scenario Tests:
+   - Create a team zone and verify all team members are protected
+   - Test adding/removing members dynamically affects protection
+   - Verify non-team members cannot access team zones
+   - Test concurrent operations on team zones
+
+4. Performance Tests:
+   - Benchmark team zone lookups with varying team sizes
+   - Test system under load with many team zones
+   - Verify database indices improve query performance
+
+All tests should include both positive cases (expected behavior) and negative cases (error handling, edge cases).

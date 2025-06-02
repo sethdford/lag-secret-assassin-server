@@ -1,0 +1,67 @@
+# Task ID: 10
+# Title: Implement In-Game Items and Inventory System
+# Status: done
+# Dependencies: 9
+# Priority: medium
+# Description: Develop the system for managing in-game items, purchases, and player inventories.
+# Details:
+Create the item catalog with different types (Radar, Cloak, Safe Zone, etc.). Implement inventory management for players. Create endpoints for purchasing items. Add functionality for using items and applying their effects. Implement cooldowns and duration tracking for temporary items. Create endpoints for retrieving available items and current inventory.
+
+# Test Strategy:
+Test item purchases and inventory updates. Verify item effects are correctly applied when used. Test duration and cooldown tracking. Verify inventory retrieval returns correct data.
+
+# Subtasks:
+## 1. Define Item Model [done]
+### Dependencies: None
+### Description: Define Item model: itemId (PK), name, description, itemType (enum), price, effects (Map), durationSeconds, isUsable, isStackable. Represents master list of available items.
+### Details:
+
+
+## 2. Define PlayerInventoryItem Model [done]
+### Dependencies: None
+### Description: Define PlayerInventoryItem model: playerId (PK), itemId (SK or GSI PK), quantity, acquiredAt, expiresAt. Tracks items owned by players.
+### Details:
+
+
+## 3. Create ItemDao and PlayerInventoryDao [done]
+### Dependencies: 10.1, 10.2
+### Description: Implement DAOs for CRUD operations on items and player inventories.
+### Details:
+
+
+## 4. Create ItemService [done]
+### Dependencies: 10.3
+### Description: Methods: getAllItems(), getItemById(String itemId), purchaseItem(String playerId, String itemId, String paymentMethodId) (integrates with PaymentHandler or TransactionDao).
+### Details:
+
+
+## 5. Create PlayerInventoryService [done]
+### Dependencies: 10.3
+### Description: Methods: getPlayerInventory(String playerId), grantItemToPlayer(String playerId, String itemId, int quantity), useItem(String playerId, String inventoryItemId, Map<String, Object> context) (applies item effects).
+### Details:
+
+
+## 6. Implement Item Effects Logic [done]
+### Dependencies: 10.5
+### Description: Implement logic for each itemType's effect, interacting with other services (TargetService, SafeZoneService, etc.). May need further breakdown per item type.
+### Details:
+
+
+## 7. API Endpoints for Items and Inventory [done]
+### Dependencies: 10.4, 10.5
+### Description: GET /items; POST /players/me/inventory/purchase; GET /players/me/inventory; POST /players/me/inventory/{inventoryItemId}/use.
+### Details:
+
+
+## 8. Update template.yaml for Items/Inventory [done]
+### Dependencies: 10.3, 10.7
+### Description: Add ItemsTable and PlayerInventoriesTable to template.yaml. Add IAM permissions for new Lambda handlers/updated services.
+### Details:
+
+
+## 9. Unit and Integration Tests for Items/Inventory [done]
+### Dependencies: 10.6, 10.7
+### Description: Write unit and integration tests for Item/Inventory DAOs, Services, and item effect logic.
+### Details:
+
+

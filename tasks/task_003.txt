@@ -1,0 +1,102 @@
+# Task ID: 3
+# Title: Implement User Authentication System
+# Status: done
+# Dependencies: 1, 2
+# Priority: high
+# Description: Create a secure authentication system with OAuth 2.0 support, user registration, login, and token management.
+# Details:
+Implement JWT-based authentication with refresh tokens. Create endpoints for user registration, login, logout, and password reset. Implement OAuth 2.0 for third-party authentication. Set up role-based access control (RBAC) for different user types (player, game organizer, admin). Ensure all authentication routes follow security best practices with proper rate limiting and encryption.
+
+# Test Strategy:
+Test user registration with valid and invalid data. Verify login process and token generation. Test token validation and refresh mechanisms. Verify OAuth flows with mock providers.
+
+# Subtasks:
+## 1. Implement Cognito User Registration [done]
+### Dependencies: None
+### Description: Implement the user registration logic within AuthService using CognitoIdentityProviderClient.signUp, including handling user attributes and confirmation.
+### Details:
+
+
+## 2. Implement Cognito User Login [done]
+### Dependencies: None
+### Description: Implement the user login logic within AuthService using CognitoIdentityProviderClient.adminInitiateAuth (or initiateAuth), handling different auth flows (e.g., USER_SRP_AUTH) and returning JWT tokens.
+### Details:
+
+
+## 3. Implement JWT Token Validation [done]
+### Dependencies: None
+### Description: Implement JWT token validation logic, potentially using a library or Cognito's built-in validation mechanisms, to secure API endpoints.
+### Details:
+
+
+<info added on 2025-04-14T20:40:43.362Z>
+The JWT token validation has been implemented in AuthorizationUtils.java. The class uses Auth0's JWT and JWK libraries to validate Cognito-issued JWTs against the Cognito JWK endpoint, including signature verification, expiration, issuer, and audience validation. It also provides methods to extract user information (ID, groups) from validated tokens.
+
+Key implementation details:
+- Uses Auth0's java-jwt and jwks-rsa libraries for token validation
+- Implements caching of JWK keys to reduce calls to Cognito JWK endpoint
+- Validates token signature, expiration time, issuer, and audience claims
+- Extracts user ID from "sub" claim and user groups from "cognito:groups" claim
+- Provides helper methods for API Gateway custom authorizers
+- Includes error handling for malformed tokens, expired tokens, and network issues
+- Thread-safe implementation suitable for concurrent API requests
+</info added on 2025-04-14T20:40:43.362Z>
+
+## 4. Implement Role-Based Access Control (RBAC) [done]
+### Dependencies: None
+### Description: Implement RBAC based on Cognito user groups or custom claims in JWT tokens. Define roles (player, admin, game_organizer) and protect relevant API endpoints.
+### Details:
+
+
+## 5. Implement OAuth 2.0 Support [done]
+### Dependencies: None
+### Description: Implement OAuth 2.0 integration for third-party authentication (e.g., Google, Facebook) using Cognito hosted UI or custom integration.
+### Details:
+
+
+<info added on 2025-04-14T20:04:34.610Z>
+Configure Cognito User Pool federation for Google, Facebook, and Apple identity providers. Implement the necessary callback handlers and attribute mapping to enable social sign-up/sign-in.
+
+Technical implementation details:
+1. Set up developer accounts with each identity provider (Google, Facebook, Apple) to obtain OAuth credentials
+2. Configure Cognito User Pool with:
+   - Domain name for hosted UI
+   - App client settings with allowed OAuth flows and scopes
+   - Identity provider configurations with client IDs and secrets
+   - Attribute mapping between provider attributes and Cognito attributes
+
+3. Implement callback handlers:
+   ```javascript
+   // Example callback handler for OAuth redirect
+   function handleAuthCallback(req, res) {
+     const code = req.query.code;
+     const state = req.query.state;
+     
+     // Exchange authorization code for tokens
+     cognitoIdentityServiceProvider.initiateAuth({
+       AuthFlow: 'AUTHORIZATION_CODE',
+       ClientId: process.env.COGNITO_CLIENT_ID,
+       AuthParameters: {
+         'CODE': code
+       }
+     }).promise()
+       .then(response => {
+         // Store tokens and redirect to authenticated area
+       })
+       .catch(error => {
+         // Handle authentication errors
+       });
+   }
+   ```
+
+4. Implement sign-in/sign-up UI components that redirect to Cognito hosted UI or directly to providers
+5. Add token validation and refresh logic for maintaining authenticated sessions
+6. Implement attribute mapping to ensure consistent user profiles across providers
+</info added on 2025-04-14T20:04:34.610Z>
+
+## 6. Sync Social Profile Data to Player Table [done]
+### Dependencies: None
+### Description: Implement logic to create or update the Player record in DynamoDB upon first social login. Sync relevant profile information (name, email, avatar URL if available) from the Cognito user profile (obtained via federation) to the Player table.
+### Details:
+
+

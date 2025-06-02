@@ -1,0 +1,55 @@
+# Task ID: 11
+# Title: Implement Subscription Tiers
+# Status: done
+# Dependencies: 9
+# Priority: medium
+# Description: Develop the subscription system with different tiers (Basic, Hunter, Assassin, Elite) and associated benefits.
+# Details:
+Implement subscription management with different tier levels. Create recurring payment handling. Add functionality for tier-specific benefits (in-game currency bonuses, free items, priority access). Implement subscription status tracking and expiration handling. Create endpoints for managing subscriptions (upgrade, downgrade, cancel). Add prorated billing for tier changes.
+
+# Test Strategy:
+Test subscription creation, updates, and cancellations. Verify tier benefits are correctly applied. Test subscription renewal and expiration handling. Verify proration calculations for tier changes.
+
+# Subtasks:
+## 1. Define SubscriptionTier and Update Player Model [done]
+### Dependencies: None
+### Description: Define SubscriptionTier (tierId, name, prices, benefits). Update Player model (currentSubscriptionTierId, subscriptionValidUntil, stripeSubscriptionId).
+### Details:
+
+
+## 2. Create SubscriptionTierDao or Use Constants [done]
+### Dependencies: 11.1
+### Description: If tiers are dynamic from DB, create SubscriptionTierDao. If fixed, define as Enums/Constants.
+### Details:
+
+
+## 3. Stripe Integration for Subscriptions [done]
+### Dependencies: 11.1
+### Description: Set up Stripe Products/Prices. Implement Stripe Checkout Session creation. Implement Stripe Webhook handler for subscription events.
+### Details:
+
+
+## 4. Create SubscriptionService [done]
+### Dependencies: 11.1, 11.2, 11.3
+### Description: Methods: getAvailableTiers(), subscribePlayer(), cancelSubscription(), getPlayerSubscription(), checkPlayerEntitlement(). Process webhooks to update Player subscription.
+### Details:
+
+
+## 5. API Endpoints for Subscriptions [done]
+### Dependencies: 11.4
+### Description: GET /subscriptions/tiers; POST /players/me/subscription; DELETE /players/me/subscription; GET /players/me/subscription.
+### Details:
+
+
+## 6. Update template.yaml for Subscriptions [done]
+### Dependencies: 11.2, 11.3, 11.5
+### Description: Add SubscriptionTiersTable (if dynamic). Add Stripe Webhook Lambda handler & API route. Add IAM permissions.
+### Details:
+
+
+## 7. Unit and Integration Tests for Subscriptions [done]
+### Dependencies: 11.4, 11.5
+### Description: Unit/integration tests for Subscription DAO (if any), Service, Stripe integration (mocked), and webhook handler.
+### Details:
+
+

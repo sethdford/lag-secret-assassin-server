@@ -1,0 +1,11 @@
+# Task ID: 21
+# Title: Implement Weekly Purge Mechanism for Nationwide Games
+# Status: pending
+# Dependencies: 12, 20
+# Priority: low
+# Description: Develop the system for temporarily disabling all safe zones during designated 'purge' periods in nationwide games.
+# Details:
+Implement scheduling system for purge periods. Create functionality to temporarily disable all safe zones during purge. Add advance notifications for upcoming purges. Implement special scoring for eliminations during purge periods. Create visual indicators for active purge periods. Add configuration options for purge duration and frequency.
+
+# Test Strategy:
+Test purge scheduling and activation. Verify safe zones are correctly disabled during purge. Test notification system for upcoming purges. Verify scoring bonuses are correctly applied for purge eliminations.

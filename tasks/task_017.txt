@@ -1,0 +1,11 @@
+# Task ID: 17
+# Title: Implement Premium Intel and Hunter Alert Features
+# Status: pending
+# Dependencies: 7, 10
+# Priority: medium
+# Description: Develop the premium features for revealing target and hunter identities as purchasable items.
+# Details:
+Implement Premium Intel item for revealing target identity. Create Hunter Alert item for revealing hunter identity. Add appropriate restrictions and cooldowns. Implement notification system for when these items are used. Create endpoints for using these items and retrieving revealed information. Add transaction logging for premium feature usage.
+
+# Test Strategy:
+Test premium intel and hunter alert item usage. Verify correct information is revealed. Test cooldowns and restrictions. Verify notifications are sent appropriately.

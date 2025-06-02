@@ -88,6 +88,7 @@ Generate a summary of key project information from memory bank files, providing 
 - **[50-api-design.md](mdc:.memory/50-api-design.md)** - API design principles and specifications.
 - **[50-decisions.md](mdc:.memory/50-decisions.md)** - Key technical decisions with rationale.
 - **[50-development-standards.md](mdc:.memory/50-development-standards.md)** - Development standards and coding conventions.
+- **[50-patterns.md](mdc:.memory/50-patterns.md)** - System patterns, best practices, and architectural conventions.
 - **[50-progress.md](mdc:.memory/50-progress.md)** - Project progress tracking and milestone achievements.
 - **[60-database-schema.md](mdc:.memory/60-database-schema.md)** - DynamoDB table designs, GSIs, and data access patterns.
 - **[60-decisions.md](mdc:.memory/60-decisions.md)** - Additional implementation decisions.

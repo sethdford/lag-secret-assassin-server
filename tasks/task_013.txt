@@ -1,0 +1,49 @@
+# Task ID: 13
+# Title: Implement Privacy Controls for Location Sharing
+# Status: done
+# Dependencies: 6
+# Priority: high
+# Description: Develop privacy controls for location sharing, including visibility settings and automatic pausing in sensitive areas.
+# Details:
+Implement visibility settings for location data (visible only to hunter/target). Create functionality for manually pausing location sharing with cooldown. Add support for fuzzy location approximation. Implement automatic location pausing in sensitive areas (schools, hospitals). Create endpoints for updating privacy settings. Add audit logging for privacy-related actions.
+
+# Test Strategy:
+Test visibility settings with different user relationships. Verify manual pause functionality works with proper cooldowns. Test automatic pausing in designated sensitive areas. Verify fuzzy location approximation provides sufficient privacy.
+
+# Subtasks:
+## 1. Implement User Visibility Settings [done]
+### Dependencies: None
+### Description: Create settings that allow users to control who can see their location data
+### Details:
+Develop UI components and backend logic to support visibility settings (visible only to hunter/target). Include options for 'visible to all', 'visible to friends', 'visible to specific users', and 'hidden'. Update database schema to store these preferences.
+
+## 2. Develop Manual Location Sharing Pause [done]
+### Dependencies: 13.1
+### Description: Create functionality for users to temporarily pause location sharing with appropriate cooldown periods
+### Details:
+Implement UI toggle for pausing location sharing. Add backend support for cooldown periods to prevent rapid toggling. Store pause state in database and ensure all location queries respect this state.
+
+## 3. Implement Fuzzy Location Approximation [done]
+### Dependencies: 13.1
+### Description: Add support for approximate location sharing to enhance privacy
+### Details:
+Develop algorithm to create fuzzy location data by reducing precision or adding noise to coordinates. Create settings UI for users to select precision level. Update location sharing endpoints to apply fuzzy logic based on user preferences.
+
+## 4. Create Automatic Location Pausing for Sensitive Areas [done]
+### Dependencies: 13.2
+### Description: Implement system to automatically pause location sharing when users enter sensitive locations
+### Details:
+Create database of sensitive locations (schools, hospitals, etc.). Develop geofencing functionality to detect when users enter these areas. Implement automatic pause logic that temporarily stops location sharing in these zones.
+
+## 5. Develop Privacy Settings API Endpoints [done]
+### Dependencies: 13.1, 13.2, 13.3, 13.4
+### Description: Create RESTful endpoints for updating and retrieving privacy settings
+### Details:
+Design and implement API endpoints for all privacy controls. Include endpoints for updating visibility settings, managing pause status, setting location precision, and configuring automatic pausing. Ensure proper authentication and authorization checks.
+
+## 6. Implement Privacy Action Audit Logging [done]
+### Dependencies: 13.5
+### Description: Add comprehensive logging for all privacy-related actions
+### Details:
+Create logging infrastructure to record all privacy setting changes. Log user ID, timestamp, action type, and previous/new values. Ensure logs are securely stored and can be used for compliance reporting and troubleshooting.
+

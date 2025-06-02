@@ -1,0 +1,138 @@
+# Task ID: 14
+# Title: Implement Safety and Moderation Tools
+# Status: done
+# Dependencies: 5, 8
+# Priority: high
+# Description: Develop safety features including reporting systems, content moderation, and emergency functionality.
+# Details:
+Create a reporting system for inappropriate behavior. Implement content moderation for elimination proofs. Add AI-assisted filtering for user-generated content. Create an emergency button to pause game activity. Implement integration with emergency contacts. Add functionality for game organizers to handle reports and moderate content. Create an escalation path for serious safety concerns.
+
+# Test Strategy:
+Test reporting system with various scenarios. Verify content moderation correctly flags inappropriate content. Test emergency button functionality and game pausing. Verify escalation paths work as expected.
+
+# Subtasks:
+## 1. Implement Report System Model and DAO [done]
+### Dependencies: None
+### Description: Create the data model and database access layer for the reporting system to handle inappropriate behavior reports
+### Details:
+Implementation steps:
+1. Create a Report model class with fields for reportId, reporterId, reportedId, gameId, reportType (enum: INAPPROPRIATE_BEHAVIOR, CHEATING, HARASSMENT, OTHER), description, timestamp, status (enum: PENDING, UNDER_REVIEW, RESOLVED, DISMISSED), and evidence (optional URLs to screenshots/media).
+2. Implement DynamoDbReportDao with CRUD operations (createReport, getReport, updateReportStatus, listReportsByGame, listReportsByUser).
+3. Add GSIs for efficient querying by game, reporter, reported user, and status.
+4. Implement pagination for report listings.
+5. Add unit tests for the DAO layer with mock DynamoDB.
+
+Testing approach:
+- Unit test the Report model serialization/deserialization
+- Test all DAO operations with mock DynamoDB
+- Verify GSI queries return expected results
+- Test edge cases like empty reports and pagination
+
+## 2. Create Content Moderation Service for Elimination Proofs [done]
+### Dependencies: None
+### Description: Implement a service to moderate user-submitted elimination proof content using AI-assisted filtering
+### Details:
+Implementation steps:
+1. Create a ContentModerationService interface with methods for moderateContent(String content, List<URL> mediaUrls), isContentAppropriate(String content), and areImagesAppropriate(List<URL> mediaUrls).
+2. Implement AWS Rekognition integration for image moderation to detect inappropriate imagery in elimination proofs.
+3. Implement AWS Comprehend or similar text analysis service for text moderation.
+4. Create a moderation result model with confidence scores and flagged content details.
+5. Implement caching for moderation results to avoid redundant API calls.
+6. Add configuration for moderation sensitivity levels.
+
+Testing approach:
+- Unit test with mock AWS service responses
+- Integration tests with test images/text of varying appropriateness
+- Test caching mechanism efficiency
+- Verify proper handling of different media types
+
+## 3. Develop Emergency Button and Game Pause Functionality [done]
+### Dependencies: None
+### Description: Implement an emergency button feature that allows immediate pausing of game activity with notifications to all participants
+### Details:
+Implementation steps:
+1. Add an emergencyPause field to the Game model to track pause state.
+2. Create an EmergencyService with methods for pauseGame(gameId, reason), resumeGame(gameId), and getEmergencyStatus(gameId).
+3. Implement GameService methods to handle game state changes during emergency pauses.
+4. Create API endpoints for triggering and resolving emergency pauses.
+5. Implement authorization checks to ensure only game organizers and admins can resume paused games.
+6. Add a notification dispatch to all game participants when emergency mode is activated/deactivated.
+
+Testing approach:
+- Unit test emergency state transitions
+- Test authorization rules for different user roles
+- Verify game mechanics are properly paused during emergency
+- Test notification dispatch to all participants
+
+## 4. Implement Report Management Interface for Game Organizers [done]
+### Dependencies: 14.1, 14.2
+### Description: Create functionality for game organizers to review, process, and moderate reported content and user behavior
+### Details:
+Implementation steps:
+1. Create a ReportManagementService that extends the Report functionality with methods for assignReport(reportId, moderatorId), updateReportStatus(reportId, status, resolution), and getReportMetrics(gameId).
+2. Implement a ModeratorAction model to track all actions taken by moderators.
+3. Add API endpoints for report management operations.
+4. Implement authorization middleware to ensure only game organizers and admins can access moderation features.
+5. Create notification templates for report status updates to be sent to reporters.
+6. Add an audit log for all moderation actions for accountability.
+
+Testing approach:
+- Unit test service methods with mocked dependencies
+- Test authorization rules for different user roles
+- Verify proper status transitions and validation
+- Test notification generation for status updates
+
+## 5. Integrate Emergency Contacts and Escalation Paths [done]
+### Dependencies: 14.3, 14.4
+### Description: Implement functionality to manage emergency contacts and create escalation paths for serious safety concerns
+### Details:
+Implementation steps:
+1. Create an EmergencyContact model with fields for contactId, userId, contactName, contactType (PERSONAL, GAME_ORGANIZER, PLATFORM_ADMIN, EMERGENCY_SERVICES), contactDetails, and priority.
+2. Implement DynamoDbEmergencyContactDao with CRUD operations.
+3. Create an EscalationService with methods for escalateReport(reportId, escalationLevel, notes), notifyEmergencyContacts(userId, message), and logEscalationAction(actionDetails).
+4. Implement configurable escalation thresholds and automated escalation for certain report types.
+5. Add integration with notification system to send urgent alerts to appropriate contacts based on escalation level.
+6. Create API endpoints for managing emergency contacts and triggering escalations.
+
+Testing approach:
+- Unit test the escalation logic and thresholds
+- Test emergency contact notification with mocked notification service
+- Verify proper authorization for escalation actions
+- Test the complete escalation flow from report to contact notification
+
+## 7. Define Moderation Service Interface and Data Models [done]
+### Dependencies: None
+### Description: Define a `ContentModerationService` interface. Define necessary request/response DTOs (e.g., `ModerationRequest`, `ModerationResult` including status like `APPROVED`, `REJECTED`, `PENDING_MANUAL_REVIEW`, and reason/details). Define a model to store moderation results if not part of an existing model (e.g., `Kill.moderationStatus`, `Kill.moderationNotes`).
+### Details:
+
+
+## 8. Integrate with AWS Rekognition for Image Moderation [done]
+### Dependencies: 14.7
+### Description: Implement a concrete class for `ContentModerationService` that uses AWS Rekognition's `DetectModerationLabels` API for image analysis. Handle API responses and map Rekognition's labels/confidence scores to your internal `ModerationResult` status.
+### Details:
+
+
+## 9. Update KillService/VerificationManager for Moderation [done]
+### Dependencies: 14.8
+### Description: Modify `KillService` or `VerificationManager` (where photo verification happens). After a photo is submitted (e.g., S3 URL obtained), call the new `ContentModerationService`. If content is flagged (`REJECTED`), update the Kill verification status accordingly. If `APPROVED` or `PENDING_MANUAL_REVIEW`, proceed with existing verification logic or route to manual review.
+### Details:
+
+
+## 10. Add IAM Permissions and Configuration for Rekognition [done]
+### Dependencies: 14.8
+### Description: Update `template.yaml` to grant the relevant Lambda function(s) IAM permissions to call `rekognition:DetectModerationLabels`. Add any necessary environment variables for Rekognition (e.g., confidence thresholds).
+### Details:
+
+
+## 11. (Optional/Future) Implement Manual Review Workflow [done]
+### Dependencies: 14.9
+### Description: Design and implement a basic workflow for kills/proofs flagged as `PENDING_MANUAL_REVIEW`. This could involve storing them in a separate queue/status in DynamoDB and providing a way for admins/moderators (Task 14.4) to review them.
+### Details:
+
+
+## 12. Unit and Integration Tests for Moderation Service [done]
+### Dependencies: 14.8
+### Description: Write unit tests for the `ContentModerationService` (mocking Rekognition SDK) and integration tests if feasible (e.g., with local S3 for image triggers if applicable, or focused on the service logic).
+### Details:
+
+

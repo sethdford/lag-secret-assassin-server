@@ -1,0 +1,42 @@
+# Task ID: 60
+# Title: Enhance Error Handling for Unparsable lastRelocationTime in SafeZoneService.relocateZone
+# Status: pending
+# Dependencies: None
+# Priority: low
+# Description: Improve the error handling mechanism in SafeZoneService.relocateZone method when encountering unparsable 'lastRelocationTime' values, and implement a consistent policy for handling this scenario.
+# Details:
+The current implementation of SafeZoneService.relocateZone has inadequate error handling when it encounters an unparsable 'lastRelocationTime' value. This task requires:
+
+1. Review the current implementation to understand how lastRelocationTime is used in the relocation cooldown logic
+2. Make a design decision on the appropriate behavior when lastRelocationTime cannot be parsed:
+   - Option A: Block the relocation (treating it as if the cooldown is still active)
+   - Option B: Allow the relocation (treating it as if the cooldown has expired)
+   - Option C: Reset the cooldown timestamp to the current time
+3. Implement the chosen approach with proper error handling:
+   - Add try-catch blocks around the parsing of lastRelocationTime
+   - Log appropriate error messages with context information
+   - Consider adding telemetry to track frequency of this error
+4. Update the method documentation to clearly describe the behavior when lastRelocationTime is unparsable
+5. Ensure the implementation is consistent with other error handling patterns in the codebase
+6. Consider adding validation for lastRelocationTime before attempting to parse it (e.g., check if it's null, empty, or in an obviously invalid format)
+
+# Test Strategy:
+1. Unit Tests:
+   - Create test cases with various invalid lastRelocationTime values (null, empty string, malformed date string, invalid format)
+   - Verify the method behaves according to the chosen design decision for each case
+   - Test that appropriate error messages are logged
+   - Ensure the method doesn't throw uncaught exceptions
+
+2. Integration Tests:
+   - Test the end-to-end flow with invalid lastRelocationTime values
+   - Verify that the system remains stable and continues to function
+   - Check that error logs contain sufficient information for debugging
+
+3. Manual Testing:
+   - Deliberately inject invalid lastRelocationTime values in a test environment
+   - Verify the application behavior matches expectations
+   - Confirm error messages are clear and actionable
+
+4. Regression Testing:
+   - Ensure that valid lastRelocationTime values are still processed correctly
+   - Verify that the cooldown functionality works as expected in normal scenarios
