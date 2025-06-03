@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.assassin.dao.DynamoDbGameDao;
+import com.assassin.dao.DynamoDbGameZoneStateDao;
 import com.assassin.dao.DynamoDbPlayerDao;
 import com.assassin.dao.GameDao;
 import com.assassin.dao.PlayerDao;
@@ -33,16 +34,25 @@ public class GameService {
     private static final Logger logger = LoggerFactory.getLogger(GameService.class);
     private final GameDao gameDao;
     private final PlayerDao playerDao;
+    private final ShrinkingZoneService shrinkingZoneService;
 
     // Default constructor
     public GameService() {
-        this(new DynamoDbGameDao(), new DynamoDbPlayerDao());
+        this(new DynamoDbGameDao(), new DynamoDbPlayerDao(), 
+             new ShrinkingZoneService(new DynamoDbGameDao(), new DynamoDbGameZoneStateDao(), new DynamoDbPlayerDao()));
     }
 
     // Constructor for dependency injection (testing)
     public GameService(GameDao gameDao, PlayerDao playerDao) {
+        this(gameDao, playerDao, 
+             new ShrinkingZoneService(gameDao, new DynamoDbGameZoneStateDao(), playerDao));
+    }
+    
+    // Full constructor for dependency injection
+    public GameService(GameDao gameDao, PlayerDao playerDao, ShrinkingZoneService shrinkingZoneService) {
         this.gameDao = Objects.requireNonNull(gameDao, "gameDao cannot be null");
         this.playerDao = Objects.requireNonNull(playerDao, "playerDao cannot be null");
+        this.shrinkingZoneService = Objects.requireNonNull(shrinkingZoneService, "shrinkingZoneService cannot be null");
     }
 
     /**
@@ -128,6 +138,20 @@ public class GameService {
             // Consider rollback mechanisms for player updates if game status update fails
             throw new RuntimeException("Failed to update game status after assigning targets.", e);
         }
+        
+        // 8. Initialize shrinking zone state if enabled for this game
+        try {
+            shrinkingZoneService.initializeZoneState(game);
+            logger.info("Shrinking zone initialization completed for game {}", gameId);
+        } catch (GameStateException e) {
+            // Log but don't fail the game start if zone initialization fails
+            logger.warn("Failed to initialize shrinking zone for game {}: {}", gameId, e.getMessage());
+            // Game can still proceed without shrinking zone if configuration is missing
+        } catch (Exception e) {
+            // Unexpected errors during zone initialization
+            logger.error("Unexpected error during shrinking zone initialization for game {}: {}", gameId, e.getMessage(), e);
+            // Don't fail the game start for zone initialization errors
+        }
     }
 
     /**
@@ -207,10 +231,127 @@ public class GameService {
         throw new UnsupportedOperationException("Joining game not implemented.");
     }
 
-    public Game forceEndGame(String gameId, String requestingPlayerId) throws GameNotFoundException, ValidationException {
-         logger.warn("forceEndGame is not fully implemented yet.");
-         // TODO: Implement logic to force game status to COMPLETED/CANCELLED (check admin)
-         throw new UnsupportedOperationException("Forcing game end not implemented.");
+    /**
+     * Forces a game to end, updating its status and cleaning up resources.
+     * Only the game admin can force end a game.
+     * 
+     * @param gameId The ID of the game to end
+     * @param requestingPlayerId The ID of the player requesting to end the game
+     * @return The updated Game object
+     * @throws GameNotFoundException if the game is not found
+     * @throws ValidationException if the request is invalid
+     * @throws UnauthorizedException if the requesting player is not the admin
+     */
+    public Game forceEndGame(String gameId, String requestingPlayerId) throws GameNotFoundException, ValidationException, UnauthorizedException {
+        logger.info("Attempting to force end game {} by player {}", gameId, requestingPlayerId);
+        
+        // 1. Fetch the game
+        Game game = gameDao.getGameById(gameId)
+                .orElseThrow(() -> new GameNotFoundException("Game not found with ID: " + gameId));
+        
+        // 2. Authorization Check: Ensure the requester is the admin of the game
+        if (!Objects.equals(game.getAdminPlayerID(), requestingPlayerId)) {
+            logger.warn("Unauthorized attempt by player {} to force end game {} (Admin: {})",
+                    requestingPlayerId, gameId, game.getAdminPlayerID());
+            throw new UnauthorizedException("Only the game admin can force end a game.");
+        }
+        
+        // 3. Validation: Check if game can be ended
+        String currentStatus = game.getStatus();
+        if (GameStatus.COMPLETED.name().equalsIgnoreCase(currentStatus) || 
+            GameStatus.CANCELLED.name().equalsIgnoreCase(currentStatus)) {
+            logger.warn("Attempted to force end game {} which is already ended (Status: {})", gameId, currentStatus);
+            throw new ValidationException("Game is already ended with status: " + currentStatus);
+        }
+        
+        // 4. Update game status to CANCELLED
+        game.setStatus(GameStatus.CANCELLED.name());
+        
+        // 5. Save the updated game
+        try {
+            gameDao.saveGame(game);
+            logger.info("Successfully force ended game {}. Status changed to CANCELLED.", gameId);
+        } catch (Exception e) {
+            logger.error("Failed to save force ended game {}: {}", gameId, e.getMessage(), e);
+            throw new RuntimeException("Failed to save game with updated status.", e);
+        }
+        
+        // 6. Cleanup shrinking zone state if it exists
+        try {
+            shrinkingZoneService.cleanupZoneState(gameId);
+            logger.info("Shrinking zone cleanup completed for force ended game {}", gameId);
+        } catch (GameNotFoundException e) {
+            // Game not found during cleanup (shouldn't happen since we just fetched it)
+            logger.warn("Game not found during zone cleanup for game {}: {}", gameId, e.getMessage());
+        } catch (Exception e) {
+            // Log cleanup errors but don't fail the game ending
+            logger.error("Error during shrinking zone cleanup for game {}: {}", gameId, e.getMessage(), e);
+            // Game is still successfully ended even if cleanup fails
+        }
+        
+        return game;
+    }
+    
+    /**
+     * Ends a game naturally when it reaches completion (e.g., winner declared).
+     * Updates game status to COMPLETED and cleans up resources.
+     * 
+     * @param gameId The ID of the game to complete
+     * @param winnerId The ID of the winning player (optional, can be null for tie games)
+     * @return The updated Game object
+     * @throws GameNotFoundException if the game is not found
+     * @throws GameStateException if the game is not in a state that allows completion
+     */
+    public Game completeGame(String gameId, String winnerId) throws GameNotFoundException, GameStateException {
+        logger.info("Attempting to complete game {} with winner {}", gameId, winnerId != null ? winnerId : "none");
+        
+        // 1. Fetch the game
+        Game game = gameDao.getGameById(gameId)
+                .orElseThrow(() -> new GameNotFoundException("Game not found with ID: " + gameId));
+        
+        // 2. Validation: Check if game can be completed
+        String currentStatus = game.getStatus();
+        if (!GameStatus.ACTIVE.name().equalsIgnoreCase(currentStatus)) {
+            throw new GameStateException("Game " + gameId + " cannot be completed. Current status: " + currentStatus + ". Only ACTIVE games can be completed.");
+        }
+        
+        // 3. Update game status to COMPLETED
+        game.setStatus(GameStatus.COMPLETED.name());
+        
+        // 4. Optionally set winner information in game settings
+        // This would depend on how winner information is stored in the Game model
+        // For now, we'll log it
+        if (winnerId != null) {
+            logger.info("Game {} completed with winner: {}", gameId, winnerId);
+            // TODO: Store winner information in game record if field exists
+            // game.setWinnerId(winnerId);
+        } else {
+            logger.info("Game {} completed with no winner (tie/draw)", gameId);
+        }
+        
+        // 5. Save the updated game
+        try {
+            gameDao.saveGame(game);
+            logger.info("Successfully completed game {}. Status changed to COMPLETED.", gameId);
+        } catch (Exception e) {
+            logger.error("Failed to save completed game {}: {}", gameId, e.getMessage(), e);
+            throw new RuntimeException("Failed to save game with updated status.", e);
+        }
+        
+        // 6. Cleanup shrinking zone state if it exists
+        try {
+            shrinkingZoneService.cleanupZoneState(gameId);
+            logger.info("Shrinking zone cleanup completed for completed game {}", gameId);
+        } catch (GameNotFoundException e) {
+            // Game not found during cleanup (shouldn't happen since we just fetched it)
+            logger.warn("Game not found during zone cleanup for game {}: {}", gameId, e.getMessage());
+        } catch (Exception e) {
+            // Log cleanup errors but don't fail the game completion
+            logger.error("Error during shrinking zone cleanup for game {}: {}", gameId, e.getMessage(), e);
+            // Game is still successfully completed even if cleanup fails
+        }
+        
+        return game;
     }
     
     public Game removePlayerFromGame(String gameId, String playerIdToRemove, String requestingPlayerId) throws GameNotFoundException, ValidationException {

@@ -460,6 +460,42 @@ public class ShrinkingZoneService {
     // Method to apply damage will go here (needs PlayerDao)
     // public void applyOutOfZoneDamage(String gameId) { ... }
 
+    /**
+     * Cleans up the zone state when a game ends.
+     * Removes the GameZoneState record from the database to free up resources.
+     * 
+     * @param gameId The ID of the game whose zone state should be cleaned up
+     * @throws GameNotFoundException if the game cannot be found
+     */
+    public void cleanupZoneState(String gameId) throws GameNotFoundException {
+        if (gameId == null || gameId.isEmpty()) {
+            throw new IllegalArgumentException("Game ID cannot be null or empty");
+        }
+        
+        logger.info("Cleaning up zone state for game {}", gameId);
+        
+        // Verify the game exists
+        Game game = gameDao.getGameById(gameId)
+                .orElseThrow(() -> new GameNotFoundException("Game not found: " + gameId));
+        
+        // Check if zone state exists before attempting deletion
+        Optional<GameZoneState> existingState = gameZoneStateDao.getGameZoneState(gameId);
+        if (existingState.isEmpty()) {
+            logger.info("No zone state found for game {}. Cleanup already complete or zone was never initialized.", gameId);
+            return;
+        }
+        
+        try {
+            // Delete the zone state
+            gameZoneStateDao.deleteGameZoneState(gameId);
+            logger.info("Successfully cleaned up zone state for game {}. Game status: {}", gameId, game.getStatus());
+        } catch (Exception e) {
+            logger.error("Failed to cleanup zone state for game {}: {}", gameId, e.getMessage(), e);
+            // Don't throw exception here as cleanup failure shouldn't prevent game ending
+            // Log the error but allow the game to end normally
+        }
+    }
+
     // Method to delete zone state when game ends
     // public void cleanupZoneState(String gameId) { ... }
 

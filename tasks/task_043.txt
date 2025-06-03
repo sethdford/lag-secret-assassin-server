@@ -66,23 +66,100 @@ Testing should verify all aspects of the shrinking safe zone gameplay mode:
    - Verify the mode creates the intended tension and strategic gameplay
 
 # Subtasks:
-## 1. Add API Endpoints for Zone State (Optional) [pending]
+## 1. Add API Endpoints for Zone State (Optional) [done]
 ### Dependencies: None
 ### Description: Add API endpoints if necessary to query the current shrinking zone state (center, radius, timer).
 ### Details:
+<info added on 2025-05-24T22:36:58.058Z>
+The Zone State API endpoints have been fully implemented and tested. The implementation includes:
 
+COMPLETED IMPLEMENTATION:
+- ZoneStateHandler.java with two main endpoints:
+  - GET /games/{gameId}/zone/state: Returns detailed zone state including center, radius, phase, timers, and stage info
+  - GET /games/{gameId}/zone/status: Returns simplified zone status summary for client UI
+- Comprehensive error handling for missing games, disabled zones, and invalid states
+- Full integration with ShrinkingZoneService for state management
+- Complete test coverage in ZoneStateHandlerTest.java with 11 test scenarios
+- Proper API Gateway integration defined in template.yaml
 
-## 2. Update Location Checks for Shrinking Zone [pending]
+ENDPOINT FUNCTIONALITY:
+- Both endpoints check if shrinking zone is enabled for the game
+- /zone/state endpoint calls advanceZoneState() to ensure current state is up-to-date
+- /zone/status endpoint provides simplified view for UI display
+- Proper error responses (404, 400, 500) with meaningful messages
+- JSON response format with all necessary zone information
+
+The implementation is production-ready and fully integrated with the existing codebase.
+</info added on 2025-05-24T22:36:58.058Z>
+
+## 2. Update Location Checks for Shrinking Zone [done]
 ### Dependencies: 43.1
 ### Description: Modify LocationService and potentially SafeZoneService to check against the dynamic shrinking zone for applicable game modes.
 ### Details:
+<info added on 2025-06-03T11:28:07.210Z>
+Successfully implemented shrinking zone integration in LocationService and SafeZoneService.
 
+COMPLETED IMPLEMENTATION:
 
-## 3. Integrate Zone State Machine with Game Lifecycle [pending]
+LocationService Updates:
+- Added ShrinkingZoneService dependency with proper constructor injection
+- Integrated shrinking zone checking in updatePlayerLocation() method  
+- Added checkShrinkingZoneBoundary() method to detect zone violations
+- Added isPlayerTakingZoneDamage() public method for damage system integration
+- Created ShrinkingZoneEvent class for zone boundary events
+- Logs player zone status (inside/outside) with distance and radius details
+
+SafeZoneService Updates:
+- Added ShrinkingZoneService dependency with constructor updates
+- Added isPlayerCurrentlySafe() method that considers both traditional safe zones AND shrinking zone
+- Added isLocationSafeForPlayer() method for movement planning
+- Comprehensive safety logic: player is safe if in traditional safe zone OR inside current shrinking zone
+- Proper error handling and logging for zone state issues
+
+Key Integration Points:
+- Uses ShrinkingZoneService.advanceZoneState() to get current zone state
+- Calculates distance using GeoUtils.calculateDistance() 
+- Checks zone boundaries using center coordinates and radius
+- Only applies zone logic when shrinking zone is enabled for the game
+- Respects zone phases (no damage during WAITING phase)
+
+The implementation is ready for the next subtasks: zone state machine integration (43.3) and time advancement (43.4). The foundation for damage application outside zones is also established.
+</info added on 2025-06-03T11:28:07.210Z>
+
+## 3. Integrate Zone State Machine with Game Lifecycle [done]
 ### Dependencies: 43.2
 ### Description: Initialize the zone state machine when a game starts and stop it when the game ends.
 ### Details:
+<info added on 2025-06-03T11:40:55.563Z>
+# Zone State Machine Integration with Game Lifecycle
 
+## ShrinkingZoneService Updates
+- Implemented cleanupZoneState(gameId) method for zone state cleanup when games end
+- Added verification logic for game existence and zone state existence
+- Implemented error handling to prevent cleanup failures from blocking game termination
+- Added comprehensive logging for cleanup operations
+
+## GameService Integration
+- Added ShrinkingZoneService dependency with constructor injection
+- Updated all constructors to initialize ShrinkingZoneService with required DAOs
+- Integrated DynamoDbGameZoneStateDao
+
+## Game Lifecycle Integration Points
+- Enhanced startGameAndAssignTargets() to initialize zone state after game activation
+- Implemented forceEndGame() method with admin authorization checks
+- Added completeGame() method for natural game completion with winner tracking support
+- Established zone cleanup calls at all game termination points
+
+## Error Handling & Resilience
+- Designed fault tolerance for zone initialization and cleanup operations
+- Implemented defensive programming with null checks and exception handling
+- Added comprehensive logging for all lifecycle events
+
+## Integration Flow
+- Game Start → Zone Initialization
+- Game Force End → Zone Cleanup
+- Game Natural Completion → Zone Cleanup
+</info added on 2025-06-03T11:40:55.563Z>
 
 ## 4. Implement Time Advancement and Stage Triggering [pending]
 ### Dependencies: 43.3

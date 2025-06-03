@@ -14,11 +14,14 @@ import com.assassin.dao.SafeZoneDao;
 import com.assassin.exception.PersistenceException;
 import com.assassin.exception.SafeZoneNotFoundException;
 import com.assassin.exception.ValidationException;
+import com.assassin.model.Coordinate;
+import com.assassin.model.GameZoneState;
 import com.assassin.model.PrivateSafeZone;
 import com.assassin.model.PublicSafeZone;
 import com.assassin.model.RelocatableSafeZone;
 import com.assassin.model.SafeZone;
 import com.assassin.model.TimedSafeZone;
+import com.assassin.util.GeoUtils;
 
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 
@@ -29,21 +32,28 @@ public class SafeZoneService {
 
     private static final Logger logger = LoggerFactory.getLogger(SafeZoneService.class);
     private final SafeZoneDao safeZoneDao;
+    private final ShrinkingZoneService shrinkingZoneService;
     // Add other DAOs as needed (e.g., GameDao to validate gameId)
 
     // Default constructor using the default DAO constructor
     public SafeZoneService() {
-        this(new DynamoDbSafeZoneDao());
+        this(new DynamoDbSafeZoneDao(), null);
     }
 
     // Constructor for dependency injection with DAO
     public SafeZoneService(SafeZoneDao safeZoneDao) {
-        this.safeZoneDao = safeZoneDao;
+        this(safeZoneDao, null);
     }
     
     // Constructor for dependency injection with Enhanced Client
     public SafeZoneService(DynamoDbEnhancedClient enhancedClient) {
-        this(new DynamoDbSafeZoneDao(enhancedClient));
+        this(new DynamoDbSafeZoneDao(enhancedClient), null);
+    }
+    
+    // Constructor for dependency injection with both DAO and ShrinkingZoneService
+    public SafeZoneService(SafeZoneDao safeZoneDao, ShrinkingZoneService shrinkingZoneService) {
+        this.safeZoneDao = safeZoneDao;
+        this.shrinkingZoneService = shrinkingZoneService;
     }
 
     /**
@@ -657,6 +667,152 @@ public class SafeZoneService {
             }
         }
         logger.debug("Location ({}, {}) is not inside any active safe zone for game {}", latitude, longitude, gameId);
+        return false;
+    }
+    
+    /**
+     * Determines if a player is currently safe, considering both traditional safe zones 
+     * and the shrinking zone mechanics. A player is safe if they are:
+     * 1. Inside an active traditional safe zone (and authorized), OR
+     * 2. Inside the current shrinking zone boundary (if shrinking zone is enabled)
+     * 
+     * @param gameId The game ID
+     * @param playerId The player ID
+     * @param playerLatitude The player's latitude
+     * @param playerLongitude The player's longitude
+     * @param timestamp The current timestamp
+     * @return true if the player is safe from elimination, false otherwise
+     * @throws PersistenceException if database access fails
+     */
+    public boolean isPlayerCurrentlySafe(String gameId, String playerId, double playerLatitude, double playerLongitude, long timestamp) 
+            throws PersistenceException {
+        
+        if (gameId == null || gameId.isEmpty()) {
+            logger.warn("isPlayerCurrentlySafe called with null or empty gameId.");
+            return false;
+        }
+        if (playerId == null || playerId.isEmpty()) {
+            logger.warn("isPlayerCurrentlySafe called with null or empty playerId for gameId: {}", gameId);
+            return false;
+        }
+        
+        logger.debug("Checking comprehensive safety for player {} in game {} at ({}, {}) at time {}.", 
+            playerId, gameId, playerLatitude, playerLongitude, timestamp);
+        
+        // First, check traditional safe zones
+        boolean inTraditionalSafeZone = isPlayerInActiveSafeZone(gameId, playerId, playerLatitude, playerLongitude, timestamp);
+        if (inTraditionalSafeZone) {
+            logger.info("Player {} in game {} is SAFE due to traditional safe zone protection.", playerId, gameId);
+            return true;
+        }
+        
+        // If not in a traditional safe zone, check shrinking zone status if available
+        if (shrinkingZoneService != null) {
+            try {
+                // Check if shrinking zone is enabled for this game
+                if (!shrinkingZoneService.isShrinkingZoneEnabled(gameId)) {
+                    logger.debug("Shrinking zone not enabled for game {}. Player {} safety depends on traditional zones only.", 
+                                gameId, playerId);
+                    return false; // No shrinking zone protection available
+                }
+                
+                // Get current zone state
+                Optional<GameZoneState> zoneStateOpt = shrinkingZoneService.advanceZoneState(gameId);
+                if (zoneStateOpt.isEmpty()) {
+                    logger.debug("No shrinking zone state for game {}. Player {} safety depends on traditional zones only.", 
+                                gameId, playerId);
+                    return false;
+                }
+                
+                GameZoneState zoneState = zoneStateOpt.get();
+                
+                // Check if player is inside the current shrinking zone
+                Coordinate zoneCenter = zoneState.getCurrentCenter();
+                if (zoneCenter == null || zoneState.getCurrentRadiusMeters() == null) {
+                    logger.warn("Incomplete shrinking zone state for game {}. Cannot determine zone safety.", gameId);
+                    return false;
+                }
+                
+                Coordinate playerLocation = new Coordinate(playerLatitude, playerLongitude);
+                double distanceToCenter = GeoUtils.calculateDistance(playerLocation, zoneCenter);
+                double zoneRadius = zoneState.getCurrentRadiusMeters();
+                boolean isInsideShrinkingZone = distanceToCenter <= zoneRadius;
+                
+                if (isInsideShrinkingZone) {
+                    logger.info("Player {} in game {} is SAFE due to being inside shrinking zone. Distance: {:.2f}m, Zone radius: {:.2f}m", 
+                               playerId, gameId, distanceToCenter, zoneRadius);
+                    return true;
+                } else {
+                    logger.warn("Player {} in game {} is UNSAFE - outside shrinking zone. Distance: {:.2f}m, Zone radius: {:.2f}m", 
+                               playerId, gameId, distanceToCenter, zoneRadius);
+                    return false;
+                }
+                
+            } catch (Exception e) {
+                logger.error("Error checking shrinking zone safety for player {} in game {}: {}", 
+                            playerId, gameId, e.getMessage(), e);
+                // On error, default to unsafe to prevent exploitation
+                return false;
+            }
+        }
+        
+        // No shrinking zone service available, and not in traditional safe zone
+        logger.info("Player {} in game {} is NOT in any safe area.", playerId, gameId);
+        return false;
+    }
+    
+    /**
+     * Checks if a location would be safe for a player, considering both traditional safe zones
+     * and shrinking zone mechanics. This is useful for planning movements or verifying locations.
+     * 
+     * @param gameId The game ID
+     * @param playerId The player ID (for authorization checking)
+     * @param latitude The latitude to check
+     * @param longitude The longitude to check
+     * @param timestamp The timestamp to check against
+     * @return true if the location would be safe, false otherwise
+     * @throws PersistenceException if database access fails
+     */
+    public boolean isLocationSafeForPlayer(String gameId, String playerId, double latitude, double longitude, long timestamp) 
+            throws PersistenceException {
+        
+        // Check traditional safe zones first
+        List<SafeZone> activeZones = getActiveZonesForGame(gameId, timestamp);
+        for (SafeZone zone : activeZones) {
+            if (zone.containsLocation(latitude, longitude) && zone.isPlayerAuthorized(playerId)) {
+                logger.debug("Location ({}, {}) is safe for player {} due to traditional safe zone: {}", 
+                            latitude, longitude, playerId, zone.getSafeZoneId());
+                return true;
+            }
+        }
+        
+        // Check shrinking zone if available
+        if (shrinkingZoneService != null) {
+            try {
+                if (shrinkingZoneService.isShrinkingZoneEnabled(gameId)) {
+                    Optional<GameZoneState> zoneStateOpt = shrinkingZoneService.advanceZoneState(gameId);
+                    if (zoneStateOpt.isPresent()) {
+                        GameZoneState zoneState = zoneStateOpt.get();
+                        Coordinate zoneCenter = zoneState.getCurrentCenter();
+                        if (zoneCenter != null && zoneState.getCurrentRadiusMeters() != null) {
+                            Coordinate location = new Coordinate(latitude, longitude);
+                            double distanceToCenter = GeoUtils.calculateDistance(location, zoneCenter);
+                            double zoneRadius = zoneState.getCurrentRadiusMeters();
+                            boolean isInsideShrinkingZone = distanceToCenter <= zoneRadius;
+                            
+                            if (isInsideShrinkingZone) {
+                                logger.debug("Location ({}, {}) is safe for player {} due to shrinking zone. Distance: {:.2f}m, Zone radius: {:.2f}m", 
+                                            latitude, longitude, playerId, distanceToCenter, zoneRadius);
+                                return true;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                logger.warn("Error checking shrinking zone for location safety: {}", e.getMessage());
+            }
+        }
+        
         return false;
     }
 

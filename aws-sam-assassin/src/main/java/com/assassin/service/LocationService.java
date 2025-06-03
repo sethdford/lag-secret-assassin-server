@@ -22,6 +22,7 @@ import com.assassin.exception.PlayerNotFoundException;
 import com.assassin.exception.PlayerPersistenceException;
 import com.assassin.model.Coordinate;
 import com.assassin.model.Game;
+import com.assassin.model.GameZoneState;
 import com.assassin.model.Player;
 import com.assassin.service.GeofenceManager.GeofenceEvent;
 import com.assassin.service.GeofenceManager.GeofenceEventType;
@@ -29,7 +30,7 @@ import com.assassin.util.GeoUtils;
 
 /**
  * Service responsible for handling player location updates and boundary checks.
- * Provides functionality for location tracking and geofencing.
+ * Provides functionality for location tracking, geofencing, and shrinking zone management.
  */
 public class LocationService {
 
@@ -38,6 +39,7 @@ public class LocationService {
     private final GameDao gameDao;
     private final MapConfigurationService mapConfigService;
     private final GeofenceManager geofenceManager;
+    private final ShrinkingZoneService shrinkingZoneService;
     
     // Constants for location validation
     private static final double DEFAULT_SPEED_LIMIT_METERS_PER_SECOND = 30.0; // ~108 km/h or ~67 mph
@@ -45,21 +47,24 @@ public class LocationService {
 
     // Default constructor
     public LocationService() {
+        ShrinkingZoneService shrinkingZone = new ShrinkingZoneService(
+            new DynamoDbGameDao(),
+            new DynamoDbGameZoneStateDao(),
+            new DynamoDbPlayerDao()
+        );
+        
         MapConfigurationService mapConfig = new MapConfigurationService(
             new DynamoDbGameDao(), 
             new DynamoDbGameZoneStateDao(),
             new DynamoDbSafeZoneDao(),
-            new ShrinkingZoneService(
-                new DynamoDbGameDao(),
-                new DynamoDbGameZoneStateDao(),
-                new DynamoDbPlayerDao()
-            )
+            shrinkingZone
         );
         
         this.playerDao = new DynamoDbPlayerDao();
         this.gameDao = new DynamoDbGameDao();
         this.mapConfigService = mapConfig;
         this.geofenceManager = new GeofenceManager(mapConfig);
+        this.shrinkingZoneService = shrinkingZone;
     }
 
     // Constructor for dependency injection (testing)
@@ -67,31 +72,36 @@ public class LocationService {
         // This constructor might need to be adjusted or removed depending on testing strategy,
         // as MapConfigurationService now has required dependencies.
         // For now, initialize MapConfigurationService with default DAOs/Services.
+        ShrinkingZoneService shrinkingZone = new ShrinkingZoneService(
+            new DynamoDbGameDao(),
+            new DynamoDbGameZoneStateDao(),
+            new DynamoDbPlayerDao()
+        );
+        
         MapConfigurationService mapConfig = new MapConfigurationService(
             new DynamoDbGameDao(), 
             new DynamoDbGameZoneStateDao(),
             new DynamoDbSafeZoneDao(),
-            new ShrinkingZoneService(
-                new DynamoDbGameDao(),
-                new DynamoDbGameZoneStateDao(),
-                new DynamoDbPlayerDao()
-            )
+            shrinkingZone
         );
         
         this.playerDao = Objects.requireNonNull(playerDao, "playerDao cannot be null");
         this.gameDao = Objects.requireNonNull(gameDao, "gameDao cannot be null");
         this.mapConfigService = mapConfig;
         this.geofenceManager = new GeofenceManager(mapConfig);
+        this.shrinkingZoneService = shrinkingZone;
     }
     
     // Full constructor for all dependencies
     public LocationService(PlayerDao playerDao, GameDao gameDao, 
                           MapConfigurationService mapConfigService,
-                          GeofenceManager geofenceManager) {
+                          GeofenceManager geofenceManager,
+                          ShrinkingZoneService shrinkingZoneService) {
         this.playerDao = Objects.requireNonNull(playerDao, "playerDao cannot be null");
         this.gameDao = Objects.requireNonNull(gameDao, "gameDao cannot be null");
         this.mapConfigService = Objects.requireNonNull(mapConfigService, "mapConfigService cannot be null");
         this.geofenceManager = Objects.requireNonNull(geofenceManager, "geofenceManager cannot be null");
+        this.shrinkingZoneService = Objects.requireNonNull(shrinkingZoneService, "shrinkingZoneService cannot be null");
     }
 
     /**
@@ -168,10 +178,13 @@ public class LocationService {
             throw new InvalidLocationException("Reported location is outside the defined game boundaries.");
         }
         
-        // 6. Update GeofenceManager to check for boundary events
+        // 6. Check shrinking zone if enabled for this game
+        ShrinkingZoneEvent shrinkingZoneEvent = checkShrinkingZoneBoundary(gameId, playerId, location);
+        
+        // 7. Update GeofenceManager to check for boundary events
         geofenceEvent = geofenceManager.updatePlayerLocation(gameId, playerId, location);
         
-        // 7. Update Player Location in DAO
+        // 8. Update Player Location in DAO
         String timestamp = Instant.now().toString();
         try {
             playerDao.updatePlayerLocation(playerId, latitude, longitude, timestamp, accuracy);
@@ -200,6 +213,153 @@ public class LocationService {
         }
         
         return geofenceEvent;
+    }
+    
+    /**
+     * Checks if a player is inside or outside the current shrinking zone and logs events.
+     * 
+     * @param gameId The game ID
+     * @param playerId The player ID  
+     * @param location The player's current location
+     * @return ShrinkingZoneEvent if zone checking is applicable, null otherwise
+     */
+    private ShrinkingZoneEvent checkShrinkingZoneBoundary(String gameId, String playerId, Coordinate location) {
+        try {
+            // Check if shrinking zone is enabled for this game
+            if (!shrinkingZoneService.isShrinkingZoneEnabled(gameId)) {
+                logger.debug("Shrinking zone not enabled for game {}. Skipping zone check.", gameId);
+                return null;
+            }
+            
+            // Get current zone state
+            Optional<GameZoneState> zoneStateOpt = shrinkingZoneService.advanceZoneState(gameId);
+            if (zoneStateOpt.isEmpty()) {
+                logger.debug("No zone state found for game {}. Skipping zone check.", gameId);
+                return null;
+            }
+            
+            GameZoneState zoneState = zoneStateOpt.get();
+            
+            // Calculate distance from player to zone center
+            Coordinate zoneCenter = zoneState.getCurrentCenter();
+            if (zoneCenter == null || zoneState.getCurrentRadiusMeters() == null) {
+                logger.warn("Incomplete zone state for game {}. Missing center or radius.", gameId);
+                return null;
+            }
+            
+            double distanceToCenter = GeoUtils.calculateDistance(location, zoneCenter);
+            double zoneRadius = zoneState.getCurrentRadiusMeters();
+            boolean isInsideZone = distanceToCenter <= zoneRadius;
+            
+            // Create event for logging and potential processing
+            ShrinkingZoneEvent event = new ShrinkingZoneEvent(
+                gameId, playerId, location, isInsideZone, 
+                distanceToCenter, zoneRadius, zoneState.getCurrentPhase()
+            );
+            
+            if (!isInsideZone) {
+                logger.warn("Player {} is OUTSIDE shrinking zone for game {}. Distance: {:.2f}m, Zone radius: {:.2f}m, Phase: {}", 
+                           playerId, gameId, distanceToCenter, zoneRadius, zoneState.getCurrentPhase());
+            } else {
+                logger.debug("Player {} is inside shrinking zone for game {}. Distance: {:.2f}m, Zone radius: {:.2f}m", 
+                            playerId, gameId, distanceToCenter, zoneRadius);
+            }
+            
+            return event;
+            
+        } catch (Exception e) {
+            logger.error("Error checking shrinking zone boundary for player {} in game {}: {}", 
+                        playerId, gameId, e.getMessage(), e);
+            return null;
+        }
+    }
+    
+    /**
+     * Determines if a player is currently taking damage from being outside the shrinking zone.
+     * 
+     * @param gameId The game ID
+     * @param playerId The player ID
+     * @param location The player's current location
+     * @return true if the player should be taking zone damage, false otherwise
+     */
+    public boolean isPlayerTakingZoneDamage(String gameId, String playerId, Coordinate location) {
+        try {
+            // Check if shrinking zone is enabled for this game
+            if (!shrinkingZoneService.isShrinkingZoneEnabled(gameId)) {
+                return false;
+            }
+            
+            // Get current zone state
+            Optional<GameZoneState> zoneStateOpt = shrinkingZoneService.advanceZoneState(gameId);
+            if (zoneStateOpt.isEmpty()) {
+                return false;
+            }
+            
+            GameZoneState zoneState = zoneStateOpt.get();
+            
+            // Only apply damage during SHRINKING or active phases, not during WAITING
+            if ("WAITING".equals(zoneState.getCurrentPhase())) {
+                return false;
+            }
+            
+            // Check if player is outside the current zone
+            Coordinate zoneCenter = zoneState.getCurrentCenter();
+            if (zoneCenter == null || zoneState.getCurrentRadiusMeters() == null) {
+                return false;
+            }
+            
+            double distanceToCenter = GeoUtils.calculateDistance(location, zoneCenter);
+            double zoneRadius = zoneState.getCurrentRadiusMeters();
+            boolean isOutsideZone = distanceToCenter > zoneRadius;
+            
+            if (isOutsideZone) {
+                logger.info("Player {} is taking zone damage for game {}. Distance: {:.2f}m, Zone radius: {:.2f}m", 
+                           playerId, gameId, distanceToCenter, zoneRadius);
+            }
+            
+            return isOutsideZone;
+            
+        } catch (Exception e) {
+            logger.error("Error checking zone damage for player {} in game {}: {}", 
+                        playerId, gameId, e.getMessage(), e);
+            return false;
+        }
+    }
+    
+    /**
+     * Event data for shrinking zone boundary checking
+     */
+    public static class ShrinkingZoneEvent {
+        private final String gameId;
+        private final String playerId;
+        private final Coordinate playerLocation;
+        private final boolean isInsideZone;
+        private final double distanceToCenter;
+        private final double zoneRadius;
+        private final String zonePhase;
+        
+        public ShrinkingZoneEvent(String gameId, String playerId, Coordinate playerLocation,
+                                 boolean isInsideZone, double distanceToCenter, double zoneRadius, String zonePhase) {
+            this.gameId = gameId;
+            this.playerId = playerId;
+            this.playerLocation = playerLocation;
+            this.isInsideZone = isInsideZone;
+            this.distanceToCenter = distanceToCenter;
+            this.zoneRadius = zoneRadius;
+            this.zonePhase = zonePhase;
+        }
+        
+        public String getGameId() { return gameId; }
+        public String getPlayerId() { return playerId; }
+        public Coordinate getPlayerLocation() { return playerLocation; }
+        public boolean isInsideZone() { return isInsideZone; }
+        public double getDistanceToCenter() { return distanceToCenter; }
+        public double getZoneRadius() { return zoneRadius; }
+        public String getZonePhase() { return zonePhase; }
+        
+        public double getDistanceOutsideZone() {
+            return Math.max(0, distanceToCenter - zoneRadius);
+        }
     }
 
     /**
