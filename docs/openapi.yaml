@@ -4,8 +4,8 @@ info:
   description: |
     API for the Assassin Game platform, supporting game creation, player management, 
     kill reporting, and in-game purchases. Features include real-time notifications,
-    multiple verification methods, and support for nationwide games with 1000+ players.
-  version: 1.0.1
+    multiple verification methods, shrinking zone mechanics, and support for nationwide games with 1000+ players.
+  version: 1.0.2
   contact:
     name: Assassin Game Development Team
 servers:
@@ -40,6 +40,10 @@ tags:
     description: Real-time notification endpoints
   - name: WebSocket
     description: WebSocket connection management
+  - name: Shrinking Zone
+    description: Shrinking zone mechanics and zone state management
+  - name: Payments
+    description: Payment processing and transaction management
 
 components:
   securitySchemes:
@@ -460,6 +464,134 @@ components:
           type: string
           format: date-time
         lastActivity:
+          type: string
+          format: date-time
+
+    GameZoneState:
+      type: object
+      required:
+        - gameId
+        - currentStageIndex
+        - currentPhase
+      properties:
+        gameId:
+          type: string
+          description: ID of the game this zone state belongs to
+        currentStageIndex:
+          type: integer
+          description: Current stage index in the shrinking zone progression
+        currentPhase:
+          type: string
+          enum: [WAITING, SHRINKING, STABLE, FINISHED]
+          description: Current phase of the zone
+        currentCenter:
+          type: object
+          properties:
+            latitude:
+              type: number
+            longitude:
+              type: number
+          description: Current center coordinates of the safe zone
+        currentRadiusMeters:
+          type: number
+          description: Current radius of the safe zone in meters
+        nextRadiusMeters:
+          type: number
+          description: Target radius for the next shrinking phase in meters
+        targetCenterLatitude:
+          type: number
+          description: Target center latitude for zone movement
+        targetCenterLongitude:
+          type: number
+          description: Target center longitude for zone movement
+        phaseEndTime:
+          type: string
+          format: date-time
+          description: When the current phase will end
+        nextShrinkTimeEpochMillis:
+          type: integer
+          format: int64
+          description: Epoch milliseconds when next shrink phase begins
+        stageStartTimeEpochMillis:
+          type: integer
+          format: int64
+          description: Epoch milliseconds when current stage started
+        lastUpdateTimeEpochMillis:
+          type: integer
+          format: int64
+          description: Epoch milliseconds of last state update
+        lastUpdated:
+          type: string
+          format: date-time
+          description: ISO timestamp of last update
+
+    ShrinkingZoneStage:
+      type: object
+      required:
+        - stageIndex
+        - waitTimeSeconds
+        - shrinkTimeSeconds
+        - radiusMultiplier
+        - damagePerSecond
+      properties:
+        stageIndex:
+          type: integer
+          description: Stage number in the shrinking sequence
+        waitTimeSeconds:
+          type: integer
+          description: Time to wait before shrinking begins
+        shrinkTimeSeconds:
+          type: integer
+          description: Duration of the shrinking process
+        radiusMultiplier:
+          type: number
+          description: Multiplier applied to current radius (e.g., 0.5 = shrink to half size)
+        damagePerSecond:
+          type: number
+          description: Damage applied per second to players outside the zone
+        description:
+          type: string
+          description: Human-readable description of this stage
+
+    Transaction:
+      type: object
+      required:
+        - transactionId
+        - playerId
+        - amount
+        - currency
+        - status
+      properties:
+        transactionId:
+          type: string
+          description: Unique transaction identifier
+        playerId:
+          type: string
+          description: ID of the player making the transaction
+        gameId:
+          type: string
+          description: ID of the game if transaction is game-related
+        amount:
+          type: number
+          format: decimal
+          description: Transaction amount
+        currency:
+          type: string
+          description: Currency code (e.g., USD)
+        status:
+          type: string
+          enum: [PENDING, COMPLETED, FAILED, REFUNDED]
+          description: Current status of the transaction
+        paymentMethodId:
+          type: string
+          description: Payment method identifier (e.g., Stripe payment method)
+        description:
+          type: string
+          description: Human-readable transaction description
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
           type: string
           format: date-time
 
@@ -2096,4 +2228,171 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
-          $ref: '#/components/responses/NotFound' 
+          $ref: '#/components/responses/NotFound'
+
+  # Shrinking Zone endpoints
+  /games/{gameId}/zone-state:
+    parameters:
+      - name: gameId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - Shrinking Zone
+      summary: Get current shrinking zone state for a game
+      operationId: getZoneState
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current zone state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameZoneState'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /games/{gameId}/zone-stages:
+    parameters:
+      - name: gameId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - Shrinking Zone
+      summary: Get shrinking zone configuration stages for a game
+      operationId: getZoneStages
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Zone configuration stages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShrinkingZoneStage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /games/{gameId}/zone-damage:
+    parameters:
+      - name: gameId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - Shrinking Zone
+      summary: Check if player is taking zone damage
+      operationId: checkZoneDamage
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: playerId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: ID of the player to check
+      responses:
+        '200':
+          description: Zone damage status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  isOutsideZone:
+                    type: boolean
+                    description: Whether player is outside safe zone
+                  damagePerSecond:
+                    type: number
+                    description: Current damage rate if outside zone
+                  timeUntilNextDamage:
+                    type: integer
+                    description: Seconds until next damage application
+                  currentHealth:
+                    type: number
+                    description: Player's current health
+                  distanceFromZoneEdge:
+                    type: number
+                    description: Distance in meters from zone edge (negative if inside)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Payment endpoints
+  /games/{gameId}/pay-entry-fee:
+    parameters:
+      - name: gameId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      tags:
+        - Payments
+      summary: Pay entry fee for a game
+      operationId: payEntryFee
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - paymentMethodId
+              properties:
+                paymentMethodId:
+                  type: string
+                  description: Stripe payment method ID
+                amount:
+                  type: number
+                  format: decimal
+                  description: Amount to pay (if different from game default)
+      responses:
+        '200':
+          description: Payment processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          description: Payment failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Entry fee already paid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error' 
