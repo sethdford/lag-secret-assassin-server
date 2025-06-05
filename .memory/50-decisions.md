@@ -314,3 +314,81 @@ This document captures key technical decisions made during the development of th
 - Regular task status updates required
 - Task breakdown influences code organization
 - Dependency validation ensures proper implementation order 
+
+## Multi-Game Platform Architecture Decisions
+
+### Game Type Abstraction Strategy
+**Decision**: Transform current Assassin-specific architecture into a pluggable game platform supporting multiple game types (Assassin, Capture the Flag, World Heist, etc.).
+
+**Date**: [2025-01-08 - PROPOSED]
+
+**Rationale**:
+- Market differentiation through diverse game offerings
+- Platform approach enables higher player retention and engagement
+- Leverages existing infrastructure investments across multiple products
+- Creates network effects between different game communities
+- Enables cross-game progression and social features
+
+**Implications**:
+- Major architectural refactoring required
+- Need for abstract game engine and plugin system
+- Event-driven architecture becomes critical
+- Configuration-driven rule systems required
+- Backwards compatibility strategy needed for existing games
+
+### Event-Driven Game Architecture
+**Decision**: Implement a generic event-driven architecture where game actions are events processed by game-type-specific handlers.
+
+**Date**: [2025-01-08 - PROPOSED]
+
+**Rationale**:
+- Decouples game mechanics from core platform
+- Enables hot-swappable game logic
+- Facilitates A/B testing of game rules
+- Simplifies addition of new game types
+- Natural fit for serverless event processing
+
+**Implications**:
+- Complete redesign of current service layer
+- Need for event schema versioning
+- Increased system complexity
+- Event ordering and consistency challenges
+- Migration path from current direct service calls
+
+### Plugin-Based Game Type System
+**Decision**: Implement game types as pluggable modules with standardized interfaces for actions, scoring, and win conditions.
+
+**Date**: [2025-01-08 - PROPOSED]
+
+**Rationale**:
+- Modular development enables parallel game type development
+- Clear interfaces prevent game type coupling
+- Enables third-party game type development
+- Facilitates testing of individual game mechanics
+- Natural evolution path from current single-game architecture
+
+**Implications**:
+- Need for plugin discovery and loading system
+- Standardized plugin API design required
+- Plugin lifecycle management complexity
+- Security considerations for third-party plugins
+- Performance impact of dynamic loading
+
+### Universal Player State Management
+**Decision**: Replace game-specific state (targets, kills) with configurable player state that adapts to game type requirements.
+
+**Date**: [2025-01-08 - PROPOSED]
+
+**Rationale**:
+- Single player progression system across all game types
+- Simplified data modeling and storage
+- Cross-game analytics and insights
+- Unified social features regardless of game type
+- Reduced development overhead for new game types
+
+**Implications**:
+- Major data model redesign required
+- Migration strategy for existing player data
+- Complex state validation logic
+- Generic UI components for various state types
+- Backwards compatibility for current Assassin games 

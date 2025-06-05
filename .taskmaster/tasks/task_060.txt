@@ -1,0 +1,75 @@
+# Task ID: 60
+# Title: Implement Universal Player State Management
+# Status: pending
+# Dependencies: 59
+# Priority: low
+# Description: Replace the current Assassin-specific player state with a flexible, universal player state system that can accommodate different game types using a Map-based storage system.
+# Details:
+1. Design the universal player state architecture:
+   - Create a PlayerState interface that defines the core methods for state management
+   - Implement a MapBasedPlayerState class that uses a Map<String, Object> for storing arbitrary game-specific state
+   - Define standard methods for getting/setting state values with type safety
+
+2. Refactor existing Assassin-specific player state:
+   - Migrate targetPlayerId and kills from direct properties to the new state map
+   - Update all references to these properties throughout the codebase
+   - Ensure backward compatibility during the transition
+
+3. Implement state management utilities:
+   - Create helper methods for common state operations (increment counters, toggle flags, etc.)
+   - Add serialization/deserialization support for persistence
+   - Implement state validation mechanisms for game-specific requirements
+
+4. Create game-specific state adapters:
+   - Develop an AssassinStateAdapter that provides typed access to Assassin-specific state
+   - Create a CTFStateAdapter for Capture The Flag team assignments and flags
+   - Implement a WorldHeistStateAdapter for role assignments and objectives
+   - Design an extensible pattern for future game types to define their state requirements
+
+5. Update the player service layer:
+   - Modify PlayerService to use the new state management system
+   - Update database operations to store and retrieve the map-based state
+   - Implement efficient state update operations that only modify changed values
+
+6. Integrate with the game type plugin system:
+   - Add methods for game type plugins to define and initialize required player state
+   - Implement state transition hooks for game lifecycle events
+   - Create state cleanup mechanisms for when games end
+
+7. Add state change notification system:
+   - Implement observers for state changes to trigger game events
+   - Create a state change history for auditing and debugging
+   - Add support for conditional state changes based on game rules
+
+# Test Strategy:
+1. Unit Tests:
+   - Create unit tests for the MapBasedPlayerState class verifying proper storage and retrieval of different data types
+   - Test type conversion and validation mechanisms
+   - Verify state serialization/deserialization works correctly
+   - Test all helper methods and utilities for state manipulation
+
+2. Integration Tests:
+   - Test the integration with the database layer to ensure proper persistence
+   - Verify that the state system works correctly with the game type plugin system
+   - Test state transitions during different game lifecycle events
+   - Ensure backward compatibility with existing Assassin game functionality
+
+3. Migration Verification:
+   - Create tests that compare the behavior of the old and new state systems
+   - Verify that all existing functionality continues to work with the new system
+   - Test performance to ensure the new system doesn't introduce significant overhead
+
+4. Game-Specific Tests:
+   - Create test scenarios for each supported game type (Assassin, CTF, World Heist)
+   - Verify that game-specific adapters correctly handle their state requirements
+   - Test edge cases like state conflicts or invalid state combinations
+
+5. System Tests:
+   - Run end-to-end tests simulating complete game flows with the new state system
+   - Test concurrent state modifications to ensure thread safety
+   - Verify that state change notifications trigger appropriate game events
+
+6. Performance Tests:
+   - Benchmark state access and modification operations
+   - Test with large numbers of players to ensure scalability
+   - Measure memory usage compared to the previous implementation

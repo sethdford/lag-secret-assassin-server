@@ -52,6 +52,9 @@ public class LocationServiceTest {
     @Mock
     private GeofenceManager geofenceManager;
 
+    @Mock
+    private ShrinkingZoneService shrinkingZoneService;
+
     @InjectMocks
     private LocationService locationService;
 

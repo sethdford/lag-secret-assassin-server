@@ -1,0 +1,86 @@
+# Task ID: 67
+# Title: Create Universal Game Management UI
+# Status: pending
+# Dependencies: 65, 66, 64
+# Priority: medium
+# Description: Design and implement a game creation interface that supports multiple game types, allowing organizers to select game type, configure game-specific rules, set boundaries and objectives, and manage different game states.
+# Details:
+1. Design the Universal Game Management UI architecture:
+   - Create a responsive React component structure for the game creation workflow
+   - Implement a multi-step wizard interface with game type selection, configuration, and preview steps
+   - Design reusable form components that can dynamically render based on game type configuration schemas
+
+2. Implement game type selection interface:
+   - Create a game type catalog view with cards showing each available game type (Assassin, CTF, World Heist)
+   - Include visual previews, short descriptions, and estimated player counts for each game type
+   - Add filtering and search capabilities for when the catalog grows larger
+
+3. Build dynamic configuration form system:
+   - Develop a SchemaFormRenderer component that can generate form fields based on a game type's configuration schema
+   - Support all field types defined in the configuration system (text, number, boolean, enum, arrays, nested objects)
+   - Implement validation based on schema rules with real-time feedback
+   - Add conditional field visibility based on other field values
+
+4. Create game boundary and objective setting tools:
+   - Implement a map-based interface for setting game boundaries using geofencing
+   - Add tools for placing objective markers, spawn points, and other location-based elements
+   - Include radius adjustment and overlap detection for geographic elements
+   - Support importing/exporting boundary configurations
+
+5. Develop game state management controls:
+   - Create an interface for transitioning between game states (setup, active, paused, completed)
+   - Implement dashboards for monitoring active games with real-time statistics
+   - Add player management tools for assigning teams, roles, or targets based on game type
+   - Include communication tools for broadcasting messages to all players or specific teams
+
+6. Build game preview and rule explanation features:
+   - Implement a visual preview that simulates how the game will appear to players
+   - Create an automatic rule summary generator based on selected configuration options
+   - Add the ability to customize rule explanations and game instructions
+   - Include printable/shareable rule sheets for offline reference
+
+7. Implement game template and saving system:
+   - Allow saving game configurations as templates for future reuse
+   - Create a library of pre-configured game templates for quick setup
+   - Implement version control for game configurations to track changes
+   - Add export/import functionality for sharing configurations between organizers
+
+# Test Strategy:
+1. Unit Testing:
+   - Write unit tests for all UI components using React Testing Library
+   - Test form validation logic with various valid and invalid inputs
+   - Verify conditional rendering based on game type selection
+   - Test boundary setting tools with mock geolocation data
+
+2. Integration Testing:
+   - Test the complete game creation workflow from type selection to final configuration
+   - Verify that configuration data is properly passed between components
+   - Test integration with the backend API for saving and loading game configurations
+   - Verify that game type plugins correctly provide their configuration schemas
+
+3. User Acceptance Testing:
+   - Create test scenarios for setting up each supported game type
+   - Have game organizers attempt to configure games with specific requirements
+   - Collect feedback on usability and clarity of the interface
+   - Test with users of varying technical expertise to ensure intuitive design
+
+4. Cross-browser and Responsive Testing:
+   - Test the interface across multiple browsers (Chrome, Firefox, Safari, Edge)
+   - Verify responsive design works on desktop, tablet, and mobile devices
+   - Test touch interactions for map-based boundary setting on mobile devices
+
+5. Performance Testing:
+   - Measure rendering performance with large configuration schemas
+   - Test map performance with complex boundary configurations
+   - Verify the UI remains responsive when loading and saving large game configurations
+
+6. Specific Feature Tests:
+   - Verify that game type-specific configuration options appear correctly for each game type
+   - Test that rule explanations accurately reflect the configured game parameters
+   - Verify that game state transitions work correctly for different game types
+   - Test template saving and loading with various configuration combinations
+
+7. Regression Testing:
+   - Ensure existing game types (particularly Assassin) can still be configured
+   - Verify that saved game configurations can be loaded and edited correctly
+   - Test backward compatibility with previously created games

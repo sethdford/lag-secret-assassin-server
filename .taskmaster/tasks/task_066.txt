@@ -1,0 +1,104 @@
+# Task ID: 66
+# Title: Implement World Heist Game Plugin
+# Status: pending
+# Dependencies: 64
+# Priority: low
+# Description: Create a cooperative mission-based game type where players work together to complete heist objectives with role-based gameplay, inventory management, stealth mechanics, and both competitive and cooperative win conditions.
+# Details:
+1. Design the core World Heist game mechanics:
+   - Create a WorldHeistGamePlugin class implementing the GameTypePlugin interface
+   - Define game initialization, configuration, and lifecycle methods
+   - Implement mission generation system with randomized objectives and difficulty scaling
+
+2. Implement role-based player system:
+   - Create PlayerRole enum with specialized roles (Hacker, Lookout, Infiltrator, etc.)
+   - Implement role-specific abilities and limitations
+   - Design role selection and balancing mechanism for teams
+   - Add role-specific UI elements and feedback
+
+3. Develop inventory and resource management:
+   - Create InventoryItem class with properties (weight, value, rarity, effects)
+   - Implement player inventory with capacity limits based on role
+   - Add resource collection mechanics (lockpicks, hacking tools, disguises)
+   - Design crafting/combining system for creating specialized equipment
+
+4. Implement stealth and detection mechanics:
+   - Create StealthLevel enum (Hidden, Suspicious, Detected, Compromised)
+   - Implement noise generation and propagation system
+   - Add guard/NPC patrol patterns and vision cones
+   - Design alert levels and response escalation
+
+5. Create heist objective system:
+   - Implement ObjectiveItem class for stealable items
+   - Create Location class with security levels and entry points
+   - Design multi-stage objectives requiring team coordination
+   - Add randomized objective placement and security measures
+
+6. Implement win conditions:
+   - Create cooperative win condition (all objectives completed, team escapes)
+   - Add competitive elements (most valuable items, fastest completion)
+   - Implement failure conditions (team detected, time expired)
+   - Design scoring system based on stealth, efficiency, and value
+
+7. Develop game state management:
+   - Create HeistGameState class extending from the universal player state
+   - Implement team synchronization for shared objectives
+   - Add persistent progression between missions
+   - Design reputation system affecting future mission difficulty
+
+8. Create specialized player actions:
+   - Implement HackSecurityAction, PickLockAction, DistractGuardAction
+   - Add StealItemAction, DisableAlarmAction, CreateDiversionAction
+   - Design team-based actions requiring multiple players
+
+9. Implement event handlers:
+   - Create ObjectiveCompletedEvent, AlarmTriggeredEvent, TeamExtractionEvent
+   - Add handlers for role-specific events
+   - Implement cascading event effects (e.g., alarm triggering guard response)
+
+10. Design configuration options:
+    - Create difficulty settings (security level, time limits, objective complexity)
+    - Add customization for available roles and team size
+    - Implement mission type selection (bank heist, museum theft, corporate espionage)
+    - Design reward scaling based on difficulty
+
+# Test Strategy:
+1. Unit Testing:
+   - Create unit tests for each role's abilities and limitations
+   - Test inventory management with various item combinations
+   - Verify stealth mechanics with different scenarios (noise levels, guard positions)
+   - Test objective completion logic and win condition evaluation
+   - Validate event handling for all game events
+
+2. Integration Testing:
+   - Test role interactions and team coordination mechanics
+   - Verify proper integration with the game type plugin system
+   - Test configuration system with various game settings
+   - Validate database interactions for saving/loading game state
+   - Test event propagation through the event-driven architecture
+
+3. System Testing:
+   - Conduct end-to-end tests of complete heist missions
+   - Test performance with maximum player count and complex objectives
+   - Verify proper handling of edge cases (disconnections, partial team completion)
+   - Test compatibility with existing game features (leaderboards, achievements)
+
+4. Playtest Scenarios:
+   - Create specific test scenarios for each role combination
+   - Test balanced gameplay with different team compositions
+   - Verify difficulty scaling works appropriately
+   - Test competitive elements for fairness and engagement
+   - Conduct timed playtests to ensure missions are completable
+
+5. User Acceptance Testing:
+   - Organize playtests with real users for feedback
+   - Collect metrics on mission completion rates and role popularity
+   - Evaluate user feedback on difficulty and enjoyment
+   - Test tutorial effectiveness for new players
+   - Verify UI clarity for role-specific actions and objectives
+
+6. Security and Edge Case Testing:
+   - Test handling of invalid actions or sequence breaking
+   - Verify proper error handling for unexpected states
+   - Test concurrent actions from multiple team members
+   - Validate state consistency during network interruptions

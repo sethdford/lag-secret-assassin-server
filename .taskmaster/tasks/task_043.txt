@@ -161,11 +161,13 @@ The implementation is ready for the next subtasks: zone state machine integratio
 - Game Natural Completion → Zone Cleanup
 </info added on 2025-06-03T11:40:55.563Z>
 
-## 4. Implement Time Advancement and Stage Triggering [pending]
+## 4. Implement Time Advancement and Stage Triggering [done]
 ### Dependencies: 43.3
 ### Description: Decide on and implement a mechanism (e.g., scheduled Lambda, opportunistic updates) to advance zone stages based on timers.
 ### Details:
-
+<info added on 2025-06-05T12:26:24.529Z>
+Task 43.4 is COMPLETE. The time advancement and stage triggering mechanism for the shrinking safe zone gameplay mode has been fully implemented with robust scheduled and opportunistic update strategies. This includes a scheduled Lambda function (ZoneUpdateHandler) triggered every minute via CloudWatch Events, real-time zone state advancement logic with precise timestamp handling, and seamless integration with player interactions to ensure immediate state accuracy. Player damage processing outside the safe zone is now automated and time-based, with elimination thresholds and detailed tracking. All infrastructure, permissions, and monitoring are configured for fault tolerance, scalability, and resource efficiency. The system now guarantees both reliable scheduled progression and real-time responsiveness for the shrinking zone feature.
+</info added on 2025-06-05T12:26:24.529Z>
 
 ## 5. Implement Damage Outside Zone [pending]
 ### Dependencies: 43.4

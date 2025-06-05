@@ -1,0 +1,77 @@
+# Task ID: 63
+# Title: Update Database Schema for Multi-Game Support
+# Status: pending
+# Dependencies: 59, 60, 61
+# Priority: low
+# Description: Extend the current DynamoDB schema to support multiple game types by creating GameType table, updating PlayerGameState table with flexible state storage, and implementing GameEvent table for event sourcing.
+# Details:
+1. Create new GameType table in DynamoDB:
+   - Primary key: gameTypeId (string)
+   - Attributes: name, description, version, configSchema (JSON), defaultConfig (JSON), createdAt, updatedAt
+   - Add indexes for efficient querying by name and version
+
+2. Update PlayerGameState table:
+   - Add gameTypeId attribute to identify which game type this state belongs to
+   - Modify state attribute to use a flexible Map structure instead of fixed Assassin-specific fields
+   - Create a new GSI on gameTypeId and gameId for efficient querying
+   - Ensure backward compatibility with existing Assassin game data
+
+3. Implement GameEvent table for event sourcing:
+   - Primary key: composite key of gameId and eventId
+   - Sort key: timestamp for chronological ordering
+   - Attributes: playerId, eventType, eventData (JSON), metadata (JSON)
+   - Create GSIs for querying by playerId, eventType, and timestamp ranges
+
+4. Design and implement migration scripts:
+   - Create script to transform existing Assassin game data to the new schema
+   - Implement data validation to ensure integrity during migration
+   - Add rollback capability in case of migration failures
+   - Include logging and monitoring for the migration process
+
+5. Update database access layer:
+   - Modify repository classes to support the new schema
+   - Implement type-safe methods for storing and retrieving game-specific state
+   - Create new repository methods for GameType and GameEvent tables
+   - Update existing queries to work with the new schema
+
+6. Documentation:
+   - Create comprehensive documentation of the new schema design
+   - Document migration process and rollback procedures
+   - Update API documentation to reflect schema changes
+   - Create examples of how to use the new schema for different game types
+
+# Test Strategy:
+1. Unit Testing:
+   - Create unit tests for all new repository methods
+   - Test data access patterns for each table with different query parameters
+   - Verify type safety and error handling in the data access layer
+   - Test migration scripts with mock data
+
+2. Integration Testing:
+   - Set up a test DynamoDB environment with sample data
+   - Run migration scripts against test data and verify results
+   - Test complete workflows that use the new schema
+   - Verify that existing Assassin game functionality works with migrated data
+
+3. Performance Testing:
+   - Benchmark query performance for common access patterns
+   - Test with large datasets to ensure scalability
+   - Verify index usage for efficient queries
+   - Measure and optimize read/write capacity usage
+
+4. Migration Testing:
+   - Create a clone of production data for migration testing
+   - Perform dry-run migrations and verify results
+   - Measure migration time and resource usage
+   - Test rollback procedures
+
+5. Validation:
+   - Verify that all existing API endpoints work with the new schema
+   - Ensure backward compatibility with existing clients
+   - Validate that game state is correctly preserved during migration
+   - Verify that event sourcing correctly captures game history
+
+6. Security Testing:
+   - Review access patterns for potential security issues
+   - Verify that sensitive data is properly protected
+   - Test access controls for different user roles

@@ -1,0 +1,109 @@
+# Task ID: 65
+# Title: Implement Capture The Flag Game Plugin
+# Status: pending
+# Dependencies: 64
+# Priority: low
+# Description: Create a complete Capture The Flag game type plugin with team-based gameplay, flag capture mechanics, scoring system, and respawn functionality that integrates with the game type plugin architecture.
+# Details:
+1. Design the CTF game plugin architecture:
+   - Create a `CaptureTheFlagPlugin` class that implements the `GameTypePlugin` interface
+   - Define CTF-specific configuration schema (team count, flag locations, respawn times, win conditions)
+   - Implement game initialization logic that sets up team assignments and flag positions
+
+2. Implement team-based player state management:
+   - Extend the universal player state with CTF-specific attributes:
+     - `teamId`: Player's assigned team
+     - `hasFlagId`: ID of flag currently carried (null if none)
+     - `isRespawning`: Boolean indicating respawn state
+     - `respawnTimestamp`: When player will respawn
+     - `captureCount`: Number of successful flag captures
+     - `position`: Current player location (for proximity calculations)
+
+3. Create CTF-specific player actions:
+   - `PickupFlagAction`: When player is in proximity to opponent's flag
+   - `DropFlagAction`: Voluntarily drop a carried flag
+   - `CaptureAction`: Return to base with opponent's flag
+   - `EliminatePlayerAction`: Remove opponent from play (forcing respawn)
+   - `RespawnAction`: Return to play after elimination
+
+4. Implement CTF game events:
+   - `FlagPickupEvent`: When a player picks up a flag
+   - `FlagDroppedEvent`: When a flag is dropped (voluntary or via elimination)
+   - `FlagCapturedEvent`: When a flag is successfully captured
+   - `PlayerEliminatedEvent`: When a player is eliminated
+   - `PlayerRespawnedEvent`: When a player respawns
+   - `TeamScoreChangedEvent`: When a team's score changes
+
+5. Develop CTF game logic handlers:
+   - Flag pickup validation (must be at opponent's flag location)
+   - Flag capture validation (must be at own base with opponent's flag)
+   - Player elimination logic (drops flag if carrying)
+   - Respawn timer and location management
+   - Team score calculation and updates
+
+6. Implement win conditions:
+   - First team to X captures (configurable)
+   - Highest score after time limit (configurable)
+   - Create `CTFWinCondition` class implementing the `WinCondition` interface
+
+7. Create CTF-specific UI components:
+   - Team assignment display
+   - Flag status indicators (at base, carried by player, dropped)
+   - Team score display
+   - Respawn timer countdown
+   - Game timer and win condition progress
+
+8. Implement CTF map and location services:
+   - Define flag base locations
+   - Create respawn point locations for each team
+   - Implement proximity detection for flag pickup/capture
+
+9. Add CTF-specific leaderboard metrics:
+   - Individual flag captures
+   - Flag carrier eliminations
+   - Time as flag carrier
+   - Successful defenses
+
+10. Integrate with the game type configuration system:
+    - Register CTF plugin with the plugin system
+    - Create default configuration templates
+    - Implement configuration validation logic
+
+# Test Strategy:
+1. Unit Testing:
+   - Test CTF plugin initialization with various configurations
+   - Verify team assignment logic distributes players evenly
+   - Test flag pickup validation logic with valid and invalid scenarios
+   - Test flag capture validation with valid and invalid scenarios
+   - Verify player elimination and respawn timing logic
+   - Test win condition evaluation for different game configurations
+
+2. Integration Testing:
+   - Test CTF plugin registration with the game type plugin system
+   - Verify CTF configuration schema validation
+   - Test event propagation for all CTF-specific events
+   - Verify state transitions through complete game flows
+   - Test interaction between player actions and game state updates
+
+3. End-to-End Testing:
+   - Create a simulated CTF game with multiple players
+   - Test complete flag capture scenarios from pickup to score
+   - Verify elimination and respawn functionality in live game
+   - Test win condition triggering and game completion
+   - Verify leaderboard updates after game completion
+
+4. Performance Testing:
+   - Measure event processing latency with many simultaneous players
+   - Test system under load with multiple concurrent CTF games
+   - Verify database performance with high-frequency state updates
+
+5. User Acceptance Testing:
+   - Conduct playtests with real users in controlled environments
+   - Gather feedback on game balance and mechanics
+   - Verify UI clarity and responsiveness
+   - Test on various device types and network conditions
+
+6. Regression Testing:
+   - Verify existing Assassin game type still functions correctly
+   - Ensure leaderboard and achievement systems work with CTF
+   - Test social features integration with team-based gameplay
