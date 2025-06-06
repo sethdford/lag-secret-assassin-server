@@ -1,14 +1,14 @@
 # Task ID: 7
 # Title: Implement Target Assignment System
-# Status: done
+# Status: in-progress
 # Dependencies: 5
 # Priority: high
 # Description: Create the system for assigning targets to players and managing the chain of assignments throughout the game.
 # Details:
-Implement algorithms for fair and random target assignment. Create functionality for reassigning targets when players are eliminated. Add support for circular assignment chains. Implement target history tracking. Create endpoints for retrieving current target information. Add support for target reassignment through special items.
+Implement algorithms for fair and random target assignment based on game theory principles. Create functionality for reassigning targets when players are eliminated. Add support for circular assignment chains. Implement target history tracking. Create endpoints for retrieving current target information. Add support for target reassignment through special items. Implement the Weapon-Target Assignment (WTA) algorithm for optimal target distribution.
 
 # Test Strategy:
-Test target assignment with various player counts. Verify reassignment works correctly after eliminations. Test edge cases like last few players and single-player scenarios.
+Test target assignment with various player counts. Verify reassignment works correctly after eliminations. Test edge cases like last few players and single-player scenarios. Create unit tests for all components of the target assignment system. Implement integration tests to verify the entire target assignment flow. Test API endpoints with different authorization scenarios.
 
 # Subtasks:
 ## 1. Design and Implement Core Target Assignment Algorithm [done]
@@ -40,4 +40,34 @@ Test target assignment with various player counts. Verify reassignment works cor
 ### Description: Design how special items (from Task 10) might affect target assignments (e.g., "Reveal Target", "Change Target"). This might be deferred until Task 10 is implemented.
 ### Details:
 
+
+## 6. Create TargetAssignmentService Implementation [to-do]
+### Dependencies: 7.1, 7.2, 7.3
+### Description: Implement the TargetAssignmentService class that will handle all target assignment logic. This should include methods for initial assignment, reassignment, and target retrieval.
+### Details:
+The service should implement the algorithms designed in subtask 7.1 and handle all the business logic for target assignments. Consider implementing a game-theoretic approach or the Weapon-Target Assignment (WTA) algorithm for optimal assignments.
+
+## 7. Create TargetAssignment Model and DAO [to-do]
+### Dependencies: None
+### Description: Implement the TargetAssignment model class and corresponding DAO for database operations.
+### Details:
+The model should include fields for assignerId, targetId, gameId, assignmentDate, and status. The DAO should provide methods for creating, updating, retrieving, and deleting target assignments.
+
+## 8. Implement Unit Tests for Target Assignment Components [to-do]
+### Dependencies: 7.6, 7.7
+### Description: Create comprehensive unit tests for all target assignment components including models, DAOs, and services.
+### Details:
+Tests should cover all edge cases including single player scenarios, last few players, and circular assignments. Use mocking frameworks to isolate components during testing.
+
+## 9. Implement Integration Tests for Target Assignment Flow [to-do]
+### Dependencies: 7.6, 7.7, 7.8
+### Description: Create integration tests that verify the entire target assignment flow from initial assignment to reassignment after eliminations.
+### Details:
+Tests should simulate game scenarios with multiple players and verify that target assignments are correctly maintained throughout the game lifecycle.
+
+## 10. Test API Endpoints for Target Assignment [to-do]
+### Dependencies: 7.4, 7.6, 7.7
+### Description: Create tests for all API endpoints related to target assignment to ensure they function correctly with proper authorization.
+### Details:
+Tests should cover successful retrieval of target information as well as error cases such as unauthorized access attempts.
 

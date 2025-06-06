@@ -1,14 +1,14 @@
 # Task ID: 10
 # Title: Implement In-Game Items and Inventory System
-# Status: done
+# Status: in-progress
 # Dependencies: 9
 # Priority: medium
 # Description: Develop the system for managing in-game items, purchases, and player inventories.
 # Details:
-Create the item catalog with different types (Radar, Cloak, Safe Zone, etc.). Implement inventory management for players. Create endpoints for purchasing items. Add functionality for using items and applying their effects. Implement cooldowns and duration tracking for temporary items. Create endpoints for retrieving available items and current inventory.
+Create the item catalog with different types (Radar, Cloak, Safe Zone, etc.). Implement inventory management for players. Create endpoints for purchasing items. Add functionality for using items and applying their effects. Implement cooldowns and duration tracking for temporary items. Create endpoints for retrieving available items and current inventory. The database design should follow a single-table approach to allow for operations across multiple entity types in a single query (e.g., removing an item and updating a quest in one operation).
 
 # Test Strategy:
-Test item purchases and inventory updates. Verify item effects are correctly applied when used. Test duration and cooldown tracking. Verify inventory retrieval returns correct data.
+Test item purchases and inventory updates. Verify item effects are correctly applied when used. Test duration and cooldown tracking. Verify inventory retrieval returns correct data. Implement both unit tests for individual components and integration tests for the complete flow.
 
 # Subtasks:
 ## 1. Define Item Model [done]
@@ -64,4 +64,76 @@ Test item purchases and inventory updates. Verify item effects are correctly app
 ### Description: Write unit and integration tests for Item/Inventory DAOs, Services, and item effect logic.
 ### Details:
 
+
+## 10. Implement Item Model Class [to-do]
+### Dependencies: None
+### Description: Create the Item class with all required fields and methods as defined in the model.
+### Details:
+Implement the Item class with fields: itemId, name, description, itemType (enum), price, effects (Map), durationSeconds, isUsable, isStackable. Include getters, setters, and appropriate constructors.
+
+## 11. Implement PlayerInventoryItem Class [to-do]
+### Dependencies: None
+### Description: Create the PlayerInventoryItem class with all required fields and methods as defined in the model.
+### Details:
+Implement the PlayerInventoryItem class with fields: playerId, itemId, quantity, acquiredAt, expiresAt. Include getters, setters, and appropriate constructors.
+
+## 12. Implement ItemDao Class [to-do]
+### Dependencies: 10.10
+### Description: Create the ItemDao class with methods for CRUD operations on items.
+### Details:
+Implement methods for creating, reading, updating, and deleting items in the database. Include batch operations where appropriate.
+
+## 13. Implement PlayerInventoryDao Class [to-do]
+### Dependencies: 10.11
+### Description: Create the PlayerInventoryDao class with methods for CRUD operations on player inventories.
+### Details:
+Implement methods for creating, reading, updating, and deleting player inventory items in the database. Include batch operations and queries for filtering by item type.
+
+## 14. Implement ItemService Class [to-do]
+### Dependencies: 10.12
+### Description: Create the ItemService class with all required methods as defined.
+### Details:
+Implement methods: getAllItems(), getItemById(String itemId), purchaseItem(String playerId, String itemId, String paymentMethodId). Ensure proper integration with PaymentHandler or TransactionDao.
+
+## 15. Implement PlayerInventoryService Class [to-do]
+### Dependencies: 10.13
+### Description: Create the PlayerInventoryService class with all required methods as defined.
+### Details:
+Implement methods: getPlayerInventory(String playerId), grantItemToPlayer(String playerId, String itemId, int quantity), useItem(String playerId, String inventoryItemId, Map<String, Object> context). Ensure proper application of item effects.
+
+## 16. Implement Item Effects Logic Classes [to-do]
+### Dependencies: 10.15
+### Description: Create classes for handling different item type effects.
+### Details:
+Implement logic for each itemType's effect (Radar, Cloak, Safe Zone, etc.), interacting with other services as needed. Create a factory pattern or strategy pattern for handling different item types.
+
+## 17. Implement API Handlers for Items and Inventory [to-do]
+### Dependencies: 10.14, 10.15
+### Description: Create Lambda handlers for the API endpoints defined for items and inventory.
+### Details:
+Implement handlers for: GET /items; POST /players/me/inventory/purchase; GET /players/me/inventory; POST /players/me/inventory/{inventoryItemId}/use. Ensure proper request validation and error handling.
+
+## 18. Write Unit Tests for Item and Inventory Classes [to-do]
+### Dependencies: 10.10, 10.11
+### Description: Create unit tests for the Item and PlayerInventoryItem classes.
+### Details:
+Write comprehensive unit tests for the Item and PlayerInventoryItem classes, covering all methods and edge cases.
+
+## 19. Write Unit Tests for DAO Classes [to-do]
+### Dependencies: 10.12, 10.13
+### Description: Create unit tests for the ItemDao and PlayerInventoryDao classes.
+### Details:
+Write comprehensive unit tests for the ItemDao and PlayerInventoryDao classes, covering all methods and edge cases. Use mocking for DynamoDB interactions.
+
+## 20. Write Unit Tests for Service Classes [to-do]
+### Dependencies: 10.14, 10.15
+### Description: Create unit tests for the ItemService and PlayerInventoryService classes.
+### Details:
+Write comprehensive unit tests for the ItemService and PlayerInventoryService classes, covering all methods and edge cases. Use mocking for DAO interactions.
+
+## 21. Write Integration Tests for Item and Inventory System [to-do]
+### Dependencies: 10.17
+### Description: Create integration tests for the complete item and inventory system.
+### Details:
+Write integration tests that verify the complete flow of the item and inventory system, from API endpoints to database operations. Use LocalDynamoDB for testing.
 

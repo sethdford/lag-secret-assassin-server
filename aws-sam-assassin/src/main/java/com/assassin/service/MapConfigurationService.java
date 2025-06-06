@@ -105,6 +105,18 @@ public class MapConfigurationService {
         logger.info("Initialized MapConfigurationService with MapConfiguration table: {}", mapConfigTableName);
     }
 
+    protected MapConfigurationService() {
+        this.mapConfigTable = null;
+        this.gameDao = null;
+        this.gameZoneStateDao = null;
+        this.safeZoneDao = null;
+        this.shrinkingZoneService = null;
+        this.gameBoundaryCache = null;
+        this.mapConfigCache = null;
+        this.effectiveMapConfigCache = null;
+        this.safeZoneService = null;
+    }
+
     private String getTableName(String envVarName, String defaultName) {
         String tableName = System.getProperty(envVarName);
         if (tableName == null || tableName.isEmpty()) {
@@ -363,5 +375,9 @@ public class MapConfigurationService {
              throw new ConfigurationNotFoundException("Map configuration not found or failed to load for mapId: " + mapId);
          }
          return config;
+    }
+
+    public void saveMapConfiguration(MapConfiguration config) {
+        mapConfigTable.putItem(config);
     }
 } 

@@ -3,52 +3,104 @@
 # Status: done
 # Dependencies: None
 # Priority: critical
-# Description: Manually correct several configuration issues in the AWS SAM template file, including attribute naming conventions, missing permissions, and parameter type definitions.
+# Description: Manually correct several configuration issues in the AWS SAM template file, including attribute naming conventions, missing permissions, and parameter type definitions. Address verification failures by ensuring the LogRetentionInDays parameter is correctly typed as Number, updating AllowedValues to use numeric values, adding integration and unit tests for configuration validation, and documenting the changes. Additionally, resolve the validation failure caused by the absence of the AWS SAM CLI by installing it. After installation, re-run 'sam validate --template template.yaml' to confirm the LogRetentionInDays parameter type fix and overall template validity.
 # Details:
-This task requires making three specific corrections to the aws-sam-assassin/template.yaml file:
+This task requires making the following corrections and additions to the aws-sam-assassin/template.yaml file and associated project files:
 
-1. Fix Attribute Naming in ReportsTable Definition:
-   - Locate all lowercased attribute names in the ReportsTable resource definition
-   - Change 'reportid' to 'reportId'
-   - Change 'gameid' to 'gameId'
-   - Ensure all other attribute names follow proper camelCase convention
-   - Verify that any references to these attributes in other parts of the template are also updated
+1. Fix LogRetentionInDays Parameter Type:
+   - Locate the LogRetentionInDays parameter definition (currently on line 20)
+   - Change its type from 'Type: String' to 'Type: Number'
+   - Update AllowedValues to use numeric values (e.g., 7, 14, 30) instead of quoted strings
+   - Ensure all references to this parameter are compatible with the Number type
+   - Ensure any default values are properly formatted as numbers without quotes
 
-2. Add RekognitionPolicy to KillReportingFunction:
-   - Locate the KillReportingFunction resource in the template
-   - Add or extend the IAM policy to include the 'rekognition:DetectModerationLabels' permission
+2. Attribute Naming in ReportsTable Definition:
+   - Confirm that all lowercased attribute names in the ReportsTable resource definition have been changed to camelCase (e.g., 'reportId', 'gameId')
+   - Verify that no instances of 'reportid' or 'gameid' remain in the template
+   - Ensure all references to these attributes in other parts of the template are also updated
+
+3. RekognitionPolicy for KillReportingFunction:
+   - Confirm that the KillReportingFunction resource includes the 'rekognition:DetectModerationLabels' permission in its IAM policy
    - Ensure the policy is properly structured with appropriate Action, Effect, and Resource elements
    - Verify the policy is attached to the correct function role
 
-3. Fix LogRetentionInDays Parameter Type:
-   - Find the LogRetentionInDays parameter definition
-   - Change its type from String to Number
-   - Verify all references to this parameter are compatible with the Number type
-   - Ensure any default values are properly formatted as numbers without quotes
+4. Testing:
+   - Create an integration test to validate successful deployment of the template with the updated parameter type and values
+   - Create a unit test to verify that the LogRetentionInDays parameter is defined as Type: Number and that AllowedValues are numeric
+
+5. Documentation:
+   - Add or update documentation (e.g., README, inline comments, or a dedicated doc file) to explain the configuration changes, especially the parameter type update and its impact on deployments
+
+6. AWS SAM CLI Installation and Validation:
+   - Install the AWS SAM CLI if it is not already present on the system
+   - After installation, run 'sam validate --template template.yaml' to confirm that the template is valid and that the LogRetentionInDays parameter type fix is correctly applied
 
 The changes should maintain the overall structure and indentation of the YAML file. After making these changes, validate the template syntax to ensure it remains valid YAML and follows AWS SAM best practices.
 
 # Test Strategy:
 To verify the task has been completed correctly:
 
-1. YAML Validation:
+1. AWS SAM CLI Installation and Validation:
+   - Install the AWS SAM CLI if not already installed
+   - Run 'sam validate --template template.yaml' to ensure the template is syntactically valid and the LogRetentionInDays parameter type fix is recognized
+
+2. YAML Validation:
    - Run 'aws cloudformation validate-template --template-body file://aws-sam-assassin/template.yaml' to ensure the template is syntactically valid
    - Use a YAML linter (e.g., yamllint) to check for any formatting issues
 
-2. Attribute Naming Verification:
+3. Attribute Naming Verification:
    - Search the file for any remaining instances of 'reportid' and 'gameid' to ensure all have been properly renamed
    - Verify that all attribute references in other parts of the template (such as in GetAtt functions or mapping sections) use the correct camelCase format
 
-3. Permission Testing:
+4. Permission Testing:
    - Deploy the template to a test environment using 'sam deploy'
    - Trigger the KillReportingFunction with a test event that requires the Rekognition service
    - Verify in CloudWatch Logs that the function can successfully call the rekognition:DetectModerationLabels API without permission errors
 
-4. Parameter Type Testing:
+5. Parameter Type Testing:
    - Deploy the template with different values for LogRetentionInDays (e.g., 7, 14, 30)
    - Verify that the CloudWatch Log Groups are created with the correct retention period
    - Check the CloudFormation console to ensure the parameter is displayed as a number type
+   - Run the new unit test to confirm the parameter type and AllowedValues
 
-5. Regression Testing:
+6. Integration Testing:
+   - Run the new integration test to validate template deployment and parameter handling
+
+7. Regression Testing:
    - Run any existing integration tests to ensure the changes don't break existing functionality
    - Verify that applications or services that interact with the ReportsTable can still read/write data correctly
+
+8. Documentation Verification:
+   - Review the updated documentation to ensure it clearly explains the configuration changes and their impact
+
+# Subtasks:
+## 57-1. Change LogRetentionInDays parameter type to Number and update AllowedValues [done]
+### Dependencies: None
+### Description: Edit template.yaml to change LogRetentionInDays parameter type from String to Number. Update AllowedValues to use numeric values (e.g., 7, 14, 30) instead of quoted strings. Ensure all references and defaults are compatible with Number type.
+### Details:
+
+
+## 57-2. Create integration test for template deployment [done]
+### Dependencies: None
+### Description: Develop an integration test that deploys the template and verifies successful deployment and correct handling of the LogRetentionInDays parameter as a Number.
+### Details:
+
+
+## 57-3. Create unit test to verify parameter types and structure [done]
+### Dependencies: None
+### Description: Write a unit test that parses template.yaml and asserts that LogRetentionInDays is defined as Type: Number and that AllowedValues are numeric.
+### Details:
+
+
+## 57-4. Add documentation for configuration changes [done]
+### Dependencies: None
+### Description: Update project documentation (README, inline comments, or a dedicated doc file) to explain the LogRetentionInDays parameter type change, the rationale, and any impacts on deployment or usage.
+### Details:
+
+
+## 57-5. Install AWS SAM CLI and re-run template validation [done]
+### Dependencies: None
+### Description: Install the AWS SAM CLI on the development environment. After installation, run 'sam validate --template template.yaml' to confirm that the template is valid and that the LogRetentionInDays parameter type fix is correctly applied.
+### Details:
+
+

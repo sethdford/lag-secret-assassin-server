@@ -58,44 +58,48 @@ Generate a summary of key project information from memory bank files, providing 
 
 ## Available Memory Files
 
-### Project Overview & Foundation
+### Project Foundation (01-09)
 
 - **[01-brief.md](mdc:.memory/01-brief.md)** - Project charter with project outline, core requirements, success criteria, stakeholders, constraints, and timeline.
-- **[10-product.md](mdc:.memory/10-product.md)** - Product definition for the Assassin Game API, including key features.
+- **[02-product.md](mdc:.memory/02-product.md)** - Product definition for the Assassin Game API, including key features.
 
-### Domain & Requirements
+### Requirements & Domain (10-19)
 
-- **[20-domain-model.md](mdc:.memory/20-domain-model.md)** - Core domain model, entities, relationships, and business rules.
-- **[20-requirements.md](mdc:.memory/20-requirements.md)** - Functional and non-functional requirements.
+- **[10-requirements.md](mdc:.memory/10-requirements.md)** - Functional and non-functional requirements.
+- **[11-domain-model.md](mdc:.memory/11-domain-model.md)** - Core domain model, entities, relationships, and business rules.
+- **[12-domain.md](mdc:.memory/12-domain.md)** - Domain terminology and concepts.
+
+### System Architecture (20-29)
+
 - **[20-system.md](mdc:.memory/20-system.md)** - System architecture overview, AWS services, components, and data flow.
-- **[21-codebase.md](mdc:.memory/21-codebase.md)** - Code organization, structure, and key components.
+- **[21-architecture.md](mdc:.memory/21-architecture.md)** - Detailed technical architecture and component design.
+- **[22-tech.md](mdc:.memory/22-tech.md)** - Technical foundation and technologies used.
+- **[23-database-schema.md](mdc:.memory/23-database-schema.md)** - DynamoDB table designs, GSIs, and data access patterns.
 
-### Architecture & Technical Design
+### Implementation (30-39)
 
-- **[30-architecture.md](mdc:.memory/30-architecture.md)** - Architectural design with AWS SAM implementation details.
-- **[30-domain.md](mdc:.memory/30-domain.md)** - Domain terminology and concepts.
-- **[30-tech.md](mdc:.memory/30-tech.md)** - Technical foundation and technologies used.
-- **[30-technical-architecture.md](mdc:.memory/30-technical-architecture.md)** - Detailed system components and infrastructure design.
-- **[40-architecture.md](mdc:.memory/40-architecture.md)** - Extended architectural specifications and design patterns.
+- **[30-codebase.md](mdc:.memory/30-codebase.md)** - Code organization, structure, and key components.
+- **[31-implementation.md](mdc:.memory/31-implementation.md)** - Implementation details, classes, interfaces, and patterns.
 
-### Implementation & Active Development
+### Active Development (40-49)
 
 - **[40-active.md](mdc:.memory/40-active.md)** - Currently active development tasks and focus areas.
-- **[40-implementation.md](mdc:.memory/40-implementation.md)** - Implementation details, classes, interfaces, and patterns.
 
-### Standards & Decisions
+### Standards & Progress (50-59)
 
-- **[50-api-design.md](mdc:.memory/50-api-design.md)** - API design principles and specifications.
 - **[50-decisions.md](mdc:.memory/50-decisions.md)** - Key technical decisions with rationale.
-- **[50-development-standards.md](mdc:.memory/50-development-standards.md)** - Development standards and coding conventions.
-- **[50-patterns.md](mdc:.memory/50-patterns.md)** - System patterns, best practices, and architectural conventions.
-- **[50-progress.md](mdc:.memory/50-progress.md)** - Project progress tracking and milestone achievements.
-- **[60-database-schema.md](mdc:.memory/60-database-schema.md)** - DynamoDB table designs, GSIs, and data access patterns.
-- **[60-decisions.md](mdc:.memory/60-decisions.md)** - Additional implementation decisions.
+- **[51-development-standards.md](mdc:.memory/51-development-standards.md)** - Development standards and coding conventions.
+- **[52-patterns.md](mdc:.memory/52-patterns.md)** - System patterns, best practices, and architectural conventions.
+- **[53-progress.md](mdc:.memory/53-progress.md)** - Project progress tracking and milestone achievements.
+- **[54-definition-of-done.md](mdc:.memory/54-definition-of-done.md)** - **CRITICAL: Definition of Done checklist and quality gates - MUST be verified before marking any task complete.**
 
-### Knowledge Repository
+### Knowledge Repository (60-69)
 
-- **[70-knowledge.md](mdc:.memory/70-knowledge.md)** - Domain knowledge capture of key concepts and game mechanics.
+- **[60-knowledge.md](mdc:.memory/60-knowledge.md)** - Domain knowledge capture of key concepts and game mechanics.
+
+### Documentation (90-99)
+
+- **[90-README.md](mdc:.memory/90-README.md)** - Memory Bank system guide and usage instructions.
 
 ## Best Practices
 

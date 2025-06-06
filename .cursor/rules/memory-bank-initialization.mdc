@@ -20,6 +20,7 @@ alwaysApply: false
   - .memory/50-progress.md (Progress Tracking)
   - .memory/50-decisions.md (Decision Log)
   - .memory/50-patterns.md (System Patterns)
+  - .memory/54-definition-of-done.md (CRITICAL: Quality Gates & Verification)
 - **Initialize with proper file templates** including frontmatter and basic structure
 - **Maintain consistent timestamp format** [YYYY-MM-DD HH:MM:SS] for all updates
 - **Status indicators** must be used in all Memory Bank custom modes:
@@ -37,6 +38,7 @@ alwaysApply: false
 - **50-progress.md**: Progress tracking, completed work, and milestones
 - **50-decisions.md**: Technical decisions, rationale, and implications
 - **50-patterns.md**: System patterns, best practices, and conventions
+- **54-definition-of-done.md**: **CRITICAL** - Quality gates and verification checklist (MUST EXIST)
 
 ### Additional Project Files (Pre-existing)
 - **01-brief.md**: Project charter and overview
@@ -193,6 +195,75 @@ This document captures key technical decisions made during development.
 2. [Step 2]
 ```
 
+### 54-definition-of-done.md Template
+```markdown
+# Definition of Done
+
+## Critical Definition of Done
+
+**NO TASK CAN BE MARKED "DONE" WITHOUT MEETING ALL CRITERIA:**
+
+### ✅ Definition of Done Checklist
+
+**Before setting any task status to "done", verify:**
+
+1. **Code Implementation Exists**
+   - All required classes, methods, and functionality are implemented
+   - Code follows project standards and conventions
+   - No placeholder/TODO comments remain
+
+2. **Comprehensive Tests Written**
+   - Unit tests cover all public methods and business logic
+   - Integration tests verify component interactions  
+   - Test coverage is >80% for the implemented code
+   - Edge cases and error conditions are tested
+
+3. **All Tests Pass**
+   - Run tests and verify 0 failures, 0 errors
+   - Integration tests pass with real/mocked dependencies
+   - No flaky or skipped tests
+
+4. **Code Quality Verified**
+   - Static analysis passes
+   - No violations in new/modified code
+   - Code review standards met
+
+5. **Documentation Updated**
+   - API documentation for public interfaces
+   - README or relevant docs updated if needed
+
+### ⚠️ Task Verification Process
+
+**For Every Task Completion:**
+
+1. **Locate Implementation**: Find the actual classes/methods
+2. **Find Test Files**: Locate corresponding test classes  
+3. **Run Tests**: Execute specific tests for the component
+4. **Verify Coverage**: Check test coverage reports
+5. **Manual Testing**: Test functionality if integration required
+6. **Only Then**: Mark task as "done"
+
+### 🚫 Common Verification Failures
+
+**Do NOT mark done if:**
+- Tests don't exist for the implemented code
+- Tests exist but are failing or skipped
+- Coverage is below 80% for new/modified code
+- Static analysis reports violations
+- Code has TODO/FIXME comments
+- Integration points aren't tested
+
+## Quality Gates
+
+**Minimum Requirements:**
+- **Test Coverage**: >80% line coverage for new code
+- **Test Success Rate**: 100% (0 failures, 0 errors)
+- **Static Analysis**: 0 violations in new/modified code
+- **Documentation**: All public APIs documented
+
+**Last Updated**: [YYYY-MM-DD]
+```
+
 ## Examples
 
 <example>
@@ -208,6 +279,7 @@ Creating .memory/ directory structure...
 ✓ .memory/50-progress.md
 ✓ .memory/50-decisions.md
 ✓ .memory/50-patterns.md
+✓ .memory/54-definition-of-done.md (CRITICAL: Quality Gates)
 
 Memory Bank initialized successfully. You can now switch to other Memory Bank modes for development work.
 ```

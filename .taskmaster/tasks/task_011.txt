@@ -1,14 +1,14 @@
 # Task ID: 11
 # Title: Implement Subscription Tiers
-# Status: done
+# Status: in-progress
 # Dependencies: 9
 # Priority: medium
-# Description: Develop the subscription system with different tiers (Basic, Hunter, Assassin, Elite) and associated benefits.
+# Description: Develop and implement a comprehensive subscription system with different tiers (Basic, Hunter, Assassin, Elite) and associated benefits. Ensure integration with a payment gateway for subscription management and create necessary API endpoints.
 # Details:
-Implement subscription management with different tier levels. Create recurring payment handling. Add functionality for tier-specific benefits (in-game currency bonuses, free items, priority access). Implement subscription status tracking and expiration handling. Create endpoints for managing subscriptions (upgrade, downgrade, cancel). Add prorated billing for tier changes.
+Implement subscription management with different tier levels. Create recurring payment handling. Add functionality for tier-specific benefits (in-game currency bonuses, free items, priority access). Implement subscription status tracking and expiration handling. Create endpoints for managing subscriptions (upgrade, downgrade, cancel). Add prorated billing for tier changes. Ensure all components are properly tested and integrated with Stripe for payment processing.
 
 # Test Strategy:
-Test subscription creation, updates, and cancellations. Verify tier benefits are correctly applied. Test subscription renewal and expiration handling. Verify proration calculations for tier changes.
+Test subscription creation, updates, and cancellations. Verify tier benefits are correctly applied. Test subscription renewal and expiration handling. Verify proration calculations for tier changes. Conduct unit and integration tests for all implemented components.
 
 # Subtasks:
 ## 1. Define SubscriptionTier and Update Player Model [done]
@@ -52,4 +52,16 @@ Test subscription creation, updates, and cancellations. Verify tier benefits are
 ### Description: Unit/integration tests for Subscription DAO (if any), Service, Stripe integration (mocked), and webhook handler.
 ### Details:
 
+
+## 8. Implement Tier-Specific Benefits [in-progress]
+### Dependencies: 11.4
+### Description: Develop functionality to apply tier-specific benefits such as in-game currency bonuses, free items, and priority access.
+### Details:
+Ensure benefits are correctly applied based on the subscription tier. Test each benefit to ensure it functions as expected.
+
+## 9. Verify and Test Subscription Tier System [in-progress]
+### Dependencies: 11.8
+### Description: Conduct thorough testing of the subscription tier system to ensure it meets all requirements and works as expected.
+### Details:
+Verify that all tiers are correctly implemented and that benefits are properly applied. Test subscription upgrades, downgrades, and cancellations.
 

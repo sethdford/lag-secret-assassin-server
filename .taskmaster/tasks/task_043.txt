@@ -169,25 +169,25 @@ The implementation is ready for the next subtasks: zone state machine integratio
 Task 43.4 is COMPLETE. The time advancement and stage triggering mechanism for the shrinking safe zone gameplay mode has been fully implemented with robust scheduled and opportunistic update strategies. This includes a scheduled Lambda function (ZoneUpdateHandler) triggered every minute via CloudWatch Events, real-time zone state advancement logic with precise timestamp handling, and seamless integration with player interactions to ensure immediate state accuracy. Player damage processing outside the safe zone is now automated and time-based, with elimination thresholds and detailed tracking. All infrastructure, permissions, and monitoring are configured for fault tolerance, scalability, and resource efficiency. The system now guarantees both reliable scheduled progression and real-time responsiveness for the shrinking zone feature.
 </info added on 2025-06-05T12:26:24.529Z>
 
-## 5. Implement Damage Outside Zone [pending]
+## 5. Implement Damage Outside Zone [done]
 ### Dependencies: 43.4
 ### Description: Create a system to check player locations against the current shrinking zone and apply damage based on the current stage's configuration.
 ### Details:
 
 
-## 6. Implement Zone Transition Logic [pending]
+## 6. Implement Zone Transition Logic [done]
 ### Dependencies: 43.5
 ### Description: Implement logic to calculate the next zone's center/radius and handle the shrinking process during transitions.
 ### Details:
 
 
-## 7. Implement Zone State Machine [pending]
+## 7. Implement Zone State Machine [done]
 ### Dependencies: 43.6
 ### Description: Create a service or state machine to manage the current shrinking zone stage (Waiting, Shrinking, Idle), center/radius, and timers.
 ### Details:
 
 
-## 8. Define Shrinking Zone Configuration [pending]
+## 8. Define Shrinking Zone Configuration [done]
 ### Dependencies: 43.7
 ### Description: Define and implement storage for shrinking zone stage configurations (wait time, transition time, shrink factor, damage, etc.) within the Game model or settings.
 ### Details:

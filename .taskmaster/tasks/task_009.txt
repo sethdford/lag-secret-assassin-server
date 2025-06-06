@@ -1,6 +1,6 @@
 # Task ID: 9
 # Title: Implement Basic Monetization Infrastructure
-# Status: done
+# Status: in-progress
 # Dependencies: 3, 5
 # Priority: high
 # Description: Set up the core infrastructure for handling payments, including entry fees and in-app purchases.
@@ -8,4 +8,24 @@
 Integrate with Stripe/PayPal for payment processing. Implement endpoints for handling entry fees for pay-to-play games. Create the database structure for tracking transactions. Implement basic in-app purchase functionality. Add support for multiple currencies. Ensure PCI compliance for all payment processing. Implement proper error handling and transaction logging.
 
 # Test Strategy:
-Test payment processing with test accounts. Verify transaction records are correctly created. Test error scenarios like failed payments. Verify fee distribution logic works correctly.
+Test payment processing with test accounts. Verify transaction records are correctly created. Test error scenarios like failed payments. Verify fee distribution logic works correctly. Create comprehensive unit tests for TransactionDao and PaymentHandler components. Implement integration tests to verify the end-to-end flow of payment processing, including transaction recording and PCI compliance validation.
+
+# Subtasks:
+## 9.1. Create Unit Tests for TransactionDao [to-do]
+### Dependencies: None
+### Description: Develop comprehensive unit tests for the TransactionDao component to ensure proper data handling and persistence.
+### Details:
+Write tests for all CRUD operations. Include tests for edge cases such as transaction rollbacks, concurrent transactions, and data validation. Ensure test coverage of at least 85% for the TransactionDao class.
+
+## 9.2. Create Unit Tests for PaymentHandler [to-do]
+### Dependencies: None
+### Description: Develop comprehensive unit tests for the PaymentHandler component to ensure proper payment processing.
+### Details:
+Write tests for payment initiation, processing, and completion flows. Include tests for different payment methods (credit cards, PayPal). Test error handling for declined payments, network failures, and timeout scenarios. Verify PCI compliance aspects such as proper tokenization and secure data handling.
+
+## 9.3. Implement Integration Tests for End-to-End Payment Flow [to-do]
+### Dependencies: None
+### Description: Create integration tests that verify the complete payment processing flow from user initiation to transaction recording.
+### Details:
+Set up test environments with mock payment processors (Stripe/PayPal test accounts). Create test scenarios for entry fee payments and in-app purchases. Verify transaction records are correctly created in the database. Test multi-currency support. Validate proper error handling and transaction logging throughout the flow. Ensure tests cover PCI compliance requirements including secure transmission and storage of payment data.
+

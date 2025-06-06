@@ -26,7 +26,7 @@
       "id": 3,
       "title": "Implement User Authentication System",
       "description": "Create a secure authentication system with OAuth 2.0 support, user registration, login, and token management.",
-      "status": "done",
+      "status": "in-progress",
       "dependencies": [
         1,
         2
@@ -191,13 +191,13 @@
       "id": 7,
       "title": "Implement Target Assignment System",
       "description": "Create the system for assigning targets to players and managing the chain of assignments throughout the game.",
-      "status": "done",
+      "status": "in-progress",
       "dependencies": [
         5
       ],
       "priority": "high",
-      "details": "Implement algorithms for fair and random target assignment. Create functionality for reassigning targets when players are eliminated. Add support for circular assignment chains. Implement target history tracking. Create endpoints for retrieving current target information. Add support for target reassignment through special items.",
-      "testStrategy": "Test target assignment with various player counts. Verify reassignment works correctly after eliminations. Test edge cases like last few players and single-player scenarios.",
+      "details": "Implement algorithms for fair and random target assignment based on game theory principles. Create functionality for reassigning targets when players are eliminated. Add support for circular assignment chains. Implement target history tracking. Create endpoints for retrieving current target information. Add support for target reassignment through special items. Implement the Weapon-Target Assignment (WTA) algorithm for optimal target distribution.",
+      "testStrategy": "Test target assignment with various player counts. Verify reassignment works correctly after eliminations. Test edge cases like last few players and single-player scenarios. Create unit tests for all components of the target assignment system. Implement integration tests to verify the entire target assignment flow. Test API endpoints with different authorization scenarios.",
       "subtasks": [
         {
           "id": 1,
@@ -253,6 +253,66 @@
             "7.3"
           ],
           "parentTaskId": 7
+        },
+        {
+          "id": 6,
+          "title": "Create TargetAssignmentService Implementation",
+          "description": "Implement the TargetAssignmentService class that will handle all target assignment logic. This should include methods for initial assignment, reassignment, and target retrieval.",
+          "details": "The service should implement the algorithms designed in subtask 7.1 and handle all the business logic for target assignments. Consider implementing a game-theoretic approach or the Weapon-Target Assignment (WTA) algorithm for optimal assignments.",
+          "status": "to-do",
+          "dependencies": [
+            "7.1",
+            "7.2",
+            "7.3"
+          ],
+          "parentTaskId": 7
+        },
+        {
+          "id": 7,
+          "title": "Create TargetAssignment Model and DAO",
+          "description": "Implement the TargetAssignment model class and corresponding DAO for database operations.",
+          "details": "The model should include fields for assignerId, targetId, gameId, assignmentDate, and status. The DAO should provide methods for creating, updating, retrieving, and deleting target assignments.",
+          "status": "to-do",
+          "dependencies": [],
+          "parentTaskId": 7
+        },
+        {
+          "id": 8,
+          "title": "Implement Unit Tests for Target Assignment Components",
+          "description": "Create comprehensive unit tests for all target assignment components including models, DAOs, and services.",
+          "details": "Tests should cover all edge cases including single player scenarios, last few players, and circular assignments. Use mocking frameworks to isolate components during testing.",
+          "status": "to-do",
+          "dependencies": [
+            "7.6",
+            "7.7"
+          ],
+          "parentTaskId": 7
+        },
+        {
+          "id": 9,
+          "title": "Implement Integration Tests for Target Assignment Flow",
+          "description": "Create integration tests that verify the entire target assignment flow from initial assignment to reassignment after eliminations.",
+          "details": "Tests should simulate game scenarios with multiple players and verify that target assignments are correctly maintained throughout the game lifecycle.",
+          "status": "to-do",
+          "dependencies": [
+            "7.6",
+            "7.7",
+            "7.8"
+          ],
+          "parentTaskId": 7
+        },
+        {
+          "id": 10,
+          "title": "Test API Endpoints for Target Assignment",
+          "description": "Create tests for all API endpoints related to target assignment to ensure they function correctly with proper authorization.",
+          "details": "Tests should cover successful retrieval of target information as well as error cases such as unauthorized access attempts.",
+          "status": "to-do",
+          "dependencies": [
+            "7.4",
+            "7.6",
+            "7.7"
+          ],
+          "parentTaskId": 7
         }
       ]
     },
@@ -260,7 +320,7 @@
       "id": 8,
       "title": "Implement Elimination Verification System",
       "description": "Develop the system for verifying and recording player eliminations with support for different verification methods.",
-      "status": "done",
+      "status": "in-progress",
       "dependencies": [
         6,
         7
@@ -273,26 +333,49 @@
       "id": 9,
       "title": "Implement Basic Monetization Infrastructure",
       "description": "Set up the core infrastructure for handling payments, including entry fees and in-app purchases.",
-      "status": "done",
+      "status": "in-progress",
       "dependencies": [
         3,
         5
       ],
       "priority": "high",
       "details": "Integrate with Stripe/PayPal for payment processing. Implement endpoints for handling entry fees for pay-to-play games. Create the database structure for tracking transactions. Implement basic in-app purchase functionality. Add support for multiple currencies. Ensure PCI compliance for all payment processing. Implement proper error handling and transaction logging.",
-      "testStrategy": "Test payment processing with test accounts. Verify transaction records are correctly created. Test error scenarios like failed payments. Verify fee distribution logic works correctly."
+      "testStrategy": "Test payment processing with test accounts. Verify transaction records are correctly created. Test error scenarios like failed payments. Verify fee distribution logic works correctly. Create comprehensive unit tests for TransactionDao and PaymentHandler components. Implement integration tests to verify the end-to-end flow of payment processing, including transaction recording and PCI compliance validation.",
+      "subtasks": [
+        {
+          "id": 9.1,
+          "title": "Create Unit Tests for TransactionDao",
+          "description": "Develop comprehensive unit tests for the TransactionDao component to ensure proper data handling and persistence.",
+          "status": "to-do",
+          "details": "Write tests for all CRUD operations. Include tests for edge cases such as transaction rollbacks, concurrent transactions, and data validation. Ensure test coverage of at least 85% for the TransactionDao class."
+        },
+        {
+          "id": 9.2,
+          "title": "Create Unit Tests for PaymentHandler",
+          "description": "Develop comprehensive unit tests for the PaymentHandler component to ensure proper payment processing.",
+          "status": "to-do",
+          "details": "Write tests for payment initiation, processing, and completion flows. Include tests for different payment methods (credit cards, PayPal). Test error handling for declined payments, network failures, and timeout scenarios. Verify PCI compliance aspects such as proper tokenization and secure data handling."
+        },
+        {
+          "id": 9.3,
+          "title": "Implement Integration Tests for End-to-End Payment Flow",
+          "description": "Create integration tests that verify the complete payment processing flow from user initiation to transaction recording.",
+          "status": "to-do",
+          "details": "Set up test environments with mock payment processors (Stripe/PayPal test accounts). Create test scenarios for entry fee payments and in-app purchases. Verify transaction records are correctly created in the database. Test multi-currency support. Validate proper error handling and transaction logging throughout the flow. Ensure tests cover PCI compliance requirements including secure transmission and storage of payment data."
+        }
+      ]
     },
     {
       "id": 10,
       "title": "Implement In-Game Items and Inventory System",
       "description": "Develop the system for managing in-game items, purchases, and player inventories.",
-      "status": "done",
+      "status": "in-progress",
       "dependencies": [
         9
       ],
       "priority": "medium",
-      "details": "Create the item catalog with different types (Radar, Cloak, Safe Zone, etc.). Implement inventory management for players. Create endpoints for purchasing items. Add functionality for using items and applying their effects. Implement cooldowns and duration tracking for temporary items. Create endpoints for retrieving available items and current inventory.",
-      "testStrategy": "Test item purchases and inventory updates. Verify item effects are correctly applied when used. Test duration and cooldown tracking. Verify inventory retrieval returns correct data.",
+      "details": "Create the item catalog with different types (Radar, Cloak, Safe Zone, etc.). Implement inventory management for players. Create endpoints for purchasing items. Add functionality for using items and applying their effects. Implement cooldowns and duration tracking for temporary items. Create endpoints for retrieving available items and current inventory. The database design should follow a single-table approach to allow for operations across multiple entity types in a single query (e.g., removing an item and updating a quest in one operation).",
+      "testStrategy": "Test item purchases and inventory updates. Verify item effects are correctly applied when used. Test duration and cooldown tracking. Verify inventory retrieval returns correct data. Implement both unit tests for individual components and integration tests for the complete flow.",
       "subtasks": [
         {
           "id": 1,
@@ -392,20 +475,152 @@
             "10.7"
           ],
           "parentTaskId": 10
+        },
+        {
+          "id": 10,
+          "title": "Implement Item Model Class",
+          "description": "Create the Item class with all required fields and methods as defined in the model.",
+          "details": "Implement the Item class with fields: itemId, name, description, itemType (enum), price, effects (Map), durationSeconds, isUsable, isStackable. Include getters, setters, and appropriate constructors.",
+          "status": "to-do",
+          "dependencies": [],
+          "parentTaskId": 10
+        },
+        {
+          "id": 11,
+          "title": "Implement PlayerInventoryItem Class",
+          "description": "Create the PlayerInventoryItem class with all required fields and methods as defined in the model.",
+          "details": "Implement the PlayerInventoryItem class with fields: playerId, itemId, quantity, acquiredAt, expiresAt. Include getters, setters, and appropriate constructors.",
+          "status": "to-do",
+          "dependencies": [],
+          "parentTaskId": 10
+        },
+        {
+          "id": 12,
+          "title": "Implement ItemDao Class",
+          "description": "Create the ItemDao class with methods for CRUD operations on items.",
+          "details": "Implement methods for creating, reading, updating, and deleting items in the database. Include batch operations where appropriate.",
+          "status": "to-do",
+          "dependencies": [
+            "10.10"
+          ],
+          "parentTaskId": 10
+        },
+        {
+          "id": 13,
+          "title": "Implement PlayerInventoryDao Class",
+          "description": "Create the PlayerInventoryDao class with methods for CRUD operations on player inventories.",
+          "details": "Implement methods for creating, reading, updating, and deleting player inventory items in the database. Include batch operations and queries for filtering by item type.",
+          "status": "to-do",
+          "dependencies": [
+            "10.11"
+          ],
+          "parentTaskId": 10
+        },
+        {
+          "id": 14,
+          "title": "Implement ItemService Class",
+          "description": "Create the ItemService class with all required methods as defined.",
+          "details": "Implement methods: getAllItems(), getItemById(String itemId), purchaseItem(String playerId, String itemId, String paymentMethodId). Ensure proper integration with PaymentHandler or TransactionDao.",
+          "status": "to-do",
+          "dependencies": [
+            "10.12"
+          ],
+          "parentTaskId": 10
+        },
+        {
+          "id": 15,
+          "title": "Implement PlayerInventoryService Class",
+          "description": "Create the PlayerInventoryService class with all required methods as defined.",
+          "details": "Implement methods: getPlayerInventory(String playerId), grantItemToPlayer(String playerId, String itemId, int quantity), useItem(String playerId, String inventoryItemId, Map<String, Object> context). Ensure proper application of item effects.",
+          "status": "to-do",
+          "dependencies": [
+            "10.13"
+          ],
+          "parentTaskId": 10
+        },
+        {
+          "id": 16,
+          "title": "Implement Item Effects Logic Classes",
+          "description": "Create classes for handling different item type effects.",
+          "details": "Implement logic for each itemType's effect (Radar, Cloak, Safe Zone, etc.), interacting with other services as needed. Create a factory pattern or strategy pattern for handling different item types.",
+          "status": "to-do",
+          "dependencies": [
+            "10.15"
+          ],
+          "parentTaskId": 10
+        },
+        {
+          "id": 17,
+          "title": "Implement API Handlers for Items and Inventory",
+          "description": "Create Lambda handlers for the API endpoints defined for items and inventory.",
+          "details": "Implement handlers for: GET /items; POST /players/me/inventory/purchase; GET /players/me/inventory; POST /players/me/inventory/{inventoryItemId}/use. Ensure proper request validation and error handling.",
+          "status": "to-do",
+          "dependencies": [
+            "10.14",
+            "10.15"
+          ],
+          "parentTaskId": 10
+        },
+        {
+          "id": 18,
+          "title": "Write Unit Tests for Item and Inventory Classes",
+          "description": "Create unit tests for the Item and PlayerInventoryItem classes.",
+          "details": "Write comprehensive unit tests for the Item and PlayerInventoryItem classes, covering all methods and edge cases.",
+          "status": "to-do",
+          "dependencies": [
+            "10.10",
+            "10.11"
+          ],
+          "parentTaskId": 10
+        },
+        {
+          "id": 19,
+          "title": "Write Unit Tests for DAO Classes",
+          "description": "Create unit tests for the ItemDao and PlayerInventoryDao classes.",
+          "details": "Write comprehensive unit tests for the ItemDao and PlayerInventoryDao classes, covering all methods and edge cases. Use mocking for DynamoDB interactions.",
+          "status": "to-do",
+          "dependencies": [
+            "10.12",
+            "10.13"
+          ],
+          "parentTaskId": 10
+        },
+        {
+          "id": 20,
+          "title": "Write Unit Tests for Service Classes",
+          "description": "Create unit tests for the ItemService and PlayerInventoryService classes.",
+          "details": "Write comprehensive unit tests for the ItemService and PlayerInventoryService classes, covering all methods and edge cases. Use mocking for DAO interactions.",
+          "status": "to-do",
+          "dependencies": [
+            "10.14",
+            "10.15"
+          ],
+          "parentTaskId": 10
+        },
+        {
+          "id": 21,
+          "title": "Write Integration Tests for Item and Inventory System",
+          "description": "Create integration tests for the complete item and inventory system.",
+          "details": "Write integration tests that verify the complete flow of the item and inventory system, from API endpoints to database operations. Use LocalDynamoDB for testing.",
+          "status": "to-do",
+          "dependencies": [
+            "10.17"
+          ],
+          "parentTaskId": 10
         }
       ]
     },
     {
       "id": 11,
       "title": "Implement Subscription Tiers",
-      "description": "Develop the subscription system with different tiers (Basic, Hunter, Assassin, Elite) and associated benefits.",
-      "status": "done",
+      "description": "Develop and implement a comprehensive subscription system with different tiers (Basic, Hunter, Assassin, Elite) and associated benefits. Ensure integration with a payment gateway for subscription management and create necessary API endpoints.",
+      "status": "in-progress",
       "dependencies": [
         9
       ],
       "priority": "medium",
-      "details": "Implement subscription management with different tier levels. Create recurring payment handling. Add functionality for tier-specific benefits (in-game currency bonuses, free items, priority access). Implement subscription status tracking and expiration handling. Create endpoints for managing subscriptions (upgrade, downgrade, cancel). Add prorated billing for tier changes.",
-      "testStrategy": "Test subscription creation, updates, and cancellations. Verify tier benefits are correctly applied. Test subscription renewal and expiration handling. Verify proration calculations for tier changes.",
+      "details": "Implement subscription management with different tier levels. Create recurring payment handling. Add functionality for tier-specific benefits (in-game currency bonuses, free items, priority access). Implement subscription status tracking and expiration handling. Create endpoints for managing subscriptions (upgrade, downgrade, cancel). Add prorated billing for tier changes. Ensure all components are properly tested and integrated with Stripe for payment processing.",
+      "testStrategy": "Test subscription creation, updates, and cancellations. Verify tier benefits are correctly applied. Test subscription renewal and expiration handling. Verify proration calculations for tier changes. Conduct unit and integration tests for all implemented components.",
       "subtasks": [
         {
           "id": 1,
@@ -484,6 +699,28 @@
           "dependencies": [
             "11.4",
             "11.5"
+          ],
+          "parentTaskId": 11
+        },
+        {
+          "id": 8,
+          "title": "Implement Tier-Specific Benefits",
+          "description": "Develop functionality to apply tier-specific benefits such as in-game currency bonuses, free items, and priority access.",
+          "details": "Ensure benefits are correctly applied based on the subscription tier. Test each benefit to ensure it functions as expected.",
+          "status": "in-progress",
+          "dependencies": [
+            "11.4"
+          ],
+          "parentTaskId": 11
+        },
+        {
+          "id": 9,
+          "title": "Verify and Test Subscription Tier System",
+          "description": "Conduct thorough testing of the subscription tier system to ensure it meets all requirements and works as expected.",
+          "details": "Verify that all tiers are correctly implemented and that benefits are properly applied. Test subscription upgrades, downgrades, and cancellations.",
+          "status": "in-progress",
+          "dependencies": [
+            "11.8"
           ],
           "parentTaskId": 11
         }
@@ -774,7 +1011,7 @@
       "id": 15,
       "title": "Implement Leaderboards and Achievement System",
       "description": "Develop leaderboards for games and global statistics, along with an achievement system for player engagement.",
-      "status": "done",
+      "status": "in-progress",
       "dependencies": [
         5,
         8
@@ -1843,7 +2080,7 @@
           "title": "Implement Damage Outside Zone",
           "description": "Create a system to check player locations against the current shrinking zone and apply damage based on the current stage's configuration.",
           "details": "",
-          "status": "pending",
+          "status": "done",
           "dependencies": [
             "43.4"
           ],
@@ -1854,7 +2091,7 @@
           "title": "Implement Zone Transition Logic",
           "description": "Implement logic to calculate the next zone's center/radius and handle the shrinking process during transitions.",
           "details": "",
-          "status": "pending",
+          "status": "done",
           "dependencies": [
             "43.5"
           ],
@@ -1865,7 +2102,7 @@
           "title": "Implement Zone State Machine",
           "description": "Create a service or state machine to manage the current shrinking zone stage (Waiting, Shrinking, Idle), center/radius, and timers.",
           "details": "",
-          "status": "pending",
+          "status": "done",
           "dependencies": [
             "43.6"
           ],
@@ -1876,7 +2113,7 @@
           "title": "Define Shrinking Zone Configuration",
           "description": "Define and implement storage for shrinking zone stage configurations (wait time, transition time, shrink factor, damage, etc.) within the Game model or settings.",
           "details": "",
-          "status": "pending",
+          "status": "done",
           "dependencies": [
             "43.7"
           ],
@@ -2079,13 +2316,44 @@
     {
       "id": 57,
       "title": "Fix Configuration Issues in aws-sam-assassin/template.yaml",
-      "description": "Manually correct several configuration issues in the AWS SAM template file, including attribute naming conventions, missing permissions, and parameter type definitions.",
-      "details": "This task requires making three specific corrections to the aws-sam-assassin/template.yaml file:\n\n1. Fix Attribute Naming in ReportsTable Definition:\n   - Locate all lowercased attribute names in the ReportsTable resource definition\n   - Change 'reportid' to 'reportId'\n   - Change 'gameid' to 'gameId'\n   - Ensure all other attribute names follow proper camelCase convention\n   - Verify that any references to these attributes in other parts of the template are also updated\n\n2. Add RekognitionPolicy to KillReportingFunction:\n   - Locate the KillReportingFunction resource in the template\n   - Add or extend the IAM policy to include the 'rekognition:DetectModerationLabels' permission\n   - Ensure the policy is properly structured with appropriate Action, Effect, and Resource elements\n   - Verify the policy is attached to the correct function role\n\n3. Fix LogRetentionInDays Parameter Type:\n   - Find the LogRetentionInDays parameter definition\n   - Change its type from String to Number\n   - Verify all references to this parameter are compatible with the Number type\n   - Ensure any default values are properly formatted as numbers without quotes\n\nThe changes should maintain the overall structure and indentation of the YAML file. After making these changes, validate the template syntax to ensure it remains valid YAML and follows AWS SAM best practices.",
-      "testStrategy": "To verify the task has been completed correctly:\n\n1. YAML Validation:\n   - Run 'aws cloudformation validate-template --template-body file://aws-sam-assassin/template.yaml' to ensure the template is syntactically valid\n   - Use a YAML linter (e.g., yamllint) to check for any formatting issues\n\n2. Attribute Naming Verification:\n   - Search the file for any remaining instances of 'reportid' and 'gameid' to ensure all have been properly renamed\n   - Verify that all attribute references in other parts of the template (such as in GetAtt functions or mapping sections) use the correct camelCase format\n\n3. Permission Testing:\n   - Deploy the template to a test environment using 'sam deploy'\n   - Trigger the KillReportingFunction with a test event that requires the Rekognition service\n   - Verify in CloudWatch Logs that the function can successfully call the rekognition:DetectModerationLabels API without permission errors\n\n4. Parameter Type Testing:\n   - Deploy the template with different values for LogRetentionInDays (e.g., 7, 14, 30)\n   - Verify that the CloudWatch Log Groups are created with the correct retention period\n   - Check the CloudFormation console to ensure the parameter is displayed as a number type\n\n5. Regression Testing:\n   - Run any existing integration tests to ensure the changes don't break existing functionality\n   - Verify that applications or services that interact with the ReportsTable can still read/write data correctly",
+      "description": "Manually correct several configuration issues in the AWS SAM template file, including attribute naming conventions, missing permissions, and parameter type definitions. Address verification failures by ensuring the LogRetentionInDays parameter is correctly typed as Number, updating AllowedValues to use numeric values, adding integration and unit tests for configuration validation, and documenting the changes. Additionally, resolve the validation failure caused by the absence of the AWS SAM CLI by installing it. After installation, re-run 'sam validate --template template.yaml' to confirm the LogRetentionInDays parameter type fix and overall template validity.",
       "status": "done",
       "dependencies": [],
       "priority": "critical",
-      "subtasks": []
+      "details": "This task requires making the following corrections and additions to the aws-sam-assassin/template.yaml file and associated project files:\n\n1. Fix LogRetentionInDays Parameter Type:\n   - Locate the LogRetentionInDays parameter definition (currently on line 20)\n   - Change its type from 'Type: String' to 'Type: Number'\n   - Update AllowedValues to use numeric values (e.g., 7, 14, 30) instead of quoted strings\n   - Ensure all references to this parameter are compatible with the Number type\n   - Ensure any default values are properly formatted as numbers without quotes\n\n2. Attribute Naming in ReportsTable Definition:\n   - Confirm that all lowercased attribute names in the ReportsTable resource definition have been changed to camelCase (e.g., 'reportId', 'gameId')\n   - Verify that no instances of 'reportid' or 'gameid' remain in the template\n   - Ensure all references to these attributes in other parts of the template are also updated\n\n3. RekognitionPolicy for KillReportingFunction:\n   - Confirm that the KillReportingFunction resource includes the 'rekognition:DetectModerationLabels' permission in its IAM policy\n   - Ensure the policy is properly structured with appropriate Action, Effect, and Resource elements\n   - Verify the policy is attached to the correct function role\n\n4. Testing:\n   - Create an integration test to validate successful deployment of the template with the updated parameter type and values\n   - Create a unit test to verify that the LogRetentionInDays parameter is defined as Type: Number and that AllowedValues are numeric\n\n5. Documentation:\n   - Add or update documentation (e.g., README, inline comments, or a dedicated doc file) to explain the configuration changes, especially the parameter type update and its impact on deployments\n\n6. AWS SAM CLI Installation and Validation:\n   - Install the AWS SAM CLI if it is not already present on the system\n   - After installation, run 'sam validate --template template.yaml' to confirm that the template is valid and that the LogRetentionInDays parameter type fix is correctly applied\n\nThe changes should maintain the overall structure and indentation of the YAML file. After making these changes, validate the template syntax to ensure it remains valid YAML and follows AWS SAM best practices.",
+      "testStrategy": "To verify the task has been completed correctly:\n\n1. AWS SAM CLI Installation and Validation:\n   - Install the AWS SAM CLI if not already installed\n   - Run 'sam validate --template template.yaml' to ensure the template is syntactically valid and the LogRetentionInDays parameter type fix is recognized\n\n2. YAML Validation:\n   - Run 'aws cloudformation validate-template --template-body file://aws-sam-assassin/template.yaml' to ensure the template is syntactically valid\n   - Use a YAML linter (e.g., yamllint) to check for any formatting issues\n\n3. Attribute Naming Verification:\n   - Search the file for any remaining instances of 'reportid' and 'gameid' to ensure all have been properly renamed\n   - Verify that all attribute references in other parts of the template (such as in GetAtt functions or mapping sections) use the correct camelCase format\n\n4. Permission Testing:\n   - Deploy the template to a test environment using 'sam deploy'\n   - Trigger the KillReportingFunction with a test event that requires the Rekognition service\n   - Verify in CloudWatch Logs that the function can successfully call the rekognition:DetectModerationLabels API without permission errors\n\n5. Parameter Type Testing:\n   - Deploy the template with different values for LogRetentionInDays (e.g., 7, 14, 30)\n   - Verify that the CloudWatch Log Groups are created with the correct retention period\n   - Check the CloudFormation console to ensure the parameter is displayed as a number type\n   - Run the new unit test to confirm the parameter type and AllowedValues\n\n6. Integration Testing:\n   - Run the new integration test to validate template deployment and parameter handling\n\n7. Regression Testing:\n   - Run any existing integration tests to ensure the changes don't break existing functionality\n   - Verify that applications or services that interact with the ReportsTable can still read/write data correctly\n\n8. Documentation Verification:\n   - Review the updated documentation to ensure it clearly explains the configuration changes and their impact",
+      "subtasks": [
+        {
+          "id": "57-1",
+          "title": "Change LogRetentionInDays parameter type to Number and update AllowedValues",
+          "status": "done",
+          "description": "Edit template.yaml to change LogRetentionInDays parameter type from String to Number. Update AllowedValues to use numeric values (e.g., 7, 14, 30) instead of quoted strings. Ensure all references and defaults are compatible with Number type."
+        },
+        {
+          "id": "57-2",
+          "title": "Create integration test for template deployment",
+          "status": "done",
+          "description": "Develop an integration test that deploys the template and verifies successful deployment and correct handling of the LogRetentionInDays parameter as a Number."
+        },
+        {
+          "id": "57-3",
+          "title": "Create unit test to verify parameter types and structure",
+          "status": "done",
+          "description": "Write a unit test that parses template.yaml and asserts that LogRetentionInDays is defined as Type: Number and that AllowedValues are numeric."
+        },
+        {
+          "id": "57-4",
+          "title": "Add documentation for configuration changes",
+          "status": "done",
+          "description": "Update project documentation (README, inline comments, or a dedicated doc file) to explain the LogRetentionInDays parameter type change, the rationale, and any impacts on deployment or usage."
+        },
+        {
+          "id": "57-5",
+          "title": "Install AWS SAM CLI and re-run template validation",
+          "status": "done",
+          "description": "Install the AWS SAM CLI on the development environment. After installation, run 'sam validate --template template.yaml' to confirm that the template is valid and that the LogRetentionInDays parameter type fix is correctly applied."
+        }
+      ]
     },
     {
       "id": 58,

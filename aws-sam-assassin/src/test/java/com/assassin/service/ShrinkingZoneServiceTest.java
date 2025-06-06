@@ -34,6 +34,7 @@ import com.assassin.config.ZonePhase;
 import com.assassin.dao.GameDao;
 import com.assassin.dao.GameZoneStateDao;
 import com.assassin.dao.PlayerDao;
+import com.assassin.dao.SafeZoneDao;
 import com.assassin.exception.GameNotFoundException;
 import com.assassin.exception.GameStateException;
 import com.assassin.model.Coordinate;
@@ -42,6 +43,7 @@ import com.assassin.model.GameStatus;
 import com.assassin.model.GameZoneState;
 import com.assassin.model.ShrinkingZoneStage;
 import com.assassin.util.GeoUtils;
+
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT) // Apply lenient strictness globally
@@ -53,12 +55,16 @@ class ShrinkingZoneServiceTest {
     private GameZoneStateDao gameZoneStateDao;
     @Mock
     private PlayerDao playerDao;
+        @Mock
+    private SafeZoneDao safeZoneDao;
     @Mock
     private MapConfigurationService mapConfigService;
+    
     @Mock
     private GeoUtils geoUtils;
     @Mock
     private Clock mockClock;
+
 
     private ShrinkingZoneService shrinkingZoneService;
 
@@ -113,6 +119,7 @@ class ShrinkingZoneServiceTest {
 
         testGame.setSettings(Map.of("shrinkingZoneConfig", testConfig));
 
+        // mapConfigService is now mocked, no need to instantiate
         shrinkingZoneService = Mockito.spy(new ShrinkingZoneService(gameDao, gameZoneStateDao, playerDao));
         
         // Set up common mocks with lenient()

@@ -1,6 +1,6 @@
 # Task ID: 8
 # Title: Implement Elimination Verification System
-# Status: done
+# Status: in-progress
 # Dependencies: 6, 7
 # Priority: high
 # Description: Develop the system for verifying and recording player eliminations with support for different verification methods.

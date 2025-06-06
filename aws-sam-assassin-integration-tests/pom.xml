@@ -132,8 +132,9 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven.surefire.version}</version>
                 <configuration>
-                    <!-- Configure Surefire for integration tests if needed -->
-                    <!-- Example: <includes><include>**/*IT.java</include></includes> -->
+                    <systemPropertyVariables>
+                        <api.endpoint.url>http://localhost:3000</api.endpoint.url>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
              <plugin>
@@ -144,6 +145,19 @@
                      <source>${maven.compiler.source}</source>
                      <target>${maven.compiler.target}</target>
                  </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
