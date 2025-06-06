@@ -16,9 +16,10 @@ import com.assassin.exception.PlayerPersistenceException;
 import com.assassin.exception.ValidationException;
 import com.assassin.model.LocationUpdateInput;
 import com.assassin.service.LocationService;
+import com.assassin.util.GsonUtil;
 import com.assassin.util.HandlerUtils;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
 
 /**
  * Handles incoming requests related to player location updates.
@@ -26,7 +27,7 @@ import com.google.gson.GsonBuilder;
 public class LocationHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(LocationHandler.class);
-    private static final Gson gson = new GsonBuilder().create(); // No pretty printing for efficiency
+    private static final Gson gson = GsonUtil.getGson();
     private final LocationService locationService;
 
     public LocationHandler() {

@@ -12,8 +12,8 @@ import com.assassin.dao.NotificationDao;
 import com.assassin.model.Notification;
 import com.assassin.model.WebSocketConnection;
 import com.assassin.util.DynamoDbClientProvider;
+import com.assassin.util.GsonUtil;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
@@ -36,12 +36,12 @@ import software.amazon.awssdk.services.dynamodb.model.DynamoDbException;
 public class NotificationService {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationService.class);
+    private static final Gson gson = GsonUtil.getGson();
     private final NotificationDao notificationDao;
     private final DynamoDbTable<WebSocketConnection> connectionsTable;
     private final DynamoDbIndex<WebSocketConnection> connectionsByPlayerIndex;
     private static final String CONNECTIONS_TABLE_NAME = System.getenv("CONNECTIONS_TABLE_NAME");
     private static final String PLAYER_ID_INDEX_NAME = "PlayerIdIndex";
-    private static final Gson gson = new GsonBuilder().create();
 
     // Lazy initialization for the ApiGatewayManagementApiClient
     private ApiGatewayManagementApiClient apiGatewayManagementApiClient = null;

@@ -15,8 +15,8 @@ import com.assassin.exception.ValidationException;
 import com.assassin.model.Notification;
 import com.assassin.service.NotificationService;
 import com.assassin.util.HandlerUtils;
+import com.assassin.util.GsonUtil;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 
 /**
  * Handles API Gateway requests related to notifications.
@@ -24,7 +24,7 @@ import com.google.gson.GsonBuilder;
 public class NotificationHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationHandler.class);
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson gson = GsonUtil.getGson();
     private final NotificationService notificationService;
 
     /**

@@ -16,9 +16,9 @@ import com.assassin.dao.PlayerDao;
 import com.assassin.exception.PlayerNotFoundException;
 import com.assassin.exception.ValidationException;
 import com.assassin.model.Player;
+import com.assassin.util.GsonUtil;
 import com.assassin.util.HandlerUtils;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 
 /**
  * Handler for player management operations.
@@ -27,7 +27,7 @@ import com.google.gson.GsonBuilder;
 public class PlayerHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(PlayerHandler.class);
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson gson = GsonUtil.getGson();
     private final PlayerDao playerDao;
     
     /**

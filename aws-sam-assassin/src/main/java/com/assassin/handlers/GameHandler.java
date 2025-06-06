@@ -22,9 +22,9 @@ import com.assassin.exception.ValidationException;
 import com.assassin.model.Game;
 import com.assassin.model.Coordinate; // Import Coordinate
 import com.assassin.service.GameService;
+import com.assassin.util.GsonUtil;
 import com.assassin.util.HandlerUtils;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.reflect.TypeToken; // Import TypeToken
@@ -36,13 +36,14 @@ import java.lang.reflect.Type; // Import Type
 public class GameHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(GameHandler.class);
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson gson = GsonUtil.getGson();
+
     private final GameService gameService;
 
     // Regex patterns for path matching
     private static final Pattern PLAYER_IN_GAME_PATTERN = Pattern.compile("/games/([^/]+)/players/([^/]+)$");
-    private static final Pattern GAME_ACTION_PATTERN = Pattern.compile("/games/([^/]+)/(\\w+)$"); // Fix: Use \\w for Java regex escape
-    private static final Pattern GAME_BOUNDARY_PATTERN = Pattern.compile("/games/([^/]+)/boundary$"); // New pattern for boundary
+    private static final Pattern GAME_ACTION_PATTERN = Pattern.compile("/games/([^/]+)/(\\w+)$");
+    private static final Pattern GAME_BOUNDARY_PATTERN = Pattern.compile("/games/([^/]+)/boundary$");
     private static final Pattern GAME_ID_PATTERN = Pattern.compile("/games/([^/]+)$");
 
     // Default constructor initializes the service

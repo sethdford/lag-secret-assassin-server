@@ -20,15 +20,15 @@ import com.assassin.exception.UnauthorizedException;
 import com.assassin.exception.ValidationException;
 import com.assassin.model.SafeZone;
 import com.assassin.service.SafeZoneService;
+import com.assassin.util.GsonUtil;
 import com.assassin.util.HandlerUtils;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 
 public class SafeZoneHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(SafeZoneHandler.class);
-    private static final Gson gson = new GsonBuilder().create();
+    private static final Gson gson = GsonUtil.getGson();
     private final SafeZoneService safeZoneService;
 
     public SafeZoneHandler() {

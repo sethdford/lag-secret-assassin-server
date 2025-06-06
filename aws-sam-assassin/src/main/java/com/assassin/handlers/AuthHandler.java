@@ -13,8 +13,8 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.assassin.service.AuthService;
 import com.assassin.service.PlayerService;
+import com.assassin.util.GsonUtil;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
@@ -28,13 +28,13 @@ import software.amazon.awssdk.services.cognitoidentityprovider.model.CognitoIden
 public class AuthHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthHandler.class);
-    private static final Gson gson = new GsonBuilder().create();
+    private static final Gson gson = GsonUtil.getGson();
     
     private final AuthService authService;
     private final PlayerService playerService;
 
     /**
-     * Default constructor.
+     * Default constructor initializes the services.
      */
     public AuthHandler() {
         this.authService = new AuthService();
@@ -42,7 +42,7 @@ public class AuthHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
     }
 
     /**
-     * Constructor with dependency injection for testability.
+     * Constructor for dependency injection (testing).
      * 
      * @param authService The authentication service
      * @param playerService The player service for syncing profiles

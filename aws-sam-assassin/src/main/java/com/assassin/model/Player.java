@@ -268,6 +268,81 @@ public class Player {
         this.lastZoneDamageTimestamp = lastZoneDamageTimestamp;
     }
 
+    // Subscription related fields
+    private String currentSubscriptionTierId; // Current subscription tier (basic, hunter, assassin, elite)
+    private String subscriptionValidUntil;    // ISO 8601 format - when subscription expires
+    private String stripeSubscriptionId;      // Stripe subscription ID for billing management
+
+    @DynamoDbAttribute("CurrentSubscriptionTierId")
+    public String getCurrentSubscriptionTierId() {
+        return currentSubscriptionTierId != null ? currentSubscriptionTierId : SubscriptionTier.BASIC.getTierId();
+    }
+
+    public void setCurrentSubscriptionTierId(String currentSubscriptionTierId) {
+        this.currentSubscriptionTierId = currentSubscriptionTierId;
+    }
+
+    @DynamoDbAttribute("SubscriptionValidUntil")
+    public String getSubscriptionValidUntil() {
+        return subscriptionValidUntil;
+    }
+
+    public void setSubscriptionValidUntil(String subscriptionValidUntil) {
+        this.subscriptionValidUntil = subscriptionValidUntil;
+    }
+
+    @DynamoDbAttribute("StripeSubscriptionId")
+    public String getStripeSubscriptionId() {
+        return stripeSubscriptionId;
+    }
+
+    public void setStripeSubscriptionId(String stripeSubscriptionId) {
+        this.stripeSubscriptionId = stripeSubscriptionId;
+    }
+
+    /**
+     * Get the player's current subscription tier as an enum.
+     * Defaults to BASIC if no tier is set or if the tier is invalid.
+     */
+    public SubscriptionTier getSubscriptionTier() {
+        return SubscriptionTier.fromTierId(currentSubscriptionTierId);
+    }
+
+    /**
+     * Set the player's subscription tier using the enum.
+     */
+    public void setSubscriptionTier(SubscriptionTier tier) {
+        this.currentSubscriptionTierId = tier != null ? tier.getTierId() : SubscriptionTier.BASIC.getTierId();
+    }
+
+    /**
+     * Check if the player's subscription is currently active (not expired).
+     */
+    public boolean hasActiveSubscription() {
+        if (subscriptionValidUntil == null) {
+            // If no expiration is set, treat Basic tier as always active
+            return SubscriptionTier.fromTierId(currentSubscriptionTierId) == SubscriptionTier.BASIC;
+        }
+        
+        try {
+            java.time.Instant expirationTime = java.time.Instant.parse(subscriptionValidUntil);
+            return java.time.Instant.now().isBefore(expirationTime);
+        } catch (Exception e) {
+            // If we can't parse the expiration time, default to expired
+            return false;
+        }
+    }
+
+    /**
+     * Check if the player has access to a specific subscription benefit.
+     */
+    public boolean hasSubscriptionBenefit(String benefit) {
+        if (!hasActiveSubscription()) {
+            return SubscriptionTier.BASIC.hasBenefit(benefit);
+        }
+        return getSubscriptionTier().hasBenefit(benefit);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -290,6 +365,8 @@ public class Player {
                ", targetID='" + targetID + '\'' +
                ", status='" + status + '\'' +
                ", locationTimestamp='" + locationTimestamp + '\'' +
+               ", subscriptionTier='" + getSubscriptionTier().getTierId() + '\'' +
+               ", subscriptionActive=" + hasActiveSubscription() +
                '}';
     }
 } 

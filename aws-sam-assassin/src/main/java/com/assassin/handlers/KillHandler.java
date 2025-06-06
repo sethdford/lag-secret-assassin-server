@@ -22,8 +22,8 @@ import com.assassin.exception.ValidationException;
 import com.assassin.model.Kill;
 import com.assassin.service.KillService;
 import com.assassin.util.HandlerUtils;
+import com.assassin.util.GsonUtil;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.reflect.TypeToken;
 
@@ -33,7 +33,7 @@ import com.google.gson.reflect.TypeToken;
 public class KillHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(KillHandler.class);
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson gson = GsonUtil.getGson();
     private final KillService killService;
 
     // Default constructor initializes the service
