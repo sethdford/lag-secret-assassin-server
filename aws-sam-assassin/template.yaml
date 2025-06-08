@@ -1570,6 +1570,144 @@ Resources:
             Auth:
               Authorizer: CognitoAuthorizer
 
+  MapHandlerFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - PlayersTable
+      - GamesTable
+      - GameZoneStateTable
+      - SafeZoneTable
+    Properties:
+      CodeUri: .
+      Handler: com.assassin.handlers.MapHandler::handleRequest
+      FunctionName: !Sub assassin-map-handler-${Environment}
+      Environment:
+        Variables:
+          PLAYERS_TABLE_NAME: !Ref PlayersTable
+          GAMES_TABLE_NAME: !Ref GamesTable
+          GAME_ZONE_STATE_TABLE_NAME: !Ref GameZoneStateTable
+          SAFE_ZONES_TABLE_NAME: !Ref SafeZoneTable
+          LOG_LEVEL: INFO
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref PlayersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref GamesTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref GameZoneStateTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref SafeZoneTable
+      Events:
+        GetMapConfig:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /games/{gameId}/map/config
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetZoneOverlays:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /games/{gameId}/map/zones
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetActivityHeatmap:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /games/{gameId}/map/heatmap
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetProximityData:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /games/{gameId}/map/proximity
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetGameBoundary:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /games/{gameId}/map/boundary
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  AdminHandlerFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - PlayersTable
+      - GamesTable
+    Properties:
+      CodeUri: .
+      Handler: com.assassin.handlers.AdminHandler::handleRequest
+      FunctionName: !Sub assassin-admin-handler-${Environment}
+      Environment:
+        Variables:
+          PLAYERS_TABLE_NAME: !Ref PlayersTable
+          GAMES_TABLE_NAME: !Ref GamesTable
+          LOG_LEVEL: INFO
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref PlayersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref GamesTable
+      Events:
+        AdminTimeline:
+          Type: Api
+          Properties:
+            Path: /admin/games/{gameId}/timeline
+            Method: get
+            RestApiId: !Ref AssassinApi
+            Auth:
+              Authorizer: CognitoAuthorizer
+        AdminOverview:
+          Type: Api
+          Properties:
+            Path: /admin/games/{gameId}/overview
+            Method: get
+            RestApiId: !Ref AssassinApi
+            Auth:
+              Authorizer: CognitoAuthorizer
+        AdminPlayers:
+          Type: Api
+          Properties:
+            Path: /admin/games/{gameId}/players
+            Method: get
+            RestApiId: !Ref AssassinApi
+            Auth:
+              Authorizer: CognitoAuthorizer
+        AdminAnalytics:
+          Type: Api
+          Properties:
+            Path: /admin/games/{gameId}/analytics
+            Method: get
+            RestApiId: !Ref AssassinApi
+            Auth:
+              Authorizer: CognitoAuthorizer
+        AdminGames:
+          Type: Api
+          Properties:
+            Path: /admin/games
+            Method: get
+            RestApiId: !Ref AssassinApi
+            Auth:
+              Authorizer: CognitoAuthorizer
+        AdminHealth:
+          Type: Api
+          Properties:
+            Path: /admin/system/health
+            Method: get
+            RestApiId: !Ref AssassinApi
+            Auth:
+              Authorizer: CognitoAuthorizer
+
   ZoneUpdateFunction:
     Type: AWS::Serverless::Function
     DependsOn:

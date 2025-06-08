@@ -36,6 +36,12 @@ public class Player {
     private Double lastKnownLongitude;
     private String locationTimestamp; // ISO 8601 format
     private Double locationAccuracy;
+    
+    // Privacy and location sharing controls
+    private Boolean locationSharingEnabled = true; // Whether player allows location sharing
+    private String locationVisibility = "GAME_ONLY"; // GAME_ONLY, TEAM_ONLY, FRIENDS_ONLY, PRIVATE
+    private Boolean proximityAlertsEnabled = true; // Whether to receive proximity alerts
+    private Boolean trackingHistoryEnabled = true; // Whether to store location history
 
     // Shrinking Zone related fields
     private String firstEnteredOutOfZoneTimestamp; // ISO 8601 format
@@ -248,6 +254,42 @@ public class Player {
 
     public void setLocationAccuracy(Double locationAccuracy) {
         this.locationAccuracy = locationAccuracy;
+    }
+
+    @DynamoDbAttribute("LocationSharingEnabled")
+    public Boolean getLocationSharingEnabled() {
+        return locationSharingEnabled != null ? locationSharingEnabled : true;
+    }
+
+    public void setLocationSharingEnabled(Boolean locationSharingEnabled) {
+        this.locationSharingEnabled = locationSharingEnabled;
+    }
+
+    @DynamoDbAttribute("LocationVisibility")
+    public String getLocationVisibility() {
+        return locationVisibility != null ? locationVisibility : "GAME_ONLY";
+    }
+
+    public void setLocationVisibility(String locationVisibility) {
+        this.locationVisibility = locationVisibility;
+    }
+
+    @DynamoDbAttribute("ProximityAlertsEnabled")
+    public Boolean getProximityAlertsEnabled() {
+        return proximityAlertsEnabled != null ? proximityAlertsEnabled : true;
+    }
+
+    public void setProximityAlertsEnabled(Boolean proximityAlertsEnabled) {
+        this.proximityAlertsEnabled = proximityAlertsEnabled;
+    }
+
+    @DynamoDbAttribute("TrackingHistoryEnabled")
+    public Boolean getTrackingHistoryEnabled() {
+        return trackingHistoryEnabled != null ? trackingHistoryEnabled : true;
+    }
+
+    public void setTrackingHistoryEnabled(Boolean trackingHistoryEnabled) {
+        this.trackingHistoryEnabled = trackingHistoryEnabled;
     }
 
     @DynamoDbAttribute("FirstEnteredOutOfZoneTimestamp")
