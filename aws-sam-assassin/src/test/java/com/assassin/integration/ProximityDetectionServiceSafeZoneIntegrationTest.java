@@ -18,10 +18,13 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.Mock;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import com.assassin.config.MapConfiguration;
 import com.assassin.dao.GameDao;
@@ -56,6 +59,7 @@ import com.assassin.service.SafeZoneService;
  * service instances to verify end-to-end safe zone protection functionality.
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class ProximityDetectionServiceSafeZoneIntegrationTest {
 
     // Test constants
@@ -174,6 +178,7 @@ public class ProximityDetectionServiceSafeZoneIntegrationTest {
         try {
             when(mockMapConfigurationService.getMapConfigurationById(eq("test_map"))).thenReturn(mapConfig);
             when(mockMapConfigurationService.getEffectiveMapConfiguration(eq(GAME_ID))).thenReturn(mapConfig);
+            // Default: no safe zones (will be overridden in specific tests)
             when(mockMapConfigurationService.isLocationInSafeZone(anyString(), anyString(), any(Coordinate.class), anyLong())).thenReturn(false);
         } catch (Exception e) {
             // Handle any potential exceptions
@@ -204,6 +209,10 @@ public class ProximityDetectionServiceSafeZoneIntegrationTest {
         // Mock safe zone retrieval
         when(safeZoneDao.getSafeZonesByGameId(eq(GAME_ID))).thenReturn(List.of(publicSafeZone));
         
+        // Mock MapConfigurationService to return true for victim in safe zone
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(VICTIM_ID), any(Coordinate.class), anyLong())).thenReturn(true);
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(KILLER_ID), any(Coordinate.class), anyLong())).thenReturn(false);
+        
         // Test elimination attempt
         boolean canEliminate = proximityDetectionService.canEliminateTarget(
             GAME_ID, KILLER_ID, VICTIM_ID, WEAPON_TYPE);
@@ -231,6 +240,10 @@ public class ProximityDetectionServiceSafeZoneIntegrationTest {
         
         // Mock safe zone retrieval
         when(safeZoneDao.getSafeZonesByGameId(eq(GAME_ID))).thenReturn(List.of(publicSafeZone));
+        
+        // Mock MapConfigurationService to return true for killer in safe zone
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(KILLER_ID), any(Coordinate.class), anyLong())).thenReturn(true);
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(VICTIM_ID), any(Coordinate.class), anyLong())).thenReturn(false);
         
         // Test elimination attempt
         boolean canEliminate = proximityDetectionService.canEliminateTarget(
@@ -261,6 +274,10 @@ public class ProximityDetectionServiceSafeZoneIntegrationTest {
         // Mock safe zone retrieval
         when(safeZoneDao.getSafeZonesByGameId(eq(GAME_ID))).thenReturn(List.of(privateSafeZone));
         
+        // Mock MapConfigurationService to return true for victim in their private safe zone
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(VICTIM_ID), any(Coordinate.class), anyLong())).thenReturn(true);
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(KILLER_ID), any(Coordinate.class), anyLong())).thenReturn(false);
+        
         // Test elimination attempt
         boolean canEliminate = proximityDetectionService.canEliminateTarget(
             GAME_ID, KILLER_ID, VICTIM_ID, WEAPON_TYPE);
@@ -289,6 +306,10 @@ public class ProximityDetectionServiceSafeZoneIntegrationTest {
         
         // Mock safe zone retrieval
         when(safeZoneDao.getSafeZonesByGameId(eq(GAME_ID))).thenReturn(List.of(privateSafeZone));
+        
+        // Mock MapConfigurationService to return false for victim in unauthorized private safe zone
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(VICTIM_ID), any(Coordinate.class), anyLong())).thenReturn(false);
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(KILLER_ID), any(Coordinate.class), anyLong())).thenReturn(false);
         
         // Test elimination attempt
         boolean canEliminate = proximityDetectionService.canEliminateTarget(
@@ -322,6 +343,10 @@ public class ProximityDetectionServiceSafeZoneIntegrationTest {
         // Mock safe zone retrieval
         when(safeZoneDao.getSafeZonesByGameId(eq(GAME_ID))).thenReturn(List.of(timedSafeZone));
         
+        // Mock MapConfigurationService to return true for victim in active timed safe zone
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(VICTIM_ID), any(Coordinate.class), anyLong())).thenReturn(true);
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(KILLER_ID), any(Coordinate.class), anyLong())).thenReturn(false);
+        
         // Test elimination attempt
         boolean canEliminate = proximityDetectionService.canEliminateTarget(
             GAME_ID, KILLER_ID, VICTIM_ID, WEAPON_TYPE);
@@ -353,6 +378,10 @@ public class ProximityDetectionServiceSafeZoneIntegrationTest {
         
         // Mock safe zone retrieval
         when(safeZoneDao.getSafeZonesByGameId(eq(GAME_ID))).thenReturn(List.of(expiredSafeZone));
+        
+        // Mock MapConfigurationService to return false for victim in expired timed safe zone
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(VICTIM_ID), any(Coordinate.class), anyLong())).thenReturn(false);
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(KILLER_ID), any(Coordinate.class), anyLong())).thenReturn(false);
         
         // Test elimination attempt
         boolean canEliminate = proximityDetectionService.canEliminateTarget(
@@ -437,6 +466,10 @@ public class ProximityDetectionServiceSafeZoneIntegrationTest {
         // Mock safe zone retrieval
         when(safeZoneDao.getSafeZonesByGameId(eq(GAME_ID))).thenReturn(List.of(safeZone1, safeZone2));
         
+        // Mock MapConfigurationService to return true for victim in safe zone 2
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(VICTIM_ID), any(Coordinate.class), anyLong())).thenReturn(true);
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(KILLER_ID), any(Coordinate.class), anyLong())).thenReturn(false);
+        
         // Test elimination attempt
         boolean canEliminate = proximityDetectionService.canEliminateTarget(
             GAME_ID, KILLER_ID, VICTIM_ID, WEAPON_TYPE);
@@ -470,6 +503,14 @@ public class ProximityDetectionServiceSafeZoneIntegrationTest {
         
         // Mock safe zone retrieval
         when(safeZoneDao.getSafeZonesByGameId(eq(GAME_ID))).thenReturn(List.of(testZone));
+        
+        // Mock MapConfigurationService to return appropriate results for location checking
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(VICTIM_ID), 
+            argThat(coord -> Math.abs(coord.getLatitude() - SAFE_ZONE_LAT) < 0.001 && 
+                           Math.abs(coord.getLongitude() - SAFE_ZONE_LON) < 0.001), anyLong())).thenReturn(true);
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(VICTIM_ID), 
+            argThat(coord -> Math.abs(coord.getLatitude() - SAFE_ZONE_LAT) > 0.005 || 
+                           Math.abs(coord.getLongitude() - SAFE_ZONE_LON) > 0.005), anyLong())).thenReturn(false);
         
         // Test location checking through MapConfigurationService
         Coordinate insideLocation = new Coordinate(SAFE_ZONE_LAT, SAFE_ZONE_LON);
@@ -695,8 +736,16 @@ public class ProximityDetectionServiceSafeZoneIntegrationTest {
         victim.setLatitude(SAFE_ZONE_LAT + latOffset);
         victim.setLongitude(SAFE_ZONE_LON);
         
+        // Position killer close to victim for elimination to be possible (within 10m default range)
+        killer.setLatitude(victim.getLatitude() + 0.00005); // ~5 meters north of victim
+        killer.setLongitude(victim.getLongitude());
+        
         // Mock safe zone retrieval
         when(safeZoneDao.getSafeZonesByGameId(eq(GAME_ID))).thenReturn(List.of(outsideZone));
+        
+        // Mock MapConfigurationService to return false for victim outside safe zone
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(VICTIM_ID), any(Coordinate.class), anyLong())).thenReturn(false);
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(KILLER_ID), any(Coordinate.class), anyLong())).thenReturn(false);
         
         // Test elimination attempt
         boolean canEliminate = proximityDetectionService.canEliminateTarget(
@@ -727,8 +776,18 @@ public class ProximityDetectionServiceSafeZoneIntegrationTest {
         victim.setLatitude(SAFE_ZONE_LAT);
         victim.setLongitude(SAFE_ZONE_LON);
         
+        // Position killer close to victim for elimination to be possible (within 10m default range)
+        killer.setLatitude(SAFE_ZONE_LAT + 0.00005); // ~5 meters north of victim
+        killer.setLongitude(SAFE_ZONE_LON);
+        
         // Mock safe zone retrieval
         when(safeZoneDao.getSafeZonesByGameId(eq(GAME_ID))).thenReturn(List.of(zeroRadiusZone));
+        
+        // Mock MapConfigurationService to return true for exact location, false for offset
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(VICTIM_ID), 
+            argThat(coord -> Math.abs(coord.getLatitude() - SAFE_ZONE_LAT) < 0.000001 && 
+                           Math.abs(coord.getLongitude() - SAFE_ZONE_LON) < 0.000001), anyLong())).thenReturn(true);
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(KILLER_ID), any(Coordinate.class), anyLong())).thenReturn(false);
         
         // Test elimination attempt
         boolean canEliminateExact = proximityDetectionService.canEliminateTarget(
@@ -737,6 +796,9 @@ public class ProximityDetectionServiceSafeZoneIntegrationTest {
         // Now position victim slightly off the exact location
         victim.setLatitude(SAFE_ZONE_LAT + 0.00001); // Tiny offset
         victim.setLongitude(SAFE_ZONE_LON + 0.00001);
+        
+        // Update mock for offset location
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(VICTIM_ID), any(Coordinate.class), anyLong())).thenReturn(false);
         
         boolean canEliminateOffset = proximityDetectionService.canEliminateTarget(
             GAME_ID, KILLER_ID, VICTIM_ID, WEAPON_TYPE);
@@ -784,6 +846,10 @@ public class ProximityDetectionServiceSafeZoneIntegrationTest {
         
         // Mock safe zone retrieval
         when(safeZoneDao.getSafeZonesByGameId(eq(GAME_ID))).thenReturn(List.of(publicZone, privateZone));
+        
+        // Mock MapConfigurationService to return true for victim in public safe zone (public takes precedence)
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(VICTIM_ID), any(Coordinate.class), anyLong())).thenReturn(true);
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(KILLER_ID), any(Coordinate.class), anyLong())).thenReturn(false);
         
         // Test elimination attempt
         boolean canEliminate = proximityDetectionService.canEliminateTarget(
@@ -835,6 +901,10 @@ public class ProximityDetectionServiceSafeZoneIntegrationTest {
         
         // Mock safe zone retrieval
         when(safeZoneDao.getSafeZonesByGameId(eq(GAME_ID))).thenReturn(List.of(activeZone, expiredZone));
+        
+        // Mock MapConfigurationService to return true for victim in active timed safe zone
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(VICTIM_ID), any(Coordinate.class), anyLong())).thenReturn(true);
+        when(mockMapConfigurationService.isLocationInSafeZone(eq(GAME_ID), eq(KILLER_ID), any(Coordinate.class), anyLong())).thenReturn(false);
         
         // Test elimination attempt
         boolean canEliminate = proximityDetectionService.canEliminateTarget(

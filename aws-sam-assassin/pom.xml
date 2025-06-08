@@ -120,6 +120,13 @@
             <!-- Version managed by BOM -->
         </dependency>
 
+        <!-- AWS SDK v2 CloudWatch for security metrics -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>cloudwatch</artifactId>
+            <!-- Version managed by BOM -->
+        </dependency>
+
         <!-- Logging -->
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -255,6 +262,8 @@
             <artifactId>stripe-java</artifactId>
             <version>${stripe.version}</version>
         </dependency>
+
+
 
     </dependencies>
 

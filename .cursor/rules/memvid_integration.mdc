@@ -1,0 +1,55 @@
+---
+description: Memvid knowledge base integration for project context and clarity
+globs: **/*
+alwaysApply: true
+---
+# Memvid Knowledge Base Integration
+
+## Purpose
+This rule enables Cursor to access the project's Memvid knowledge base for context and clarity instead of making assumptions.
+
+## When to Use Memvid
+
+### Always Use Before:
+- Making assumptions about project architecture
+- Implementing new features without context
+- Writing tests without understanding patterns
+- Making technical decisions
+- Suggesting code changes
+
+### Search Queries Examples:
+- "How does the shrinking zone work?"
+- "What are the testing patterns used?"
+- "What is the DynamoDB schema?"
+- "How is authentication implemented?"
+- "What are the subscription tiers?"
+
+## Integration Commands
+
+Use these Python commands to query the knowledge base:
+
+```python
+# Search for specific information
+from cursor_memvid_integration import CursorMemvidClient
+client = CursorMemvidClient()
+
+# Check if server is available
+if client.is_server_available():
+    # Search for information
+    response = client.search_knowledge("your query here")
+    
+    # Ask comprehensive questions
+    answer = client.ask_question("How should I implement feature X?")
+    print(answer)
+else:
+    print("Start Memvid server: python3 memvid_integration.py --start-server")
+```
+
+## Best Practices
+
+- **Search First**: Always search before making assumptions
+- **Be Specific**: Use specific queries for better results
+- **Verify Information**: Cross-reference with multiple sources
+- **Update Knowledge**: Suggest updates when information is outdated
+
+Remember: **Always prefer Memvid knowledge over assumptions!**

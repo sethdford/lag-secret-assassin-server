@@ -184,7 +184,11 @@ public class KillService {
              Player victim = playerDao.getPlayerById(victimId)
                 .orElseThrow(() -> new ValidationException("Victim with ID " + victimId + " not found."));
              if (!PlayerStatus.ACTIVE.name().equals(victim.getStatus())) {
-                 throw new ValidationException("Victim " + victimId + " is not active in the game.");
+                 if (PlayerStatus.PENDING_DEATH.name().equals(victim.getStatus())) {
+                     throw new ValidationException("Victim " + victimId + " already has a pending kill report awaiting verification.");
+                 } else {
+                     throw new ValidationException("Victim " + victimId + " is not active in the game (Status: " + victim.getStatus() + ").");
+                 }
             }
             
             // Ensure players are in the same game
@@ -312,20 +316,13 @@ public class KillService {
                         killerId, victimId, kill.getTime(), kill.getVerificationMethod());
             killDao.saveKill(kill);
     
-            // --- Update Player Statuses and Targets --- 
-            // Victim is now dead
-            victim.setStatus(PlayerStatus.DEAD.name());
-            String victimsOldTarget = victim.getTargetID(); // Store before clearing
-            victim.setTargetID(null); // Dead players have no target
-            victim.setSecret(null);   // Clear secrets
-            victim.setTargetSecret(null);
+            // --- Update Player Status to PENDING_DEATH --- 
+            // Victim is now pending death (awaiting confirmation)
+            victim.setStatus(PlayerStatus.PENDING_DEATH.name());
+            // Do NOT clear target or secrets yet - this will happen on death confirmation
+            // Do NOT reassign targets yet - this will happen on death confirmation
             playerDao.savePlayer(victim);
-            logger.info("Updated victim {} status to DEAD", victimId);
-    
-            // Killer gets victim's old target as their new target
-            killer.setTargetID(victimsOldTarget); 
-            playerDao.savePlayer(killer);
-            logger.info("Updated killer {} new target to {}", killerId, victimsOldTarget);
+            logger.info("Updated victim {} status to PENDING_DEATH", victimId);
             
             // --- Increment Killer's Kill Count ---
             incrementKillerCount(killerId);
@@ -358,10 +355,8 @@ public class KillService {
                 
                 playerDao.getPlayerById(victimId).ifPresent(v -> {
                     // Update victim stats if needed for testing
-                    v.setStatus(PlayerStatus.DEAD.name());
-                    v.setTargetID(null);
-                    v.setSecret(null);
-                    v.setTargetSecret(null);
+                    v.setStatus(PlayerStatus.PENDING_DEATH.name());
+                    // In test mode, keep target and secrets for now
                     playerDao.savePlayer(v);
                 });
             } catch (Exception e) {
@@ -394,6 +389,29 @@ public class KillService {
             throw new PlayerActionNotAllowedException("Kill is not pending verification. Current status: " + kill.getVerificationStatus());
         }
         
+        // *** Edge Case Validation: Check victim's current status ***
+        String victimId = kill.getVictimID();
+        Optional<Player> victimOpt = playerDao.getPlayerById(victimId);
+        if (victimOpt.isPresent()) {
+            Player victim = victimOpt.get();
+            String currentStatus = victim.getStatus();
+            
+            // If victim is no longer in PENDING_DEATH, something has changed
+            if (!PlayerStatus.PENDING_DEATH.name().equals(currentStatus)) {
+                if (PlayerStatus.DEAD.name().equals(currentStatus)) {
+                    logger.warn("Attempting to verify kill for victim {} who is already DEAD. Kill may have been verified elsewhere.", victimId);
+                    // Allow verification to proceed but log the warning
+                } else if (PlayerStatus.ACTIVE.name().equals(currentStatus)) {
+                    logger.warn("Attempting to verify kill for victim {} who has been restored to ACTIVE status. Kill may have been rejected elsewhere.", victimId);
+                    // This could indicate a concurrent rejection - proceed with caution
+                } else {
+                    logger.warn("Attempting to verify kill for victim {} with unexpected status: {}. Proceeding with verification.", victimId, currentStatus);
+                }
+            }
+        } else {
+            logger.warn("Victim {} not found during kill verification. Proceeding with verification anyway.", victimId);
+        }
+        
         // --- Delegate Verification to VerificationManager --- 
         logger.info("Delegating kill verification to VerificationManager: Killer={}, Time={}, Verifier={}, Method={}",
                     killerId, killTime, verifierId, kill.getVerificationMethod());
@@ -413,10 +431,16 @@ public class KillService {
         // Save the updated kill record
         killDao.saveKill(kill);
         
-        // Send notification only on successful verification
+        // *** Handle Final Status Change and Target Reassignment ***
         if (result.isVerified()) {
+            // Kill is verified - finalize the death and reassign targets
+            finalizeKillAndReassignTargets(kill);
             sendKillVerifiedNotification(kill);
+        } else if ("REJECTED".equals(kill.getVerificationStatus())) {
+            // Kill is rejected - restore victim to ACTIVE status
+            restoreVictimFromPendingDeath(kill);
         }
+        // If still PENDING, no status change needed
         
         return kill;
     }
@@ -568,9 +592,10 @@ public class KillService {
         }
         
         Player player = playerOpt.get();
-        if (!PlayerStatus.DEAD.name().equalsIgnoreCase(player.getStatus())) {
-            logger.warn("Player {} attempted to confirm death in game {}, but is not DEAD (Status: {}).", victimId, gameId, player.getStatus());
-            throw new PlayerActionNotAllowedException("Cannot confirm death, player status is not DEAD.");
+        if (!PlayerStatus.PENDING_DEATH.name().equalsIgnoreCase(player.getStatus()) && 
+            !PlayerStatus.DEAD.name().equalsIgnoreCase(player.getStatus())) {
+            logger.warn("Player {} attempted to confirm death in game {}, but is not PENDING_DEATH or DEAD (Status: {}).", victimId, gameId, player.getStatus());
+            throw new PlayerActionNotAllowedException("Cannot confirm death, player status is not PENDING_DEATH or DEAD.");
         }
         
         // 4. Find the Kill record for this victim in this game
@@ -592,6 +617,151 @@ public class KillService {
     }
 
     // --- Helper Methods ---
+
+    /**
+     * Finalizes a verified kill by changing victim status to DEAD and reassigning targets.
+     *
+     * @param kill The verified kill.
+     */
+    private void finalizeKillAndReassignTargets(Kill kill) {
+        try {
+            String victimId = kill.getVictimID();
+            String killerId = kill.getKillerID();
+            
+            // Get the victim and killer players
+            Optional<Player> victimOpt = playerDao.getPlayerById(victimId);
+            Optional<Player> killerOpt = playerDao.getPlayerById(killerId);
+            
+            if (!victimOpt.isPresent() || !killerOpt.isPresent()) {
+                logger.error("Cannot finalize kill - victim or killer not found. Victim: {}, Killer: {}", victimId, killerId);
+                return;
+            }
+            
+            Player victim = victimOpt.get();
+            Player killer = killerOpt.get();
+            
+            // Verify victim is in PENDING_DEATH status
+            if (!PlayerStatus.PENDING_DEATH.name().equals(victim.getStatus())) {
+                logger.warn("Cannot finalize kill - victim {} is not in PENDING_DEATH status. Current status: {}", victimId, victim.getStatus());
+                return;
+            }
+            
+            // Store victim's old target before clearing
+            String victimsOldTarget = victim.getTargetID();
+            
+            // Update victim status to DEAD and clear their data
+            victim.setStatus(PlayerStatus.DEAD.name());
+            victim.setTargetID(null);
+            victim.setSecret(null);
+            victim.setTargetSecret(null);
+            playerDao.savePlayer(victim);
+            logger.info("Finalized victim {} status to DEAD", victimId);
+            
+            // Reassign victim's old target to the killer
+            if (victimsOldTarget != null && !victimsOldTarget.isEmpty()) {
+                killer.setTargetID(victimsOldTarget);
+                playerDao.savePlayer(killer);
+                logger.info("Reassigned killer {} new target to {}", killerId, victimsOldTarget);
+            } else {
+                logger.warn("Victim {} had no target to reassign to killer {}", victimId, killerId);
+            }
+            
+        } catch (Exception e) {
+            logger.error("Error finalizing kill and reassigning targets for kill by {} at {}: {}", 
+                        kill.getKillerID(), kill.getTime(), e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Handles verification timeout for pending kills by automatically rejecting them.
+     * This method should be called periodically to clean up stale pending kills.
+     *
+     * @param timeoutMinutes The number of minutes after which a pending kill should timeout
+     * @return The number of kills that were timed out
+     */
+    public int handleVerificationTimeouts(int timeoutMinutes) {
+        logger.info("Checking for verification timeouts (timeout: {} minutes)", timeoutMinutes);
+        int timeoutCount = 0;
+        
+        try {
+            // Calculate the cutoff time
+            long cutoffTime = System.currentTimeMillis() - (timeoutMinutes * 60 * 1000);
+            
+            // Get all pending kills (this would need to be implemented in the DAO)
+            // TODO: Implement findKillsByStatus method in KillDao
+            // List<Kill> pendingKills = killDao.findKillsByStatus("PENDING");
+            List<Kill> pendingKills = new java.util.ArrayList<>(); // Placeholder until DAO method is implemented
+            
+            for (Kill kill : pendingKills) {
+                try {
+                    // Parse the kill time and check if it's older than the cutoff
+                    long killTime = Instant.parse(kill.getTime()).toEpochMilli();
+                    
+                    if (killTime < cutoffTime) {
+                        logger.info("Timing out pending kill: Killer={}, Victim={}, Time={}", 
+                                   kill.getKillerID(), kill.getVictimID(), kill.getTime());
+                        
+                        // Update kill status to REJECTED due to timeout
+                        kill.setVerificationStatus("REJECTED");
+                        kill.setVerificationNotes("Kill verification timed out after " + timeoutMinutes + " minutes");
+                        kill.setKillStatusPartition(kill.getVerificationStatus());
+                        killDao.saveKill(kill);
+                        
+                        // Restore victim from PENDING_DEATH to ACTIVE
+                        restoreVictimFromPendingDeath(kill);
+                        
+                        timeoutCount++;
+                    }
+                } catch (Exception e) {
+                    logger.error("Error processing timeout for kill by {} at {}: {}", 
+                                kill.getKillerID(), kill.getTime(), e.getMessage(), e);
+                }
+            }
+            
+            logger.info("Processed {} verification timeouts", timeoutCount);
+            
+        } catch (Exception e) {
+            logger.error("Error handling verification timeouts: {}", e.getMessage(), e);
+        }
+        
+        return timeoutCount;
+    }
+
+    /**
+     * Restores a victim from PENDING_DEATH status back to ACTIVE when a kill is rejected.
+     *
+     * @param kill The rejected kill.
+     */
+    private void restoreVictimFromPendingDeath(Kill kill) {
+        try {
+            String victimId = kill.getVictimID();
+            
+            // Get the victim player
+            Optional<Player> victimOpt = playerDao.getPlayerById(victimId);
+            
+            if (!victimOpt.isPresent()) {
+                logger.error("Cannot restore victim - victim {} not found", victimId);
+                return;
+            }
+            
+            Player victim = victimOpt.get();
+            
+            // Verify victim is in PENDING_DEATH status
+            if (!PlayerStatus.PENDING_DEATH.name().equals(victim.getStatus())) {
+                logger.warn("Cannot restore victim - victim {} is not in PENDING_DEATH status. Current status: {}", victimId, victim.getStatus());
+                return;
+            }
+            
+            // Restore victim to ACTIVE status
+            victim.setStatus(PlayerStatus.ACTIVE.name());
+            playerDao.savePlayer(victim);
+            logger.info("Restored victim {} from PENDING_DEATH to ACTIVE status", victimId);
+            
+        } catch (Exception e) {
+            logger.error("Error restoring victim from pending death for kill by {} at {}: {}", 
+                        kill.getKillerID(), kill.getTime(), e.getMessage(), e);
+        }
+    }
 
     /**
      * Sends a notification to the killer when their kill is verified.

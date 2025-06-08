@@ -1,6 +1,6 @@
 # Task ID: 8
 # Title: Implement Elimination Verification System
-# Status: in-progress
+# Status: done
 # Dependencies: 6, 7
 # Priority: high
 # Description: Develop the system for verifying and recording player eliminations with support for different verification methods.
@@ -9,3 +9,35 @@ Create endpoints for submitting elimination proofs (photos, geolocation proximit
 
 # Test Strategy:
 Test elimination submissions with different proof types. Verify verification logic correctly approves/rejects eliminations. Test target reassignment after eliminations. Verify Kill records contain correct information.
+
+# Subtasks:
+## 1. Create Kill Data Models and DAOs [done]
+### Dependencies: None
+### Description: Design and implement the data models and data access objects for tracking eliminations in the game system.
+### Details:
+Create a Kill model with fields for eliminator, target, timestamp, verification method, verification status, proof data (photo URL, geolocation coordinates, QR code data), and metadata. Implement corresponding DAOs with CRUD operations and query methods for retrieving elimination records by player, game, status, and verification method.
+
+## 2. Implement Verification Methods Logic [done]
+### Dependencies: 8.1
+### Description: Develop the core logic for different elimination verification methods including photo proof, geolocation proximity, and QR code scanning.
+### Details:
+Create verification services for each method: PhotoVerificationService with image processing and moderation capabilities, ProximityVerificationService with geolocation validation algorithms, and QRCodeVerificationService for generating and validating secure QR codes. Implement a VerificationFactory to select the appropriate verification method based on game settings. Add support for configurable verification thresholds and settings per game instance.
+
+## 3. Create API Endpoints for Elimination Submission [done]
+### Dependencies: 8.1, 8.2
+### Description: Develop RESTful API endpoints for players to submit elimination proofs and for retrieving elimination status.
+### Details:
+Create endpoints for: submitting elimination proofs (/eliminations/submit), checking elimination status (/eliminations/{id}), listing player eliminations (/players/{id}/eliminations), and retrieving game elimination feed (/games/{id}/eliminations). Implement request validation, authentication, rate limiting, and proper error handling. Document API using OpenAPI/Swagger specifications.
+
+## 4. Implement Manual Verification and Moderation Tools [done]
+### Dependencies: 8.1, 8.3
+### Description: Create an administrative interface for game organizers to manually verify eliminations and moderate submitted proofs.
+### Details:
+Develop a verification queue system for organizers to review pending eliminations. Implement approval/rejection workflows with reason codes and feedback options. Add moderation tools for flagging inappropriate content in photo proofs. Create audit logs for all verification actions. Implement batch operations for handling multiple verifications efficiently during peak game periods.
+
+## 5. Implement Target Reassignment and Notification System [done]
+### Dependencies: 8.1, 8.2, 8.3, 8.4
+### Description: Develop the system to reassign targets after successful eliminations and notify relevant players about elimination events.
+### Details:
+Create a TargetReassignmentService that integrates with the existing target assignment system to update player targets after verified eliminations. Implement a NotificationService to send real-time alerts for elimination events (attempts, verifications, target changes) through multiple channels (in-app, push, email). Add support for configurable notification preferences. Implement game state updates to reflect elimination status changes.
+

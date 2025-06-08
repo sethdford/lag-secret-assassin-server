@@ -1,6 +1,6 @@
 # Task ID: 3
 # Title: Implement User Authentication System
-# Status: in-progress
+# Status: done
 # Dependencies: 1, 2
 # Priority: high
 # Description: Create a secure authentication system with OAuth 2.0 support, user registration, login, and token management.

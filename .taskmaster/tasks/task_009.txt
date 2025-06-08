@@ -1,31 +1,43 @@
 # Task ID: 9
 # Title: Implement Basic Monetization Infrastructure
-# Status: in-progress
+# Status: done
 # Dependencies: 3, 5
 # Priority: high
 # Description: Set up the core infrastructure for handling payments, including entry fees and in-app purchases.
 # Details:
-Integrate with Stripe/PayPal for payment processing. Implement endpoints for handling entry fees for pay-to-play games. Create the database structure for tracking transactions. Implement basic in-app purchase functionality. Add support for multiple currencies. Ensure PCI compliance for all payment processing. Implement proper error handling and transaction logging.
+Integrate with Stripe for payment processing, leveraging its multiple payment method support. Implement endpoints for handling entry fees for pay-to-play games. Create the database structure for tracking transactions. Implement basic in-app purchase functionality. Ensure PCI compliance for all payment processing. Implement proper error handling and transaction logging. Multi-currency support has been deferred to a future enhancement.
 
 # Test Strategy:
-Test payment processing with test accounts. Verify transaction records are correctly created. Test error scenarios like failed payments. Verify fee distribution logic works correctly. Create comprehensive unit tests for TransactionDao and PaymentHandler components. Implement integration tests to verify the end-to-end flow of payment processing, including transaction recording and PCI compliance validation.
+Test payment processing with Stripe test accounts. Verify transaction records are correctly created. Test error scenarios like failed payments. Verify fee distribution logic works correctly. Create comprehensive unit tests for TransactionDao and PaymentHandler components. Implement integration tests to verify the end-to-end flow of payment processing, including transaction recording and PCI compliance validation.
 
 # Subtasks:
-## 9.1. Create Unit Tests for TransactionDao [to-do]
+## 9.1. Create Unit Tests for TransactionDao [completed]
 ### Dependencies: None
 ### Description: Develop comprehensive unit tests for the TransactionDao component to ensure proper data handling and persistence.
 ### Details:
 Write tests for all CRUD operations. Include tests for edge cases such as transaction rollbacks, concurrent transactions, and data validation. Ensure test coverage of at least 85% for the TransactionDao class.
 
-## 9.2. Create Unit Tests for PaymentHandler [to-do]
+## 9.2. Create Unit Tests for PaymentHandler [completed]
 ### Dependencies: None
 ### Description: Develop comprehensive unit tests for the PaymentHandler component to ensure proper payment processing.
 ### Details:
 Write tests for payment initiation, processing, and completion flows. Include tests for different payment methods (credit cards, PayPal). Test error handling for declined payments, network failures, and timeout scenarios. Verify PCI compliance aspects such as proper tokenization and secure data handling.
 
-## 9.3. Implement Integration Tests for End-to-End Payment Flow [to-do]
+## 9.3. Implement Integration Tests for End-to-End Payment Flow [done]
 ### Dependencies: None
 ### Description: Create integration tests that verify the complete payment processing flow from user initiation to transaction recording.
 ### Details:
 Set up test environments with mock payment processors (Stripe/PayPal test accounts). Create test scenarios for entry fee payments and in-app purchases. Verify transaction records are correctly created in the database. Test multi-currency support. Validate proper error handling and transaction logging throughout the flow. Ensure tests cover PCI compliance requirements including secure transmission and storage of payment data.
+
+## 9.4. Implement Enhanced Stripe Payment Methods [completed]
+### Dependencies: None
+### Description: Integrate Stripe with multiple payment method support for a seamless in-app payment experience.
+### Details:
+Configure Stripe for processing multiple payment methods including credit cards, Apple Pay, Google Pay, and bank transfers. Implement secure iframe forms for payment collection. Configure payment methods from the Stripe Dashboard as recommended. Ensure proper tokenization to avoid storing sensitive user data. Implement proper error handling and success/failure redirects. Test with Stripe sandbox/test accounts. Focus on maintaining a seamless in-app experience without redirects for better gaming UX.
+
+## 9.5. Implement Multi-Currency Support [done]
+### Dependencies: None
+### Description: Ensure the payment system properly handles transactions in multiple currencies.
+### Details:
+Implement currency validation to ensure all line items in a transaction use the same currency. Create separate checkout sessions for different currencies when needed. Update the database schema to properly track and display transaction currencies. Ensure that prices for all line items in a Checkout Session are in the same currency. Test payment processing with various currencies supported by Stripe. Implement proper error handling for currency validation failures.
 

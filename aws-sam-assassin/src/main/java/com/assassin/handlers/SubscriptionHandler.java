@@ -16,6 +16,7 @@ import com.assassin.util.GsonUtil;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.stripe.exception.StripeException;
 
 import java.util.List;
 import java.util.Map;
@@ -124,22 +125,15 @@ public class SubscriptionHandler implements RequestHandler<APIGatewayProxyReques
      */
     private APIGatewayProxyResponseEvent getMySubscription(APIGatewayProxyRequestEvent request, 
                                                          APIGatewayProxyResponseEvent response) {
-        try {
-            String playerId = HandlerUtils.getPlayerIdFromRequest(request)
-                    .orElseThrow(() -> new ValidationException("Player ID not found in request context."));
-            logger.info("Getting subscription for player ID: {}", playerId);
-            
-            SubscriptionService.SubscriptionInfo subscription = subscriptionService.getPlayerSubscription(playerId);
-            
-            return response
-                    .withStatusCode(200)
-                    .withBody(gson.toJson(subscription));
-        } catch (Exception e) {
-            logger.error("Error getting player subscription: {}", e.getMessage(), e);
-            return response
-                    .withStatusCode(500)
-                    .withBody(gson.toJson(Map.of("message", "Internal Server Error")));
-        }
+        String playerId = HandlerUtils.getPlayerIdFromRequest(request)
+                .orElseThrow(() -> new ValidationException("Player ID not found in request context."));
+        logger.info("Getting subscription for player ID: {}", playerId);
+        
+        SubscriptionService.SubscriptionInfo subscription = subscriptionService.getPlayerSubscription(playerId);
+        
+        return response
+                .withStatusCode(200)
+                .withBody(gson.toJson(subscription));
     }
     
     /**
@@ -150,68 +144,53 @@ public class SubscriptionHandler implements RequestHandler<APIGatewayProxyReques
      * @return the completed API Gateway response
      */
     private APIGatewayProxyResponseEvent subscribePlayer(APIGatewayProxyRequestEvent request, 
-                                                       APIGatewayProxyResponseEvent response) {
-        try {
-            String playerId = HandlerUtils.getPlayerIdFromRequest(request)
-                    .orElseThrow(() -> new ValidationException("Player ID not found in request context."));
-            logger.info("Processing subscription request for player ID: {}", playerId);
-            
-            // Parse request body
-            SubscriptionRequest subscriptionRequest = gson.fromJson(request.getBody(), SubscriptionRequest.class);
-            if (subscriptionRequest == null) {
-                throw new ValidationException("Request body is required");
-            }
-            
-            if (subscriptionRequest.tierId == null || subscriptionRequest.tierId.trim().isEmpty()) {
-                throw new ValidationException("tierId is required");
-            }
-            
-            // Validate tier exists
-            if (!subscriptionTierService.getTierById(subscriptionRequest.tierId).isPresent()) {
-                throw new ValidationException("Invalid subscription tier: " + subscriptionRequest.tierId);
-            }
-            
-            // For free tier, handle directly
-            if ("basic".equals(subscriptionRequest.tierId)) {
-                try {
-                    String result = subscriptionService.subscribePlayer(
-                            playerId, 
-                            subscriptionRequest.tierId, 
-                            "", // No email needed for free tier
-                            "", // No success URL needed
-                            ""  // No cancel URL needed
-                    );
-                    
-                    return response
-                            .withStatusCode(200)
-                            .withBody(gson.toJson(Map.of("message", "Successfully subscribed to basic tier")));
-                } catch (Exception e) {
-                    logger.error("Failed to subscribe to basic tier: {}", e.getMessage());
-                    return response
-                            .withStatusCode(500)
-                            .withBody(gson.toJson(Map.of("message", "Failed to subscribe to basic tier")));
-                }
-            }
-            
-            // For paid tiers, create Stripe checkout session
-            String checkoutUrl = subscriptionService.subscribePlayer(
+                                                       APIGatewayProxyResponseEvent response) throws StripeException {
+        String playerId = HandlerUtils.getPlayerIdFromRequest(request)
+                .orElseThrow(() -> new ValidationException("Player ID not found in request context."));
+        logger.info("Processing subscription request for player ID: {}", playerId);
+        
+        // Parse request body
+        SubscriptionRequest subscriptionRequest = gson.fromJson(request.getBody(), SubscriptionRequest.class);
+        if (subscriptionRequest == null) {
+            throw new ValidationException("Request body is required");
+        }
+        
+        if (subscriptionRequest.tierId == null || subscriptionRequest.tierId.trim().isEmpty()) {
+            throw new ValidationException("tierId is required");
+        }
+        
+        // Validate tier exists
+        if (!subscriptionTierService.getTierById(subscriptionRequest.tierId).isPresent()) {
+            throw new ValidationException("Invalid subscription tier: " + subscriptionRequest.tierId);
+        }
+        
+        // For free tier, handle directly
+        if ("basic".equals(subscriptionRequest.tierId)) {
+            String result = subscriptionService.subscribePlayer(
                     playerId, 
                     subscriptionRequest.tierId, 
-                    subscriptionRequest.customerEmail != null ? subscriptionRequest.customerEmail : "",
-                    subscriptionRequest.successUrl != null ? subscriptionRequest.successUrl : "/subscription/success",
-                    subscriptionRequest.cancelUrl != null ? subscriptionRequest.cancelUrl : "/subscription/cancel"
+                    "", // No email needed for free tier
+                    "", // No success URL needed
+                    ""  // No cancel URL needed
             );
             
             return response
                     .withStatusCode(200)
-                    .withBody(gson.toJson(Map.of("checkoutUrl", checkoutUrl)));
-            
-        } catch (Exception e) {
-            logger.error("Error subscribing player: {}", e.getMessage(), e);
-            return response
-                    .withStatusCode(500)
-                    .withBody(gson.toJson(Map.of("message", "Internal Server Error")));
+                    .withBody(gson.toJson(Map.of("message", "Successfully subscribed to basic tier")));
         }
+        
+        // For paid tiers, create Stripe checkout session
+        String checkoutUrl = subscriptionService.subscribePlayer(
+                playerId, 
+                subscriptionRequest.tierId, 
+                subscriptionRequest.customerEmail != null ? subscriptionRequest.customerEmail : "",
+                subscriptionRequest.successUrl != null ? subscriptionRequest.successUrl : "/subscription/success",
+                subscriptionRequest.cancelUrl != null ? subscriptionRequest.cancelUrl : "/subscription/cancel"
+        );
+        
+        return response
+                .withStatusCode(200)
+                .withBody(gson.toJson(Map.of("checkoutUrl", checkoutUrl)));
     }
     
     /**
@@ -223,28 +202,20 @@ public class SubscriptionHandler implements RequestHandler<APIGatewayProxyReques
      */
     private APIGatewayProxyResponseEvent cancelMySubscription(APIGatewayProxyRequestEvent request, 
                                                             APIGatewayProxyResponseEvent response) {
-        try {
-            String playerId = HandlerUtils.getPlayerIdFromRequest(request)
-                    .orElseThrow(() -> new ValidationException("Player ID not found in request context."));
-            logger.info("Cancelling subscription for player ID: {}", playerId);
-            
-            boolean success = subscriptionService.cancelSubscription(playerId);
-            
-            if (success) {
-                return response
-                        .withStatusCode(200)
-                        .withBody(gson.toJson(Map.of("message", "Subscription cancelled successfully")));
-            } else {
-                return response
-                        .withStatusCode(400)
-                        .withBody(gson.toJson(Map.of("message", "No active subscription to cancel")));
-            }
-            
-        } catch (Exception e) {
-            logger.error("Error cancelling subscription: {}", e.getMessage(), e);
+        String playerId = HandlerUtils.getPlayerIdFromRequest(request)
+                .orElseThrow(() -> new ValidationException("Player ID not found in request context."));
+        logger.info("Cancelling subscription for player ID: {}", playerId);
+        
+        boolean success = subscriptionService.cancelSubscription(playerId);
+        
+        if (success) {
             return response
-                    .withStatusCode(500)
-                    .withBody(gson.toJson(Map.of("message", "Internal Server Error")));
+                    .withStatusCode(200)
+                    .withBody(gson.toJson(Map.of("message", "Subscription cancelled successfully")));
+        } else {
+            return response
+                    .withStatusCode(400)
+                    .withBody(gson.toJson(Map.of("message", "No active subscription to cancel")));
         }
     }
     
@@ -257,40 +228,24 @@ public class SubscriptionHandler implements RequestHandler<APIGatewayProxyReques
      */
     private APIGatewayProxyResponseEvent handleWebhook(APIGatewayProxyRequestEvent request, 
                                                      APIGatewayProxyResponseEvent response) {
-        try {
-            logger.info("Processing subscription webhook");
-            
-            String payload = request.getBody();
-            if (payload == null || payload.trim().isEmpty()) {
-                throw new ValidationException("Webhook payload is required");
-            }
-            
-            // Get Stripe signature header
-            Map<String, String> headers = request.getHeaders();
-            String stripeSignature = headers != null ? headers.get("Stripe-Signature") : null;
-            
-            if (stripeSignature == null) {
-                logger.warn("Missing Stripe-Signature header in webhook request");
-                throw new ValidationException("Missing Stripe-Signature header");
-            }
-            
-            SubscriptionService.WebhookResult webhookResult = subscriptionService.processWebhook(payload, stripeSignature);
-            
-            if (webhookResult.isSuccess()) {
-                return response
-                        .withStatusCode(200)
-                        .withBody(gson.toJson(Map.of("message", "Webhook processed successfully")));
-            } else {
-                return response
-                        .withStatusCode(400)
-                        .withBody(gson.toJson(Map.of("message", "Failed to process webhook: " + webhookResult.getMessage())));
-            }
-            
-        } catch (Exception e) {
-            logger.error("Error processing webhook: {}", e.getMessage(), e);
+        String signature = request.getHeaders() != null ? request.getHeaders().get("Stripe-Signature") : null;
+        if (signature == null || signature.trim().isEmpty()) {
+            throw new ValidationException("Missing Stripe-Signature header");
+        }
+        
+        String payload = request.getBody();
+        logger.info("Processing Stripe webhook");
+        
+        SubscriptionService.WebhookResult result = subscriptionService.processWebhook(payload, signature);
+        
+        if (result.isSuccess()) {
             return response
-                    .withStatusCode(500)
-                    .withBody(gson.toJson(Map.of("message", "Internal Server Error")));
+                    .withStatusCode(200)
+                    .withBody(gson.toJson(Map.of("message", "Webhook processed successfully")));
+        } else {
+            return response
+                    .withStatusCode(400)
+                    .withBody(gson.toJson(Map.of("message", result.getMessage())));
         }
     }
     

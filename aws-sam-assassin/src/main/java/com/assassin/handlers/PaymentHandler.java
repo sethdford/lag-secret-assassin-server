@@ -19,6 +19,7 @@ import com.stripe.param.PaymentIntentCreateParams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -54,13 +55,23 @@ public class PaymentHandler implements RequestHandler<APIGatewayProxyRequestEven
                 return ApiGatewayResponseBuilder.buildErrorResponse(500, "Payment processing system is currently unavailable.");
             }
 
-            // Example: /games/{gameId}/pay-entry-fee
-            // Ensure path parameters are extracted correctly by API Gateway configuration
+            // Payment routes
             Map<String, String> pathParameters = request.getPathParameters();
+            
+            // /games/{gameId}/pay-entry-fee - Direct payment with payment method
             if (pathParameters != null && pathParameters.containsKey("gameId") && path.endsWith("/pay-entry-fee") && "POST".equals(httpMethod)) {
-                 return handlePayEntryFeeRequest(request, context);
+                return handlePayEntryFeeRequest(request, context);
             }
-            // Add more routes here if this handler manages multiple payment-related endpoints
+            
+            // /games/{gameId}/create-payment-intent - Create intent for client-side completion
+            if (pathParameters != null && pathParameters.containsKey("gameId") && path.endsWith("/create-payment-intent") && "POST".equals(httpMethod)) {
+                return handleCreatePaymentIntentRequest(request, context);
+            }
+            
+            // /payments/{paymentIntentId}/confirm - Confirm payment intent
+            if (pathParameters != null && pathParameters.containsKey("paymentIntentId") && path.endsWith("/confirm") && "POST".equals(httpMethod)) {
+                return handleConfirmPaymentRequest(request, context);
+            }
 
             return ApiGatewayResponseBuilder.buildErrorResponse(404, "Not Found: The requested payment resource or action was not found.");
         } catch (Exception e) {
@@ -192,6 +203,169 @@ public class PaymentHandler implements RequestHandler<APIGatewayProxyRequestEven
         } catch (Exception e) {
             LOG.error("Unexpected error during payment processing for Game ID {} / Player {}: {}", gameId, playerId, e.getMessage(), e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "An unexpected error occurred while processing your payment.");
+        }
+    }
+
+    /**
+     * Create a PaymentIntent for client-side completion with multiple payment method support
+     * This allows for Apple Pay, Google Pay, and other client-side payment methods
+     */
+    private APIGatewayProxyResponseEvent handleCreatePaymentIntentRequest(APIGatewayProxyRequestEvent request, Context context) {
+        LOG.info("Handling create payment intent request...");
+        String gameId = request.getPathParameters().get("gameId");
+        String playerId = RequestUtils.getPlayerIdFromRequest(request);
+
+        if (playerId == null || playerId.trim().isEmpty()) {
+            return ApiGatewayResponseBuilder.buildErrorResponse(400, "Player ID is missing or invalid.");
+        }
+
+        if (gameId == null || gameId.trim().isEmpty()) {
+            return ApiGatewayResponseBuilder.buildErrorResponse(400, "Game ID is missing or invalid.");
+        }
+
+        try {
+            // Parse request body for payment details
+            JsonObject requestBody = GSON.fromJson(request.getBody(), JsonObject.class);
+            Long amountCents = requestBody.has("amount") ? requestBody.get("amount").getAsLong() : DEFAULT_ENTRY_FEE_AMOUNT_CENTS;
+            String currency = requestBody.has("currency") ? requestBody.get("currency").getAsString() : DEFAULT_CURRENCY;
+            
+            // Support for automatic payment methods (Apple Pay, Google Pay, etc.)
+            PaymentIntentCreateParams.Builder paramsBuilder = PaymentIntentCreateParams.builder()
+                .setAmount(amountCents)
+                .setCurrency(currency)
+                .putMetadata("gameId", gameId)
+                .putMetadata("playerId", playerId)
+                .setDescription("Entry fee for Assassin Game: " + gameId)
+                .setConfirmationMethod(PaymentIntentCreateParams.ConfirmationMethod.AUTOMATIC);
+            
+            // Enable automatic payment methods if requested
+            if (requestBody.has("enableAutomaticPaymentMethods") && requestBody.get("enableAutomaticPaymentMethods").getAsBoolean()) {
+                paramsBuilder.setAutomaticPaymentMethods(
+                    PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
+                        .setEnabled(true)
+                        .build()
+                );
+            }
+
+            PaymentIntent paymentIntent = PaymentIntent.create(paramsBuilder.build());
+            LOG.info("PaymentIntent created with ID: {} for client-side completion", paymentIntent.getId());
+
+            // Create a pending transaction record
+            Transaction transaction = new Transaction();
+            transaction.setTransactionId(UUID.randomUUID().toString());
+            transaction.setPlayerId(playerId);
+            transaction.setGameId(gameId);
+            transaction.setItemId(gameId);
+            transaction.setTransactionType(Transaction.TransactionType.ENTRY_FEE);
+            transaction.setAmount(amountCents);
+            transaction.setCurrency(currency.toUpperCase());
+            transaction.setPaymentGateway("Stripe");
+            transaction.setGatewayTransactionId(paymentIntent.getId());
+            transaction.setStatus(Transaction.TransactionStatus.PENDING);
+            transaction.setDescription("Entry fee for game " + gameId);
+            transaction.initializeTimestamps();
+            
+            transactionDao.saveTransaction(transaction);
+            LOG.info("Pending transaction {} created for PaymentIntent {}", transaction.getTransactionId(), paymentIntent.getId());
+
+            return ApiGatewayResponseBuilder.buildResponse(200, GSON.toJson(Map.of(
+                "clientSecret", paymentIntent.getClientSecret(),
+                "paymentIntentId", paymentIntent.getId(),
+                "transactionId", transaction.getTransactionId(),
+                "status", paymentIntent.getStatus()
+            )));
+
+        } catch (StripeException e) {
+            LOG.error("Stripe API error creating PaymentIntent for Game ID {} / Player {}: {}", gameId, playerId, e.getMessage(), e);
+            return ApiGatewayResponseBuilder.buildErrorResponse(500, "Failed to create payment intent: " + e.getMessage());
+        } catch (Exception e) {
+            LOG.error("Unexpected error creating PaymentIntent for Game ID {} / Player {}: {}", gameId, playerId, e.getMessage(), e);
+            return ApiGatewayResponseBuilder.buildErrorResponse(500, "An unexpected error occurred while creating payment intent.");
+        }
+    }
+
+    /**
+     * Confirm a PaymentIntent and update transaction status
+     */
+    private APIGatewayProxyResponseEvent handleConfirmPaymentRequest(APIGatewayProxyRequestEvent request, Context context) {
+        LOG.info("Handling confirm payment request...");
+        String paymentIntentId = request.getPathParameters().get("paymentIntentId");
+        String playerId = RequestUtils.getPlayerIdFromRequest(request);
+
+        if (paymentIntentId == null || paymentIntentId.trim().isEmpty()) {
+            return ApiGatewayResponseBuilder.buildErrorResponse(400, "Payment Intent ID is missing or invalid.");
+        }
+
+        if (playerId == null || playerId.trim().isEmpty()) {
+            return ApiGatewayResponseBuilder.buildErrorResponse(400, "Player ID is missing or invalid.");
+        }
+
+        try {
+            // Retrieve the PaymentIntent from Stripe
+            PaymentIntent paymentIntent = PaymentIntent.retrieve(paymentIntentId);
+            LOG.info("Retrieved PaymentIntent {} with status: {}", paymentIntentId, paymentIntent.getStatus());
+
+            // Find the corresponding transaction - we'll need to query by player first
+            // Since we don't have a direct getByGatewayId method, we'll search player transactions
+            List<Transaction> playerTransactions = transactionDao.getTransactionsByPlayerId(playerId, 50, null);
+            Transaction transaction = playerTransactions.stream()
+                .filter(tx -> paymentIntentId.equals(tx.getGatewayTransactionId()))
+                .findFirst()
+                .orElse(null);
+            
+            if (transaction == null) {
+                LOG.error("No transaction found for PaymentIntent ID: {} and Player: {}", paymentIntentId, playerId);
+                return ApiGatewayResponseBuilder.buildErrorResponse(404, "Transaction not found for this payment intent.");
+            }
+
+            // Verify the player owns this transaction
+            if (!playerId.equals(transaction.getPlayerId())) {
+                LOG.error("Player {} attempted to confirm transaction owned by {}", playerId, transaction.getPlayerId());
+                return ApiGatewayResponseBuilder.buildErrorResponse(403, "You are not authorized to confirm this payment.");
+            }
+
+            // Update transaction status based on PaymentIntent status
+            if ("succeeded".equals(paymentIntent.getStatus())) {
+                transactionDao.updateTransactionStatus(
+                    transaction.getTransactionId(), 
+                    Transaction.TransactionStatus.COMPLETED,
+                    paymentIntentId,
+                    paymentIntent.getPaymentMethod()
+                );
+                LOG.info("Transaction {} completed successfully", transaction.getTransactionId());
+                
+                return ApiGatewayResponseBuilder.buildResponse(200, GSON.toJson(Map.of(
+                    "message", "Payment confirmed successfully",
+                    "transactionId", transaction.getTransactionId(),
+                    "status", "completed"
+                )));
+            } else if ("requires_action".equals(paymentIntent.getStatus())) {
+                return ApiGatewayResponseBuilder.buildResponse(200, GSON.toJson(Map.of(
+                    "message", "Payment requires additional action",
+                    "clientSecret", paymentIntent.getClientSecret(),
+                    "status", paymentIntent.getStatus()
+                )));
+            } else {
+                transactionDao.updateTransactionStatus(
+                    transaction.getTransactionId(),
+                    Transaction.TransactionStatus.FAILED,
+                    null,
+                    null
+                );
+                LOG.warn("Payment confirmation failed for PaymentIntent {}: status {}", paymentIntentId, paymentIntent.getStatus());
+                
+                return ApiGatewayResponseBuilder.buildResponse(400, GSON.toJson(Map.of(
+                    "message", "Payment confirmation failed",
+                    "status", paymentIntent.getStatus()
+                )));
+            }
+
+        } catch (StripeException e) {
+            LOG.error("Stripe API error confirming payment {}: {}", paymentIntentId, e.getMessage(), e);
+            return ApiGatewayResponseBuilder.buildErrorResponse(500, "Failed to confirm payment: " + e.getMessage());
+        } catch (Exception e) {
+            LOG.error("Unexpected error confirming payment {}: {}", paymentIntentId, e.getMessage(), e);
+            return ApiGatewayResponseBuilder.buildErrorResponse(500, "An unexpected error occurred while confirming payment.");
         }
     }
 } 

@@ -28,7 +28,6 @@ public class DynamoDbTransactionDao implements TransactionDao {
     private final DynamoDbTable<Transaction> transactionTable;
     private final DynamoDbIndex<Transaction> playerTransactionsIndex;
     private final DynamoDbIndex<Transaction> gameTransactionsIndex;
-    private final DynamoDbIndex<Transaction> playerGameTransactionsIndex;
     private final String tableName;
 
     public DynamoDbTransactionDao() {
@@ -37,7 +36,6 @@ public class DynamoDbTransactionDao implements TransactionDao {
         this.transactionTable = enhancedClient.table(this.tableName, TableSchema.fromBean(Transaction.class));
         this.playerTransactionsIndex = transactionTable.index(PLAYER_TRANSACTIONS_INDEX_NAME);
         this.gameTransactionsIndex = transactionTable.index(GAME_TRANSACTIONS_INDEX_NAME);
-        this.playerGameTransactionsIndex = transactionTable.index(PLAYER_GAME_TRANSACTIONS_INDEX_NAME);
         logger.info("Initialized TransactionDao for table: {}", this.tableName);
     }
 
@@ -46,12 +44,15 @@ public class DynamoDbTransactionDao implements TransactionDao {
         this.transactionTable = enhancedClient.table(this.tableName, TableSchema.fromBean(Transaction.class));
         this.playerTransactionsIndex = transactionTable.index(PLAYER_TRANSACTIONS_INDEX_NAME);
         this.gameTransactionsIndex = transactionTable.index(GAME_TRANSACTIONS_INDEX_NAME);
-        this.playerGameTransactionsIndex = transactionTable.index(PLAYER_GAME_TRANSACTIONS_INDEX_NAME);
         logger.info("Initialized TransactionDao with provided enhanced client for table: {}", this.tableName);
     }
 
     private String getTableNameFromEnv() {
         String tableNameFromEnv = System.getenv(TRANSACTIONS_TABLE_NAME_ENV_VAR);
+        if (tableNameFromEnv == null || tableNameFromEnv.isEmpty()) {
+            // Fallback to system property for testing
+            tableNameFromEnv = System.getProperty(TRANSACTIONS_TABLE_NAME_ENV_VAR);
+        }
         if (tableNameFromEnv == null || tableNameFromEnv.isEmpty()) {
             logger.error("Transactions table name environment variable '{}' is not set.", TRANSACTIONS_TABLE_NAME_ENV_VAR);
             throw new IllegalStateException("Transactions table name not configured.");

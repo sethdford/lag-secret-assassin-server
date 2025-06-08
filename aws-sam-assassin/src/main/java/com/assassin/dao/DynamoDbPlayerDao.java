@@ -47,7 +47,7 @@ public class DynamoDbPlayerDao implements PlayerDao {
 
     public DynamoDbPlayerDao() {
         this.enhancedClient = DynamoDbClientProvider.getDynamoDbEnhancedClient();
-        this.tableName = getTableName(); // Get table name once using the helper
+        this.tableName = getTableNameFromSysPropsOrEnv(); // Get table name once using the helper
         if (this.tableName == null || this.tableName.isEmpty()) {
             // Throw exception earlier if table name is missing
             throw new IllegalStateException("Could not determine Players table name from System Property or Environment Variable '" + PLAYER_TABLE_ENV_VAR + "'");
@@ -58,6 +58,20 @@ public class DynamoDbPlayerDao implements PlayerDao {
         this.killCountIndex = playerTable.index(KILL_COUNT_INDEX_NAME);
         this.gameIdIndex = playerTable.index(GAME_ID_INDEX_NAME); // Initialize the index
         this.targetIdIndex = playerTable.index(TARGET_ID_INDEX_NAME); // Initialize the TargetID index
+    }
+
+    // Constructor for dependency injection (e.g., for testing)
+    public DynamoDbPlayerDao(DynamoDbEnhancedClient enhancedClient) {
+        this.enhancedClient = enhancedClient;
+        this.tableName = getTableName(); // You'll need a helper for this
+        if (this.tableName == null || this.tableName.isEmpty()) {
+            throw new IllegalStateException("Could not determine Players table name from environment.");
+        }
+        this.playerTable = enhancedClient.table(this.tableName, TableSchema.fromBean(Player.class));
+        this.emailIndex = playerTable.index(EMAIL_INDEX_NAME);
+        this.killCountIndex = playerTable.index(KILL_COUNT_INDEX_NAME);
+        this.gameIdIndex = playerTable.index(GAME_ID_INDEX_NAME);
+        this.targetIdIndex = playerTable.index(TARGET_ID_INDEX_NAME);
     }
 
     @Override
@@ -383,8 +397,18 @@ public class DynamoDbPlayerDao implements PlayerDao {
         }
     }
 
-    // Helper method to get table name from system property or environment or default
     private String getTableName() {
+        String tableName = System.getenv(PLAYER_TABLE_ENV_VAR);
+        if (tableName == null || tableName.isEmpty()) {
+            // In a test environment, we might not have the env var set.
+            // You could also use a system property or a default.
+            logger.warn("Players table name environment variable '{}' not set, using default 'Players'", PLAYER_TABLE_ENV_VAR);
+            return "Players"; // Default table name for tests
+        }
+        return tableName;
+    }
+
+    private String getTableNameFromSysPropsOrEnv() {
         String systemPropTableName = System.getProperty(PLAYER_TABLE_ENV_VAR);
         if (systemPropTableName != null && !systemPropTableName.isEmpty()) {
             logger.info("Using players table name from system property: {}", systemPropTableName);
@@ -393,13 +417,13 @@ public class DynamoDbPlayerDao implements PlayerDao {
 
         String envTableName = System.getenv(PLAYER_TABLE_ENV_VAR);
         if (envTableName != null && !envTableName.isEmpty()) {
-             logger.info("Using players table name from environment variable: {}", envTableName);
-             return envTableName;
+            logger.info("Using players table name from environment variable: {}", envTableName);
+            return envTableName;
         }
-        
-        String defaultTable = "dev-Players"; // Default if not set
-        logger.warn("'{}' system property or environment variable not set, using default '{}'", 
-                    PLAYER_TABLE_ENV_VAR, defaultTable);
+
+        String defaultTable = "dev-Players";
+        logger.warn("'{}' system property or environment variable not set, using default '{}'",
+                PLAYER_TABLE_ENV_VAR, defaultTable);
         return defaultTable;
     }
 } 

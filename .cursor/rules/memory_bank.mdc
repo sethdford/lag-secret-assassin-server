@@ -25,7 +25,8 @@ Instructs AI to read and reference a specific memory file. The filename can be s
 
 Examples:
 - `mem:read 01-brief` - Read the project brief
-- `mem:read 20-domain-model.md` - Read the domain model
+- `mem:read 21-architecture.md` - Read the detailed architecture
+- `mem:read 40-active` - Read current active context
 
 ### Update Memory File
 
@@ -36,7 +37,8 @@ Update a specific memory file with new content. The AI will update the specified
 
 Examples:
 - `mem:update 50-decisions` - Update the technical decisions document
-- `mem:update 30-domain.md` - Update the domain terminology and concepts document
+- `mem:update 40-active.md` - Update the current active context
+- `mem:update 53-progress` - Update project progress tracking
 
 ### Search Memory Bank
 
@@ -47,7 +49,8 @@ Search across all memory files for specific information. The AI will identify fi
 
 Examples:
 - `mem:search DynamoDB` - Find all references to DynamoDB
-- `mem:search kill verification` - Find information about kill verification
+- `mem:search shrinking zone` - Find information about shrinking zone mechanics
+- `mem:search testing` - Find testing-related information
 
 ### Memory Bank Summary
 
@@ -61,65 +64,109 @@ Generate a summary of key project information from memory bank files, providing 
 ### Project Foundation (01-09)
 
 - **[01-brief.md](mdc:.memory/01-brief.md)** - Project charter with project outline, core requirements, success criteria, stakeholders, constraints, and timeline.
-- **[02-product.md](mdc:.memory/02-product.md)** - Product definition for the Assassin Game API, including key features.
+- **[02-product.md](mdc:.memory/02-product.md)** - Product definition for the Assassin Game API, including key features and scope.
 
 ### Requirements & Domain (10-19)
 
-- **[10-requirements.md](mdc:.memory/10-requirements.md)** - Functional and non-functional requirements.
+- **[10-requirements.md](mdc:.memory/10-requirements.md)** - Functional and non-functional requirements for the Assassin Game system.
 - **[11-domain-model.md](mdc:.memory/11-domain-model.md)** - Core domain model, entities, relationships, and business rules.
-- **[12-domain.md](mdc:.memory/12-domain.md)** - Domain terminology and concepts.
+- **[12-domain.md](mdc:.memory/12-domain.md)** - Domain terminology and concepts specific to the Assassin Game.
+- **[12-user-stories.md](mdc:.memory/12-user-stories.md)** - User stories and product requirements from user perspective.
 
 ### System Architecture (20-29)
 
 - **[20-system.md](mdc:.memory/20-system.md)** - System architecture overview, AWS services, components, and data flow.
-- **[21-architecture.md](mdc:.memory/21-architecture.md)** - Detailed technical architecture and component design.
-- **[22-tech.md](mdc:.memory/22-tech.md)** - Technical foundation and technologies used.
+- **[21-architecture.md](mdc:.memory/21-architecture.md)** - Detailed technical architecture and component design patterns.
+- **[22-tech.md](mdc:.memory/22-tech.md)** - Technical foundation, technologies used, and development guidelines.
 - **[23-database-schema.md](mdc:.memory/23-database-schema.md)** - DynamoDB table designs, GSIs, and data access patterns.
 
 ### Implementation (30-39)
 
-- **[30-codebase.md](mdc:.memory/30-codebase.md)** - Code organization, structure, and key components.
-- **[31-implementation.md](mdc:.memory/31-implementation.md)** - Implementation details, classes, interfaces, and patterns.
+- **[30-codebase.md](mdc:.memory/30-codebase.md)** - Code organization, structure, and key components overview.
+- **[31-implementation.md](mdc:.memory/31-implementation.md)** - Implementation details, classes, interfaces, and architectural patterns.
 
 ### Active Development (40-49)
 
-- **[40-active.md](mdc:.memory/40-active.md)** - Currently active development tasks and focus areas.
+- **[40-active.md](mdc:.memory/40-active.md)** - **CRITICAL: Current focus, session context, priorities, and active development tasks.**
 
 ### Standards & Progress (50-59)
 
-- **[50-decisions.md](mdc:.memory/50-decisions.md)** - Key technical decisions with rationale.
-- **[51-development-standards.md](mdc:.memory/51-development-standards.md)** - Development standards and coding conventions.
-- **[52-patterns.md](mdc:.memory/52-patterns.md)** - System patterns, best practices, and architectural conventions.
-- **[53-progress.md](mdc:.memory/53-progress.md)** - Project progress tracking and milestone achievements.
+- **[50-decisions.md](mdc:.memory/50-decisions.md)** - Key technical decisions with rationale and implications.
+- **[51-development-standards.md](mdc:.memory/51-development-standards.md)** - Development standards, coding conventions, and quality guidelines.
+- **[52-patterns.md](mdc:.memory/52-patterns.md)** - **CRITICAL: System patterns, best practices, architectural conventions, and quality verification patterns.**
+- **[53-progress.md](mdc:.memory/53-progress.md)** - Project progress tracking, milestone achievements, and velocity metrics.
 - **[54-definition-of-done.md](mdc:.memory/54-definition-of-done.md)** - **CRITICAL: Definition of Done checklist and quality gates - MUST be verified before marking any task complete.**
 
 ### Knowledge Repository (60-69)
 
-- **[60-knowledge.md](mdc:.memory/60-knowledge.md)** - Domain knowledge capture of key concepts and game mechanics.
+- **[60-knowledge.md](mdc:.memory/60-knowledge.md)** - Domain knowledge capture of key concepts, game mechanics, and learnings.
 
 ### Documentation (90-99)
 
-- **[90-README.md](mdc:.memory/90-README.md)** - Memory Bank system guide and usage instructions.
+- **[90-README.md](mdc:.memory/90-README.md)** - Memory Bank system guide, usage instructions, and file organization.
+
+## Critical Memory Files for Development
+
+### Always Reference Before Development:
+1. **[40-active.md](mdc:.memory/40-active.md)** - Current session context and priorities
+2. **[54-definition-of-done.md](mdc:.memory/54-definition-of-done.md)** - Quality gates and verification requirements
+3. **[52-patterns.md](mdc:.memory/52-patterns.md)** - Development patterns and quality standards
+
+### Key Architecture References:
+4. **[21-architecture.md](mdc:.memory/21-architecture.md)** - Technical architecture and design patterns
+5. **[22-tech.md](mdc:.memory/22-tech.md)** - Technology stack and development guidelines
+6. **[51-development-standards.md](mdc:.memory/51-development-standards.md)** - Coding standards and conventions
+
+### Progress and Decision Tracking:
+7. **[53-progress.md](mdc:.memory/53-progress.md)** - Project progress and achievements
+8. **[50-decisions.md](mdc:.memory/50-decisions.md)** - Technical decisions and rationale
 
 ## Best Practices
 
-1. **Structured Updates**: When updating memory files, maintain existing headers and organization.
-2. **Context Retention**: Start interactions with memory commands to maintain context.
-3. **Specific References**: Refer to specific memory files for topic-focused assistance.
-4. **Consistent Formatting**: Use Markdown formatting consistently in memory files.
-5. **Version Control**: Memory files should be committed to version control.
+1. **Context Retention**: Always start development sessions by reading `40-active.md` for current context
+2. **Quality Assurance**: Reference `54-definition-of-done.md` before marking any task complete
+3. **Pattern Adherence**: Follow patterns documented in `52-patterns.md` for consistent implementation
+4. **Structured Updates**: Maintain existing headers and organization when updating memory files
+5. **Progress Tracking**: Update `53-progress.md` and `40-active.md` after significant developments
+6. **Decision Documentation**: Record important choices in `50-decisions.md` with rationale
+7. **Version Control**: All memory files should be committed to version control for team alignment
+
+## Memory Bank Workflow Integration
+
+### Pre-Development Session:
+```bash
+mem:read 40-active     # Get current context
+mem:read 54-definition-of-done  # Review quality requirements
+```
+
+### During Development:
+- Reference architectural patterns from `52-patterns.md`
+- Follow standards from `51-development-standards.md`
+- Update progress in `40-active.md` as work progresses
+
+### Post-Development Session:
+```bash
+mem:update 40-active   # Update session context
+mem:update 53-progress # Update project progress
+```
+
+### Weekly Review:
+```bash
+mem:summarize          # Generate progress overview
+mem:update 50-decisions # Document key decisions made
+```
 
 ## Implementation Details
 
 The Memory Bank system uses markdown files stored in the `.memory` directory. Files are organized with a numeric prefix indicating their category:
 
-- `01-XX`: Project charter and overview
-- `10-XX`: Product definition and goals
-- `20-XX`: Requirements and domain model
-- `30-XX`: Architecture and technical design
-- `40-XX`: Implementation details
-- `50-XX`: Standards, decisions and progress
-- `60-XX`: Database schema and additional decisions
-- `70-XX`: Knowledge repository and documentation
+- **01-09**: Project foundation and overview
+- **10-19**: Requirements and domain model  
+- **20-29**: System architecture and technical design
+- **30-39**: Implementation details and code organization
+- **40-49**: Active development context and session state
+- **50-59**: Standards, decisions, progress, and quality gates
+- **60-69**: Knowledge repository and domain learning
+- **90-99**: Documentation and system guides
 
-Each file follows a consistent Markdown structure with headers, lists, and code blocks where appropriate.
+Each file follows a consistent Markdown structure with headers, lists, and code blocks where appropriate. The system is designed to maintain continuity across AI assistant sessions and provide comprehensive project context.

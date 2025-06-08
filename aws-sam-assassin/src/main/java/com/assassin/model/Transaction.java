@@ -66,7 +66,7 @@ public class Transaction {
         this.transactionId = transactionId;
     }
 
-    @DynamoDbSecondaryPartitionKey(indexNames = {"PlayerTransactionsIndex", "PlayerGameTransactionsIndex"})
+    @DynamoDbSecondaryPartitionKey(indexNames = {"PlayerTransactionsIndex"})
     @DynamoDbAttribute("PlayerID")
     public String getPlayerId() {
         return playerId;
@@ -76,7 +76,7 @@ public class Transaction {
         this.playerId = playerId;
     }
 
-    @DynamoDbSecondarySortKey(indexNames = {"PlayerTransactionsIndex", "GameTransactionsIndex", "PlayerGameTransactionsIndex"})
+    @DynamoDbSecondarySortKey(indexNames = {"PlayerTransactionsIndex", "GameTransactionsIndex"})
     @DynamoDbAttribute("CreatedAt")
     public String getCreatedAt() {
         return createdAt;
@@ -86,7 +86,7 @@ public class Transaction {
         this.createdAt = createdAt;
     }
 
-    @DynamoDbSecondaryPartitionKey(indexNames = {"GameTransactionsIndex", "PlayerGameTransactionsIndex"})
+    @DynamoDbSecondaryPartitionKey(indexNames = {"GameTransactionsIndex"})
     @DynamoDbAttribute("GameID")
     public String getGameId() {
         return gameId;

@@ -104,7 +104,9 @@ Globals:
         GAME_ZONE_STATE_TABLE_NAME: !Ref GameZoneStateTable
         TRANSACTIONS_TABLE_NAME: !Ref TransactionsTable
         REPORTS_TABLE_NAME: !Ref ReportsTable
+        SECURITY_EVENTS_TABLE_NAME: !Ref SecurityEventsTable
         STRIPE_SECRET_KEY: !Sub '{{resolve:ssm:/assassin/${Environment}/stripe/secret_key:1}}'
+        STRIPE_WEBHOOK_SECRET: !Sub '{{resolve:ssm:/assassin/${Environment}/stripe/webhook_secret:1}}'
         ASSASSIN_TEST_MODE: false
     Tracing: Active
     Tags:
@@ -395,48 +397,136 @@ Resources:
           Value: AssassinGame
 
   ReportsTable:
-    # Fixed DynamoDB Table for Reports
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: !Sub ${Environment}-Reports
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: reportId
+        - AttributeName: ReportID
           AttributeType: S
-        - AttributeName: gameId
+        - AttributeName: ReportedPlayerID
           AttributeType: S
-        - AttributeName: reportingPlayerId
+        - AttributeName: ReporterPlayerID
           AttributeType: S
-        - AttributeName: reportedPlayerId
+        - AttributeName: GameID
           AttributeType: S
-        - AttributeName: status
+        - AttributeName: CreatedAt
           AttributeType: S
       KeySchema:
-        - AttributeName: reportId # Fixed: matches AttributeDefinitions
+        - AttributeName: ReportID
           KeyType: HASH
       GlobalSecondaryIndexes:
+        - IndexName: ReportedPlayerIndex
+          KeySchema:
+            - AttributeName: ReportedPlayerID
+              KeyType: HASH
+            - AttributeName: CreatedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: ReporterPlayerIndex
+          KeySchema:
+            - AttributeName: ReporterPlayerID
+              KeyType: HASH
+            - AttributeName: CreatedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
         - IndexName: GameReportsIndex
           KeySchema:
-            - AttributeName: gameId # Fixed: matches AttributeDefinitions
+            - AttributeName: GameID
               KeyType: HASH
-            - AttributeName: status
+            - AttributeName: CreatedAt
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
-        - IndexName: ReportingPlayerReportsIndex
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: AssassinGame
+
+  # Rate Limiting and Security Tracking Table
+  SecurityEventsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-SecurityEvents
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: SourceIP
+          AttributeType: S
+        - AttributeName: Timestamp
+          AttributeType: S
+        - AttributeName: UserID
+          AttributeType: S
+        - AttributeName: EventType
+          AttributeType: S
+      KeySchema:
+        - AttributeName: SourceIP
+          KeyType: HASH
+        - AttributeName: Timestamp
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: UserSecurityIndex
           KeySchema:
-            - AttributeName: reportingPlayerId # Fixed: matches AttributeDefinitions
+            - AttributeName: UserID
               KeyType: HASH
-            - AttributeName: status
+            - AttributeName: Timestamp
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
-        - IndexName: ReportedPlayerReportsIndex
+        - IndexName: EventTypeIndex
           KeySchema:
-            - AttributeName: reportedPlayerId # Fixed: matches AttributeDefinitions
+            - AttributeName: EventType
               KeyType: HASH
-            - AttributeName: status
+            - AttributeName: Timestamp
               KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: TTL
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: AssassinGame
+
+  # Blocked Entities Table for Automated Blocking System
+  BlockedEntitiesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-BlockedEntities
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: EntityID
+          AttributeType: S
+        - AttributeName: EntityTypeGSI
+          AttributeType: S
+        - AttributeName: ExpirationDate
+          AttributeType: S
+      KeySchema:
+        - AttributeName: EntityID
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: EntityTypeIndex
+          KeySchema:
+            - AttributeName: EntityTypeGSI
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: ExpirationIndex
+          KeySchema:
+            - AttributeName: ExpirationDate
+              KeyType: HASH
           Projection:
             ProjectionType: ALL
       PointInTimeRecoverySpecification:
@@ -508,6 +598,7 @@ Resources:
         AllowMethods: '''GET,POST,PUT,DELETE,OPTIONS'''
         AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,Accept,X-Request-ID'''
         AllowOrigin: '''*'''
+        AllowCredentials: false
       EndpointConfiguration:
         Type: REGIONAL
       TracingEnabled: true
@@ -518,50 +609,161 @@ Resources:
             UserPoolArn: !GetAtt AssassinUserPool.Arn
             Identity:
               Header: Authorization
-      GatewayResponses:
-        DEFAULT_4XX:
-          ResponseParameters:
-            Headers:
-              Access-Control-Allow-Origin: '''http://localhost:3001'''
-              Access-Control-Allow-Methods: '''GET, POST, PUT, DELETE, OPTIONS'''
-              Access-Control-Allow-Headers: '''Content-Type, Authorization, X-Amz-Date,
-                X-Api-Key, X-Amz-Security-Token'''
-              Access-Control-Allow-Credentials: '''true'''
-        DEFAULT_5XX:
-          ResponseParameters:
-            Headers:
-              Access-Control-Allow-Origin: '''http://localhost:3001'''
-              Access-Control-Allow-Methods: '''GET, POST, PUT, DELETE, OPTIONS'''
-              Access-Control-Allow-Headers: '''Content-Type, Authorization, X-Amz-Date,
-                X-Api-Key, X-Amz-Security-Token'''
-              Access-Control-Allow-Credentials: '''true'''
-        UNAUTHORIZED:
-          ResponseParameters:
-            Headers:
-              Access-Control-Allow-Origin: '''http://localhost:3001'''
-              Access-Control-Allow-Methods: '''GET, POST, PUT, DELETE, OPTIONS'''
-              Access-Control-Allow-Headers: '''Content-Type, Authorization, X-Amz-Date,
-                X-Api-Key, X-Amz-Security-Token'''
-              Access-Control-Allow-Credentials: '''true'''
-        ACCESS_DENIED:
-          ResponseParameters:
-            Headers:
-              Access-Control-Allow-Origin: '''http://localhost:3001'''
-              Access-Control-Allow-Methods: '''GET, POST, PUT, DELETE, OPTIONS'''
-              Access-Control-Allow-Headers: '''Content-Type, Authorization, X-Amz-Date,
-                X-Api-Key, X-Amz-Security-Token'''
-              Access-Control-Allow-Credentials: '''true'''
-      AccessLogSetting: !If
-        - EnableAccessLogs
-        - DestinationArn: !GetAtt ApiGatewayAccessLogGroup.Arn
-          Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","path":"$context.path","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength","errorMessage":"$context.error.message"}'
-        - !Ref AWS::NoValue
+      # Enhanced throttling configuration for different endpoint types
       MethodSettings:
+        # Default throttling for all endpoints
         - ResourcePath: /*
           HttpMethod: '*'
           ThrottlingBurstLimit: 100
           ThrottlingRateLimit: 50
           MetricsEnabled: true
+          LoggingLevel: INFO
+          DataTraceEnabled: !If [IsProduction, false, true]
+        # Higher limits for location updates (real-time game requirement)
+        - ResourcePath: /players/*/location
+          HttpMethod: PUT
+          ThrottlingBurstLimit: 200
+          ThrottlingRateLimit: 100
+          MetricsEnabled: true
+        # Lower limits for sensitive operations
+        - ResourcePath: /games
+          HttpMethod: POST
+          ThrottlingBurstLimit: 20
+          ThrottlingRateLimit: 10
+          MetricsEnabled: true
+        - ResourcePath: /players/*/eliminations
+          HttpMethod: POST
+          ThrottlingBurstLimit: 30
+          ThrottlingRateLimit: 15
+          MetricsEnabled: true
+        # Very restrictive for admin operations
+        - ResourcePath: /admin/*
+          HttpMethod: '*'
+          ThrottlingBurstLimit: 10
+          ThrottlingRateLimit: 5
+          MetricsEnabled: true
+      # Usage Plans for API Key-based throttling
+      ApiKeySourceType: HEADER
+      GatewayResponses:
+        DEFAULT_4XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: '''*'''
+              Access-Control-Allow-Methods: '''GET, POST, PUT, DELETE, OPTIONS'''
+              Access-Control-Allow-Headers: '''Content-Type, Authorization, X-Amz-Date,
+                X-Api-Key, X-Amz-Security-Token'''
+              Access-Control-Allow-Credentials: '''false'''
+              X-Content-Type-Options: '''nosniff'''
+              X-Frame-Options: '''DENY'''
+              X-XSS-Protection: '''1; mode=block'''
+              Strict-Transport-Security: '''max-age=31536000; includeSubDomains'''
+        DEFAULT_5XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: '''*'''
+              Access-Control-Allow-Methods: '''GET, POST, PUT, DELETE, OPTIONS'''
+              Access-Control-Allow-Headers: '''Content-Type, Authorization, X-Amz-Date,
+                X-Api-Key, X-Amz-Security-Token'''
+              Access-Control-Allow-Credentials: '''false'''
+              X-Content-Type-Options: '''nosniff'''
+              X-Frame-Options: '''DENY'''
+              X-XSS-Protection: '''1; mode=block'''
+              Strict-Transport-Security: '''max-age=31536000; includeSubDomains'''
+        UNAUTHORIZED:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: '''*'''
+              Access-Control-Allow-Methods: '''GET, POST, PUT, DELETE, OPTIONS'''
+              Access-Control-Allow-Headers: '''Content-Type, Authorization, X-Amz-Date,
+                X-Api-Key, X-Amz-Security-Token'''
+              Access-Control-Allow-Credentials: '''false'''
+              X-Content-Type-Options: '''nosniff'''
+              X-Frame-Options: '''DENY'''
+              X-XSS-Protection: '''1; mode=block'''
+              Strict-Transport-Security: '''max-age=31536000; includeSubDomains'''
+        ACCESS_DENIED:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: '''*'''
+              Access-Control-Allow-Methods: '''GET, POST, PUT, DELETE, OPTIONS'''
+              Access-Control-Allow-Headers: '''Content-Type, Authorization, X-Amz-Date,
+                X-Api-Key, X-Amz-Security-Token'''
+              Access-Control-Allow-Credentials: '''false'''
+              X-Content-Type-Options: '''nosniff'''
+              X-Frame-Options: '''DENY'''
+              X-XSS-Protection: '''1; mode=block'''
+              Strict-Transport-Security: '''max-age=31536000; includeSubDomains'''
+        THROTTLED:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: '''*'''
+              Access-Control-Allow-Methods: '''GET, POST, PUT, DELETE, OPTIONS'''
+              Access-Control-Allow-Headers: '''Content-Type, Authorization, X-Amz-Date,
+                X-Api-Key, X-Amz-Security-Token'''
+              Access-Control-Allow-Credentials: '''false'''
+              X-Content-Type-Options: '''nosniff'''
+              X-Frame-Options: '''DENY'''
+              X-XSS-Protection: '''1; mode=block'''
+              Strict-Transport-Security: '''max-age=31536000; includeSubDomains'''
+              Retry-After: '''60'''
+          ResponseTemplates:
+            application/json: |
+              {
+                "error": "Rate limit exceeded",
+                "message": "Too many requests. Please try again later.",
+                "retryAfter": 60
+              }
+      AccessLogSetting: !If
+        - EnableAccessLogs
+        - DestinationArn: !GetAtt ApiGatewayAccessLogGroup.Arn
+          Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","path":"$context.path","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength","errorMessage":"$context.error.message","userAgent":"$context.identity.userAgent","throttled":"$context.throttle.rateLimit","throttleBurst":"$context.throttle.burstLimit"}'
+        - !Ref AWS::NoValue
+
+  # Usage Plans for API Key-based rate limiting
+  BasicUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      UsagePlanName: !Sub ${Environment}-basic-usage-plan
+      Description: Basic usage plan for regular players
+      ApiStages:
+        - ApiId: !Ref AssassinApi
+          Stage: !Ref Environment
+      Throttle:
+        BurstLimit: 100
+        RateLimit: 50
+      Quota:
+        Limit: 10000
+        Period: DAY
+
+  PremiumUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      UsagePlanName: !Sub ${Environment}-premium-usage-plan
+      Description: Premium usage plan for premium subscribers
+      ApiStages:
+        - ApiId: !Ref AssassinApi
+          Stage: !Ref Environment
+      Throttle:
+        BurstLimit: 200
+        RateLimit: 100
+      Quota:
+        Limit: 50000
+        Period: DAY
+
+  AdminUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      UsagePlanName: !Sub ${Environment}-admin-usage-plan
+      Description: Admin usage plan for administrative operations
+      ApiStages:
+        - ApiId: !Ref AssassinApi
+          Stage: !Ref Environment
+      Throttle:
+        BurstLimit: 50
+        RateLimit: 25
+      Quota:
+        Limit: 5000
+        Period: DAY
 
   # --- API Gateway (WebSocket) ---
   WebSocketApi:
@@ -641,6 +843,197 @@ Resources:
       AutoDeploy: true
 
   # --- Lambda Functions (Now correctly inherit Globals) ---
+  
+  # Security Functions
+  SecurityHandler:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - SecurityEventsTable
+    Properties:
+      Handler: com.assassin.handlers.SecurityHandler::handleRequest
+      Description: Handles security operations including rate limiting, abuse detection, and security monitoring.
+      CodeUri: ./
+      MemorySize: 512
+      Timeout: 30
+      Environment:
+        Variables:
+          SECURITY_EVENTS_TABLE_NAME: !Ref SecurityEventsTable
+          LOG_LEVEL: INFO
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+          SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+        - !Ref AWS::NoValue
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SecurityEventsTable
+      Events:
+        SecurityRateLimit:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /security/rate-limit
+            Method: POST
+            Auth:
+              Authorizer: NONE  # Internal security service
+        SecurityAbuseDetection:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /security/abuse-detection
+            Method: POST
+            Auth:
+              Authorizer: NONE  # Internal security service
+        SecurityLocationSpoofing:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /security/location-spoofing
+            Method: POST
+            Auth:
+              Authorizer: NONE  # Internal security service
+        SecurityLogEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /security/log-event
+            Method: POST
+            Auth:
+              Authorizer: NONE  # Internal security service
+        SecurityHealth:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /security/health
+            Method: GET
+            Auth:
+              Authorizer: NONE  # Health check doesn't need auth
+
+  SecurityMonitoringFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - SecurityEventsTable
+      - BlockedEntitiesTable
+    Properties:
+      Handler: com.assassin.handlers.SecurityMonitoringHandler::handleRequest
+      Description: Handles security monitoring, alerting, and threat analysis operations.
+      CodeUri: ./
+      MemorySize: 512
+      Timeout: 30
+      Environment:
+        Variables:
+          SECURITY_EVENTS_TABLE_NAME: !Ref SecurityEventsTable
+          BLOCKED_ENTITIES_TABLE_NAME: !Ref BlockedEntitiesTable
+          LOG_LEVEL: INFO
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+          SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+        - !Ref AWS::NoValue
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref SecurityEventsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BlockedEntitiesTable
+      Events:
+        GetSecurityReport:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /security-monitoring/report
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetSecurityAlerts:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /security-monitoring/alerts
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetSecurityMetrics:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /security-monitoring/metrics
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetTopThreats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /security-monitoring/threats
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+        PerformAutomatedResponse:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /security-monitoring/response
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+        SecurityMonitoringHealth:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /security-monitoring/health
+            Method: get
+            Auth:
+              Authorizer: NONE  # Health check doesn't need auth
+
+  SecurityMetricsSchedulerFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - SecurityEventsTable
+      - BlockedEntitiesTable
+    Properties:
+      Handler: com.assassin.handlers.SecurityMetricsSchedulerHandler::handleRequest
+      Description: Scheduled function that publishes security metrics to CloudWatch for monitoring and alerting.
+      CodeUri: ./
+      MemorySize: 256
+      Timeout: 60
+      Environment:
+        Variables:
+          SECURITY_EVENTS_TABLE_NAME: !Ref SecurityEventsTable
+          BLOCKED_ENTITIES_TABLE_NAME: !Ref BlockedEntitiesTable
+          LOG_LEVEL: INFO
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+          SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+        - !Ref AWS::NoValue
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref SecurityEventsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref BlockedEntitiesTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - cloudwatch:PutMetricData
+              Resource: '*'
+      Events:
+        ScheduledMetricsPublishing:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)  # Run every 5 minutes
+            Description: Scheduled event to publish security metrics to CloudWatch
+            Enabled: true
+
   PlayerManagementFunction:
     Type: AWS::Serverless::Function
     DependsOn:
@@ -1242,6 +1635,87 @@ Resources:
             Method: post
             Auth:
               Authorizer: CognitoAuthorizer # Requires user to be authenticated
+        CreatePaymentIntent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /games/{gameId}/create-payment-intent
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer # Support for Apple Pay, Google Pay, etc.
+        ConfirmPayment:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /payments/{paymentIntentId}/confirm
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer # Confirm payment completion
+
+  SubscriptionFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - PlayersTable
+    Properties:
+      Handler: com.assassin.handlers.SubscriptionHandler::handleRequest
+      Description: Handles subscription management operations including tier management and Stripe webhooks.
+      CodeUri: ./
+      MemorySize: 512
+      Timeout: 30
+      Environment:
+        Variables:
+          PLAYERS_TABLE_NAME: !Ref PlayersTable
+          STRIPE_SECRET_KEY: !Sub '{{resolve:ssm:/assassin/${Environment}/stripe/secret_key:1}}'
+          STRIPE_WEBHOOK_SECRET: !Sub '{{resolve:ssm:/assassin/${Environment}/stripe/webhook_secret:1}}'
+          LOG_LEVEL: INFO
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PlayersTable
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub /assassin/${Environment}/stripe/secret_key
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub /assassin/${Environment}/stripe/webhook_secret
+      Events:
+        GetSubscriptionTiers:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /subscriptions/tiers
+            Method: get
+            Auth:
+              Authorizer: NONE # Public endpoint
+        GetMySubscription:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /players/me/subscription
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+        SubscribePlayer:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /players/me/subscription
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+        CancelMySubscription:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /players/me/subscription
+            Method: delete
+            Auth:
+              Authorizer: CognitoAuthorizer
+        StripeWebhook:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /subscriptions/webhook
+            Method: post
+            Auth:
+              Authorizer: NONE # Stripe webhooks don't use Cognito auth
 
   # --- Log Groups ---
   ApiGatewayAccessLogGroup:
@@ -1312,6 +1786,12 @@ Resources:
       LogGroupName: !Sub /aws/lambda/${Environment}-PaymentFunctionLogs
       RetentionInDays: !Ref LogRetentionInDays
 
+  SubscriptionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${Environment}-SubscriptionFunctionLogs
+      RetentionInDays: !Ref LogRetentionInDays
+
   # --- CloudWatch Alarms ---
   ApiGateway5xxErrorAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -1360,6 +1840,270 @@ Resources:
       ComparisonOperator: GreaterThanThreshold
       TreatMissingData: notBreaching
 
+  # --- Security Monitoring Resources ---
+  
+  # SNS Topic for Security Alerts
+  SecurityAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${Environment}-assassin-security-alerts
+      DisplayName: !Sub ${Environment} Assassin Game Security Alerts
+      KmsMasterKeyId: alias/aws/sns
+  
+  SecurityAlertsTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref SecurityAlertsTopic
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudwatch.amazonaws.com
+            Action:
+              - sns:Publish
+            Resource: !Ref SecurityAlertsTopic
+  
+  # CloudWatch Log Group for Security Events
+  SecurityEventsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${Environment}-SecurityEventsFunctionLogs
+      RetentionInDays: !Ref LogRetentionInDays
+  
+  SecurityMonitoringLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${Environment}-SecurityMonitoringFunctionLogs
+      RetentionInDays: !Ref LogRetentionInDays
+  
+  # Security-specific CloudWatch Alarms
+  
+  # API Gateway Rate Limiting Alarm
+  ApiGatewayThrottlingAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${Environment}-ApiGateway-Throttling
+      AlarmDescription: Alarm when API Gateway throttling occurs frequently
+      Namespace: AWS/ApiGateway
+      MetricName: ThrottleCount
+      Dimensions:
+        - Name: ApiName
+          Value: !Ref AssassinApi
+        - Name: Stage
+          Value: !Ref Environment
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 50
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref SecurityAlertsTopic
+  
+  # High 4xx Error Rate (potential abuse)
+  ApiGateway4xxErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${Environment}-ApiGateway-4xxError-High
+      AlarmDescription: Alarm when 4xx error rate is high (potential abuse)
+      Namespace: AWS/ApiGateway
+      MetricName: 4XXError
+      Dimensions:
+        - Name: ApiName
+          Value: !Ref AssassinApi
+        - Name: Stage
+          Value: !Ref Environment
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 100
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref SecurityAlertsTopic
+  
+  # Lambda Concurrent Executions Alarm (potential DDoS)
+  LambdaConcurrentExecutionsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${Environment}-Lambda-ConcurrentExecutions-High
+      AlarmDescription: Alarm when Lambda concurrent executions are unusually high
+      Namespace: AWS/Lambda
+      MetricName: ConcurrentExecutions
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 3
+      Threshold: 900  # Adjust based on your expected load
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref SecurityAlertsTopic
+  
+  # Lambda Duration Alarm (potential resource exhaustion attacks)
+  LambdaDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${Environment}-Lambda-Duration-High
+      AlarmDescription: Alarm when Lambda functions are taking too long (potential attack)
+      Namespace: AWS/Lambda
+      MetricName: Duration
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 25000  # 25 seconds
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref SecurityAlertsTopic
+  
+  # DynamoDB Error Rate Alarm
+  DynamoDBErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${Environment}-DynamoDB-Errors
+      AlarmDescription: Alarm when DynamoDB has high error rates
+      Namespace: AWS/DynamoDB
+      MetricName: SystemErrors
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref SecurityAlertsTopic
+  
+  # Custom Metric for Security Events
+  SecurityEventsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${Environment}-Security-Events-High
+      AlarmDescription: Alarm when security events are detected at high frequency
+      Namespace: AssassinGame/Security
+      MetricName: SecurityEventsCount
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 20
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref SecurityAlertsTopic
+  
+  # CloudWatch Dashboard for Security Monitoring
+  SecurityMonitoringDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub ${Environment}-AssassinGame-Security-Monitoring
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/ApiGateway", "Count", "ApiName", "${AssassinApi}", "Stage", "${Environment}" ],
+                  [ ".", "4XXError", ".", ".", ".", "." ],
+                  [ ".", "5XXError", ".", ".", ".", "." ],
+                  [ ".", "ThrottleCount", ".", ".", ".", "." ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "API Gateway Metrics",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/Lambda", "Invocations" ],
+                  [ ".", "Errors" ],
+                  [ ".", "Duration" ],
+                  [ ".", "ConcurrentExecutions" ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Lambda Metrics",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 6,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${PlayersTable}" ],
+                  [ ".", "ConsumedWriteCapacityUnits", ".", "." ],
+                  [ ".", "ThrottledRequests", ".", "." ],
+                  [ ".", "SystemErrors", ".", "." ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "DynamoDB Metrics - Players Table",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 6,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AssassinGame/Security", "SecurityEventsCount" ],
+                  [ ".", "BlockedEntitiesCount" ],
+                  [ ".", "ThreatScoreMax" ],
+                  [ ".", "AlertsGenerated" ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Security Events",
+                "period": 300
+              }
+            },
+            {
+              "type": "log",
+              "x": 0,
+              "y": 12,
+              "width": 24,
+              "height": 6,
+              "properties": {
+                "query": "SOURCE '/aws/lambda/${Environment}-SecurityEventsFunctionLogs' | fields @timestamp, @message\n| filter @message like /ERROR/ or @message like /SECURITY/\n| sort @timestamp desc\n| limit 100",
+                "region": "${AWS::Region}",
+                "title": "Recent Security Events",
+                "view": "table"
+              }
+            }
+          ]
+        }
+  
+  # --- SSM Parameters ---
+  StripeWebhookSecretParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /assassin/${Environment}/stripe/webhook_secret
+      Type: SecureString
+      Value: placeholder_webhook_secret_change_me
+      Description: Stripe webhook endpoint secret for subscription events
+
 Outputs:
   ApiEndpoint:
     Description: API Gateway endpoint URL
@@ -1392,3 +2136,19 @@ Outputs:
   WebSocketApiEndpoint:
     Description: WebSocket API Gateway endpoint URL
     Value: !Sub wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+
+  SecurityAlertsTopicArn:
+    Description: SNS Topic ARN for security alerts
+    Value: !Ref SecurityAlertsTopic
+
+  SecurityMonitoringDashboardURL:
+    Description: CloudWatch Dashboard URL for security monitoring
+    Value: !Sub https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${Environment}-AssassinGame-Security-Monitoring
+
+  SecurityEventsTableName:
+    Description: Security Events DynamoDB table name
+    Value: !Ref SecurityEventsTable
+
+  BlockedEntitiesTableName:
+    Description: Blocked Entities DynamoDB table name
+    Value: !Ref BlockedEntitiesTable

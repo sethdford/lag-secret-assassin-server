@@ -876,13 +876,14 @@ public class ProximityDetectionService {
         Player victim = playerDao.getPlayerById(targetId)
                 .orElseThrow(() -> new PlayerNotFoundException("Victim not found: " + targetId));
         
-        // Check Player Status: Both must be ACTIVE
+        // Check Player Status: Killer must be ACTIVE, Victim can be ACTIVE or PENDING_DEATH
         if (!PlayerStatus.ACTIVE.name().equals(killer.getStatus())) {
             logger.debug("Cannot eliminate: Killer {} is not ACTIVE (status: {})", playerId, killer.getStatus());
             return false;
         }
-        if (!PlayerStatus.ACTIVE.name().equals(victim.getStatus())) {
-            logger.debug("Cannot eliminate: Victim {} is not ACTIVE (status: {})", targetId, victim.getStatus());
+        if (!PlayerStatus.ACTIVE.name().equals(victim.getStatus()) && 
+            !PlayerStatus.PENDING_DEATH.name().equals(victim.getStatus())) {
+            logger.debug("Cannot eliminate: Victim {} is not ACTIVE or PENDING_DEATH (status: {})", targetId, victim.getStatus());
             return false;
         }
         
@@ -1386,9 +1387,10 @@ public class ProximityDetectionService {
                 .orElseThrow(() -> new GameNotFoundException("Game not found during large-scale proximity processing: " + gameId));
         
         try {
-            // Fetch all active players in the game
+            // Fetch all active players in the game (including PENDING_DEATH)
             List<Player> players = playerDao.getPlayersByGameId(gameId).stream()
-                    .filter(p -> PlayerStatus.ACTIVE.name().equals(p.getStatus()))
+                    .filter(p -> PlayerStatus.ACTIVE.name().equals(p.getStatus()) || 
+                                PlayerStatus.PENDING_DEATH.name().equals(p.getStatus()))
                     .filter(p -> p.getLatitude() != null && p.getLongitude() != null)
                     .toList();
             
@@ -1650,7 +1652,8 @@ public class ProximityDetectionService {
                 Player player = playerDao.getPlayerById(playerId)
                         .orElse(null);
                 
-                if (player == null || !PlayerStatus.ACTIVE.name().equals(player.getStatus())) {
+                if (player == null || (!PlayerStatus.ACTIVE.name().equals(player.getStatus()) && 
+                                      !PlayerStatus.PENDING_DEATH.name().equals(player.getStatus()))) {
                     continue; // Skip inactive or not found players
                 }
                 

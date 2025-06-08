@@ -14,13 +14,7 @@ alwaysApply: false
 ## Critical Rules
 
 - **Always check for .memory/ directory existence** before proceeding with any memory bank operations
-- **Create complete directory structure** if .memory/ doesn't exist:
-  - .memory/40-active.md (Active Context)
-  - .memory/10-product.md (Product Context) 
-  - .memory/50-progress.md (Progress Tracking)
-  - .memory/50-decisions.md (Decision Log)
-  - .memory/50-patterns.md (System Patterns)
-  - .memory/54-definition-of-done.md (CRITICAL: Quality Gates & Verification)
+- **Create complete directory structure** if .memory/ doesn't exist with the rationalized file set
 - **Initialize with proper file templates** including frontmatter and basic structure
 - **Maintain consistent timestamp format** [YYYY-MM-DD HH:MM:SS] for all updates
 - **Status indicators** must be used in all Memory Bank custom modes:
@@ -32,263 +26,152 @@ alwaysApply: false
 
 ## Memory Bank File Structure & Numbering
 
-### Core Memory Bank Files (Numbered)
+### Core Memory Bank Files (Must Exist)
 - **40-active.md**: Current session context, priorities, and active work
-- **10-product.md**: Product definition, goals, and scope
-- **50-progress.md**: Progress tracking, completed work, and milestones
-- **50-decisions.md**: Technical decisions, rationale, and implications
-- **50-patterns.md**: System patterns, best practices, and conventions
 - **54-definition-of-done.md**: **CRITICAL** - Quality gates and verification checklist (MUST EXIST)
+- **52-patterns.md**: System patterns, best practices, and conventions
+- **53-progress.md**: Progress tracking, completed work, and milestones
+- **50-decisions.md**: Technical decisions, rationale, and implications
 
-### Additional Project Files (Pre-existing)
+### Complete Rationalized Structure
+#### Project Foundation (01-09)
 - **01-brief.md**: Project charter and overview
-- **20-domain-model.md**: Core domain entities and relationships
-- **20-requirements.md**: Functional and non-functional requirements
-- **30-architecture.md**: System architecture and design
-- **60-database-schema.md**: Database schemas and access patterns
+- **02-product.md**: Product definition, goals, and scope
 
-## Memory Bank File Templates
+#### Requirements & Domain (10-19)
+- **10-requirements.md**: Functional and non-functional requirements
+- **11-domain-model.md**: Core domain entities and relationships
+- **12-domain.md**: Domain terminology and concepts
+- **12-user-stories.md**: User stories and product requirements
 
-### 40-active.md Template
-```markdown
-# Current Focus & State: [Project Name]
+#### System Architecture (20-29)
+- **20-system.md**: System architecture overview, AWS services, components
+- **21-architecture.md**: Detailed technical architecture and design
+- **22-tech.md**: Technical foundation and technologies used
+- **23-database-schema.md**: Database schemas and access patterns
 
-## Active Sprint/Cycle
-**Current Session Focus**: [Current session objectives]
+#### Implementation (30-39)
+- **30-codebase.md**: Code organization, structure, and key components
+- **31-implementation.md**: Implementation details, classes, interfaces
 
-## Recent Changes
-**[YYYY-MM-DD Session Updates]**
-- [Recent development activities]
-- [Key accomplishments]
-- [Important updates]
+#### Active Development (40-49)
+- **40-active.md**: Currently active development tasks and focus areas
 
-## Immediate Priorities
-**Next Development Tasks (In Priority Order):**
-1. [High priority task with details]
-2. [Next priority task]
+#### Standards & Progress (50-59)
+- **50-decisions.md**: Technical decisions with rationale
+- **51-development-standards.md**: Development standards and coding conventions
+- **52-patterns.md**: System patterns, best practices, and architectural conventions
+- **53-progress.md**: Project progress tracking and milestone achievements
+- **54-definition-of-done.md**: **CRITICAL** - Definition of Done checklist and quality gates
 
-## Current Code Quality Status
-**Architecture**: [Status and assessment]
-**Implementation**: [Status and details]
-**Testing**: [Status and coverage]
+#### Knowledge Repository (60-69)
+- **60-knowledge.md**: Domain knowledge capture of key concepts and game mechanics
 
-## Open Questions
-- [Outstanding questions or decisions needed]
+#### Documentation (90-99)
+- **90-README.md**: Memory Bank system guide and usage instructions
 
-## Blockers
-- [Current blockers or dependencies]
+## Memory Bank Commands Reference
 
-## Session Context
-**Development Environment**: [Environment status]
-**Memory Bank**: [Memory bank status]
-**Task Management**: [Task system status]
+### Read Memory File
+```
+mem:read <filename>
+```
+Examples:
+- `mem:read 40-active` - Get current session context
+- `mem:read 54-definition-of-done` - Review quality requirements
+- `mem:read 52-patterns` - Check development patterns
+
+### Update Memory File
+```
+mem:update <filename>
+```
+Examples:
+- `mem:update 40-active` - Update current context
+- `mem:update 53-progress` - Update project progress
+- `mem:update 50-decisions` - Document technical decisions
+
+### Search Memory Bank
+```
+mem:search <query>
+```
+Examples:
+- `mem:search testing` - Find testing-related information
+- `mem:search DynamoDB` - Find database references
+- `mem:search quality` - Find quality and verification information
+
+## Critical File Priorities
+
+When initializing or working with Memory Bank:
+
+### Tier 1: Essential (Must Always Exist)
+1. **40-active.md** - Current session context
+2. **54-definition-of-done.md** - Quality gates (CRITICAL)
+3. **52-patterns.md** - Development patterns
+
+### Tier 2: Core Development
+4. **53-progress.md** - Progress tracking
+5. **50-decisions.md** - Technical decisions
+6. **21-architecture.md** - System architecture
+
+### Tier 3: Reference and Documentation
+7. **22-tech.md** - Technology stack
+8. **51-development-standards.md** - Coding standards
+9. **90-README.md** - System guide
+
+## Workflow Integration
+
+### Development Session Start
+```bash
+mem:read 40-active              # Get current context
+mem:read 54-definition-of-done  # Review quality requirements
+mem:read 52-patterns            # Check development patterns
 ```
 
-### 10-product.md Template
-```markdown
-# Product Context
+### During Development
+- Reference patterns from `52-patterns.md`
+- Follow standards from `51-development-standards.md`
+- Update progress in `40-active.md`
 
-## Project Overview
-- **Purpose**: [Project description and mission]
-- **Goals**: [Main objectives and success criteria]
-- **Scope**: [What's included/excluded in this project]
-
-## Technical Architecture
-- **Stack**: [Technology choices and versions]
-- **Components**: [Main system components and services]
-- **Dependencies**: [Key dependencies and integrations]
-
-## Standards & Conventions
-- **Code Style**: [Coding standards and linting rules]
-- **Documentation**: [Documentation requirements and standards]
-- **Testing**: [Testing approach and coverage requirements]
-
-## Memory Bank Integration
-- **Custom Modes**: [Available custom modes]
-- **Workflow**: [Development workflow patterns]
+### Session End
+```bash
+mem:update 40-active    # Update session context
+mem:update 53-progress  # Update progress tracking
 ```
 
-### 50-progress.md Template
-```markdown
-# Project Trajectory: [Project Name]
+## Example Memory Bank Initialization
 
-## Overall Status
-**Phase**: [Current development phase]
-
-## Recent Session Updates 
-**[YYYY-MM-DD - Description]**
-- ✅ [Completed items]
-- 🔄 [In progress items]
-- 📋 [Planned items]
-
-## Completed Work
-- **Task X:** [Task description and completion details]
-
-## Milestone Progress
-*Progress towards current phase goals:*
-- [Milestone 1]: [Status and details]
-- [Milestone 2]: [Status and details]
-
-## Known Issues/Bugs
-- [YYYY-MM-DD] - [Issue description and status]
-
-## Backlog Overview
-- **Task X:** [Task description and priority]
-```
-
-### 50-decisions.md Template
-```markdown
-# Technical Decisions
-
-This document captures key technical decisions made during development.
-
-## Development Workflow Decisions
-
-### [Decision Name]
-**Decision**: [What was decided]
-
-**Date**: [YYYY-MM-DD]
-
-**Rationale**:
-- [Reason 1]
-- [Reason 2]
-
-**Implications**:
-- [Implication 1]
-- [Implication 2]
-
-## Architecture Decisions
-[Similar format for architectural decisions]
-
-## Infrastructure Decisions
-[Similar format for infrastructure decisions]
-```
-
-### 50-patterns.md Template
-```markdown
-# System Patterns & Best Practices: [Project Name]
-
-## Memory Bank Workflow Patterns
-
-### Custom Mode Usage Pattern
-**Date**: [YYYY-MM-DD]
-**Pattern**: Mode-based development workflow
-**Usage**: 
-- **Architect Mode**: Design, initialization, high-level planning
-- **Code Mode**: Active development, implementation, testing
-- **Debug Mode**: Issue investigation, troubleshooting
-
-## Code Architecture Patterns
-
-### [Pattern Name]
-**Pattern**: [Pattern description]
-**Components**:
-- [Component 1]: [Description]
-- [Component 2]: [Description]
-
-## Development Workflow Patterns
-
-### [Workflow Pattern Name]
-**Pattern**: [Pattern description]
-**Workflow**:
-1. [Step 1]
-2. [Step 2]
-```
-
-### 54-definition-of-done.md Template
-```markdown
-# Definition of Done
-
-## Critical Definition of Done
-
-**NO TASK CAN BE MARKED "DONE" WITHOUT MEETING ALL CRITERIA:**
-
-### ✅ Definition of Done Checklist
-
-**Before setting any task status to "done", verify:**
-
-1. **Code Implementation Exists**
-   - All required classes, methods, and functionality are implemented
-   - Code follows project standards and conventions
-   - No placeholder/TODO comments remain
-
-2. **Comprehensive Tests Written**
-   - Unit tests cover all public methods and business logic
-   - Integration tests verify component interactions  
-   - Test coverage is >80% for the implemented code
-   - Edge cases and error conditions are tested
-
-3. **All Tests Pass**
-   - Run tests and verify 0 failures, 0 errors
-   - Integration tests pass with real/mocked dependencies
-   - No flaky or skipped tests
-
-4. **Code Quality Verified**
-   - Static analysis passes
-   - No violations in new/modified code
-   - Code review standards met
-
-5. **Documentation Updated**
-   - API documentation for public interfaces
-   - README or relevant docs updated if needed
-
-### ⚠️ Task Verification Process
-
-**For Every Task Completion:**
-
-1. **Locate Implementation**: Find the actual classes/methods
-2. **Find Test Files**: Locate corresponding test classes  
-3. **Run Tests**: Execute specific tests for the component
-4. **Verify Coverage**: Check test coverage reports
-5. **Manual Testing**: Test functionality if integration required
-6. **Only Then**: Mark task as "done"
-
-### 🚫 Common Verification Failures
-
-**Do NOT mark done if:**
-- Tests don't exist for the implemented code
-- Tests exist but are failing or skipped
-- Coverage is below 80% for new/modified code
-- Static analysis reports violations
-- Code has TODO/FIXME comments
-- Integration points aren't tested
-
-## Quality Gates
-
-**Minimum Requirements:**
-- **Test Coverage**: >80% line coverage for new code
-- **Test Success Rate**: 100% (0 failures, 0 errors)
-- **Static Analysis**: 0 violations in new/modified code
-- **Documentation**: All public APIs documented
-
-**Last Updated**: [YYYY-MM-DD]
-```
-
-## Examples
-
-<example>
 **Memory Bank Architect Mode Initialization:**
 ```
 [MEMORY BANK: ARCHITECT]
 
-I've detected that no .memory/ directory exists. Let me initialize the Memory Bank system for this project.
+I've detected that the .memory/ directory needs rationalization. Let me ensure the complete Memory Bank structure is in place.
 
-Creating .memory/ directory structure...
-✓ .memory/40-active.md
-✓ .memory/10-product.md  
-✓ .memory/50-progress.md
-✓ .memory/50-decisions.md
-✓ .memory/50-patterns.md
+Verifying Memory Bank structure...
+✓ .memory/40-active.md (Current Context)
 ✓ .memory/54-definition-of-done.md (CRITICAL: Quality Gates)
+✓ .memory/52-patterns.md (System Patterns)
+✓ .memory/53-progress.md (Progress Tracking)
+✓ .memory/50-decisions.md (Technical Decisions)
 
-Memory Bank initialized successfully. You can now switch to other Memory Bank modes for development work.
-```
-</example>
+Additional structure files verified...
+✓ Complete rationalized structure with 17 memory files
 
-<example type="invalid">
-**Incorrect - Missing status indicator:**
+Memory Bank fully rationalized and ready for development.
 ```
-I see you want to initialize the memory bank. Let me create the files...
-(Missing '[MEMORY BANK: ARCHITECT]' status indicator)
-```
-</example>
+
+## Best Practices
+
+1. **Critical File Focus**: Always ensure Tier 1 files exist and are current
+2. **Quality Gates**: Reference `54-definition-of-done.md` before marking tasks complete
+3. **Context Continuity**: Start each session by reading `40-active.md`
+4. **Pattern Consistency**: Follow patterns documented in `52-patterns.md`
+5. **Progress Tracking**: Keep `53-progress.md` updated with achievements
+6. **Decision Documentation**: Record important choices in `50-decisions.md`
+7. **Version Control**: All memory files should be committed to git
+
+## Error Prevention
+
+- **Never proceed without `54-definition-of-done.md`** - This prevents quality issues
+- **Always update `40-active.md`** - Maintains session continuity
+- **Check `52-patterns.md`** - Ensures consistent implementation patterns
+- **Reference architecture files** - Prevents design violations

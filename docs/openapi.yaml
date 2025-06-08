@@ -4,8 +4,9 @@ info:
   description: |
     API for the Assassin Game platform, supporting game creation, player management, 
     kill reporting, and in-game purchases. Features include real-time notifications,
-    multiple verification methods, shrinking zone mechanics, and support for nationwide games with 1000+ players.
-  version: 1.0.2
+    multiple verification methods, shrinking zone mechanics, support for nationwide games with 1000+ players,
+    enhanced payment processing with Apple Pay/Google Pay support, and comprehensive security monitoring.
+  version: 1.0.3
   contact:
     name: Assassin Game Development Team
 servers:
@@ -44,6 +45,8 @@ tags:
     description: Shrinking zone mechanics and zone state management
   - name: Payments
     description: Payment processing and transaction management
+  - name: Security
+    description: Security monitoring, reporting, and threat detection
 
 components:
   securitySchemes:
@@ -2395,4 +2398,366 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error' 
+                $ref: '#/components/schemas/Error'
+
+  /games/{gameId}/create-payment-intent:
+    parameters:
+      - name: gameId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      tags:
+        - Payments
+      summary: Create payment intent for client-side completion
+      description: |
+        Creates a Stripe PaymentIntent that supports multiple payment methods including 
+        Apple Pay, Google Pay, and bank transfers. This enables client-side payment 
+        completion for a seamless in-app experience.
+      operationId: createPaymentIntent
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                  format: decimal
+                  description: Payment amount (uses game entry fee if not specified)
+                currency:
+                  type: string
+                  description: Currency code (default: USD)
+                  default: USD
+                paymentMethodTypes:
+                  type: array
+                  items:
+                    type: string
+                  description: Specific payment method types to enable
+                  example: ["card", "apple_pay", "google_pay"]
+      responses:
+        '200':
+          description: Payment intent created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  paymentIntentId:
+                    type: string
+                    description: Stripe PaymentIntent ID
+                  clientSecret:
+                    type: string
+                    description: Client secret for completing payment on client side
+                  amount:
+                    type: number
+                    format: decimal
+                  currency:
+                    type: string
+                  status:
+                    type: string
+                    enum: [requires_payment_method, requires_confirmation, requires_action]
+                  paymentMethodTypes:
+                    type: array
+                    items:
+                      type: string
+                    description: Available payment method types
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '402':
+          description: Payment processing error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /payments/{paymentIntentId}/confirm:
+    parameters:
+      - name: paymentIntentId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Stripe PaymentIntent ID
+    post:
+      tags:
+        - Payments
+      summary: Confirm payment completion and update transaction status
+      description: |
+        Confirms that a payment has been completed client-side and updates the 
+        corresponding transaction status. Used after client-side payment completion 
+        with Apple Pay, Google Pay, or other payment methods.
+      operationId: confirmPayment
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Payment confirmed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Payment confirmed successfully"
+                  transactionId:
+                    type: string
+                    description: Internal transaction ID
+                  status:
+                    type: string
+                    enum: [completed]
+                  paymentMethod:
+                    type: object
+                    description: Details about the payment method used
+                    properties:
+                      type:
+                        type: string
+                        example: "card"
+                      brand:
+                        type: string
+                        example: "visa"
+                      last4:
+                        type: string
+                        example: "4242"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Payment intent not found or no associated transaction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Payment requires additional action or failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  status:
+                    type: string
+                    enum: [requires_action, failed, canceled]
+                  nextAction:
+                    type: object
+                    description: Additional action required (e.g., 3D Secure)
+
+  # Security endpoints
+  /security/reports:
+    get:
+      tags:
+        - Security
+      summary: Get security reports and metrics
+      operationId: getSecurityReports
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: timeframe
+          in: query
+          description: Timeframe for security data
+          schema:
+            type: string
+            enum: [hour, day, week, month]
+            default: day
+        - name: reportType
+          in: query
+          description: Type of security report
+          schema:
+            type: string
+            enum: [threats, rate_limiting, authentication, all]
+            default: all
+      responses:
+        '200':
+          description: Security reports and metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  threatDetection:
+                    type: object
+                    properties:
+                      suspiciousIPs:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            ip:
+                              type: string
+                            threatScore:
+                              type: number
+                            lastActivity:
+                              type: string
+                              format: date-time
+                      blockedRequests:
+                        type: integer
+                      totalThreats:
+                        type: integer
+                  rateLimiting:
+                    type: object
+                    properties:
+                      throttledRequests:
+                        type: integer
+                      topThrottledEndpoints:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            endpoint:
+                              type: string
+                            count:
+                              type: integer
+                  authentication:
+                    type: object
+                    properties:
+                      failedLogins:
+                        type: integer
+                      suspiciousLoginAttempts:
+                        type: integer
+                      uniqueUsers:
+                        type: integer
+                  alerts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        severity:
+                          type: string
+                          enum: [low, medium, high, critical]
+                        message:
+                          type: string
+                        timestamp:
+                          type: string
+                          format: date-time
+                        resolved:
+                          type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /security/ip/{ipAddress}/block:
+    parameters:
+      - name: ipAddress
+        in: path
+        required: true
+        schema:
+          type: string
+        description: IP address to block
+    post:
+      tags:
+        - Security
+      summary: Block an IP address
+      operationId: blockIPAddress
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Reason for blocking the IP
+                duration:
+                  type: integer
+                  description: Block duration in seconds (0 for permanent)
+                  default: 0
+      responses:
+        '200':
+          description: IP address blocked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  blockedIp:
+                    type: string
+                  blockedUntil:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /security/alerts:
+    get:
+      tags:
+        - Security
+      summary: Get security alerts
+      operationId: getSecurityAlerts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: severity
+          in: query
+          description: Filter by alert severity
+          schema:
+            type: string
+            enum: [low, medium, high, critical]
+        - name: resolved
+          in: query
+          description: Filter by resolution status
+          schema:
+            type: boolean
+        - name: limit
+          in: query
+          description: Maximum number of alerts to return
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Security alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    severity:
+                      type: string
+                      enum: [low, medium, high, critical]
+                    type:
+                      type: string
+                      enum: [rate_limit_exceeded, suspicious_activity, authentication_failure, threat_detected]
+                    message:
+                      type: string
+                    details:
+                      type: object
+                    timestamp:
+                      type: string
+                      format: date-time
+                    resolved:
+                      type: boolean
+                    resolvedAt:
+                      type: string
+                      format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden' 

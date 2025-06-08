@@ -9,11 +9,7 @@ import java.util.Optional;
 public interface TransactionDao {
 
     String PLAYER_TRANSACTIONS_INDEX_NAME = "PlayerTransactionsIndex";
-    String GAME_TRANSACTIONS_INDEX_NAME = "GameTransactionsIndex";
-    // If we need PlayerID + GameID + CreatedAt, it might be better to have
-    // PlayerGameIndex: PK=PlayerID, SK=GameID
-    // And then filter by CreatedAt, or PlayerID_GameID_CreatedAt_Index (PK=PlayerID, SK=GameID#CreatedAt)
-    String PLAYER_GAME_TRANSACTIONS_INDEX_NAME = "PlayerGameTransactionsIndex"; 
+    String GAME_TRANSACTIONS_INDEX_NAME = "GameTransactionsIndex"; 
 
     /**
      * Saves a transaction record.

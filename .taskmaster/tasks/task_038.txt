@@ -1,6 +1,6 @@
 # Task ID: 38
 # Title: Implement Delayed Target Reassignment in KillService
-# Status: pending
+# Status: done
 # Dependencies: 7, 8
 # Priority: high
 # Description: Modify the KillService to delay target reassignment until after successful kill verification by introducing a PENDING_DEATH status and restructuring the verification flow.
@@ -59,7 +59,7 @@ Testing should verify both the successful and failed verification paths:
 5. Create regression tests to ensure existing functionality isn't broken
 
 # Subtasks:
-## 1. Add PENDING_DEATH Status to Player/User Enum [pending]
+## 1. Add PENDING_DEATH Status to Player/User Enum [done]
 ### Dependencies: None
 ### Description: Add a new status value to the Player/User status enum to represent players who have been reported killed but not yet verified.
 ### Details:
@@ -75,7 +75,7 @@ Testing approach:
 - Test that serialization/deserialization of the enum works correctly
 - Verify that existing code using the enum still functions properly
 
-## 2. Modify reportKill Method to Use PENDING_DEATH Status [pending]
+## 2. Modify reportKill Method to Use PENDING_DEATH Status [done]
 ### Dependencies: 38.1
 ### Description: Update the reportKill method to change victim status to PENDING_DEATH instead of DEAD and store information for potential status restoration.
 ### Details:
@@ -92,7 +92,7 @@ Testing approach:
 - Verify that targets are not reassigned at this stage
 - Test transaction rollback scenarios
 
-## 3. Implement Enhanced verifyKill Method [pending]
+## 3. Implement Enhanced verifyKill Method [done]
 ### Dependencies: 38.1, 38.2
 ### Description: Modify the verifyKill method to handle the final status change and target reassignment based on verification result.
 ### Details:
@@ -114,7 +114,7 @@ Testing approach:
 - Verify that game statistics are updated correctly
 - Test edge cases like verifying already verified kills
 
-## 4. Handle Edge Cases in Kill Verification Flow [pending]
+## 4. Handle Edge Cases in Kill Verification Flow [done]
 ### Dependencies: 38.2, 38.3
 ### Description: Implement logic to handle special scenarios in the new verification flow, such as multiple reports and timeouts.
 ### Details:
@@ -131,7 +131,7 @@ Testing approach:
 - Verify game termination logic works correctly with pending deaths
 - Test concurrent kill reports for the same player
 
-## 5. Update Frontend Components for PENDING_DEATH Status [pending]
+## 5. Update Frontend Components for PENDING_DEATH Status [done]
 ### Dependencies: 38.1
 ### Description: Modify frontend components to properly display and handle the new PENDING_DEATH status in the UI.
 ### Details:
