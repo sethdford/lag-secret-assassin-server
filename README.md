@@ -74,8 +74,8 @@ See our comprehensive [User Stories Documentation](.memory/12-user-stories.md) w
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/lag-secret-assassin.git
-   cd lag-secret-assassin
+   git clone https://github.com/sethdford/lag-secret-assassin-server.git
+cd lag-secret-assassin-server
    ```
 
 2. **Install dependencies**
@@ -269,8 +269,8 @@ sam deploy --parameter-overrides Environment=prod DatabaseTablePrefix=prod-
 
 ## 📞 Support & Community
 
-- **Issues**: [GitHub Issues](https://github.com/your-username/lag-secret-assassin/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-username/lag-secret-assassin/discussions)
+- **Issues**: [GitHub Issues](https://github.com/sethdford/lag-secret-assassin-server/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/sethdford/lag-secret-assassin-server/discussions)
 - **Email**: support@assassingame.com
 
 ## 📄 License
