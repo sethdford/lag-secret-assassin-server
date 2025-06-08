@@ -146,21 +146,7 @@
              <scope>test</scope>
          </dependency>
 
-        <!-- Main project dependency -->
-        <dependency>
-            <groupId>com.assassin</groupId>
-            <artifactId>assassin-game-api</artifactId>
-            <version>${project.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- AWS SDK Dependencies -->
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>dynamodb-enhanced</artifactId>
-            <version>${aws.sdk.version}</version>
-            <scope>test</scope>
-        </dependency>
+        <!-- AWS SDK Dependencies - duplicates removed, versions managed by BOM -->
 
     </dependencies>
 

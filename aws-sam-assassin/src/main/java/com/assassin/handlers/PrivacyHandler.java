@@ -11,14 +11,15 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
 import com.assassin.dao.DynamoDbPlayerDao;
 import com.assassin.exception.PlayerNotFoundException;
 import com.assassin.exception.ValidationException;
 import com.assassin.model.Player;
 import com.assassin.util.ApiGatewayResponseBuilder;
 import com.assassin.util.GsonUtil;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
 /**
  * Handles privacy-related API requests for managing player location sharing and privacy settings.
@@ -39,24 +40,24 @@ public class PrivacyHandler implements RequestHandler<APIGatewayProxyRequestEven
 
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
-        logger.info("Privacy request: {} {}", request.getHttpMethod(), request.getPath());
-
         try {
-            String method = request.getHttpMethod();
-            String path = request.getPath();
+            logger.info("Processing privacy request: {} {}", 
+                request.getHttpMethod(), request.getPath());
 
-            if ("GET".equals(method) && path.contains("/privacy/settings")) {
-                return getPrivacySettings(request);
-            } else if ("PUT".equals(method) && path.contains("/privacy/settings")) {
-                return updatePrivacySettings(request);
-            } else if ("POST".equals(method) && path.contains("/privacy/location-sharing")) {
-                return toggleLocationSharing(request);
-            } else if ("GET".equals(method) && path.contains("/privacy/data-export")) {
-                return exportPlayerData(request);
-            } else if ("DELETE".equals(method) && path.contains("/privacy/data")) {
-                return deletePlayerData(request);
+            String httpMethod = request.getHttpMethod();
+            String path = request.getPath();
+            Map<String, String> pathParameters = request.getPathParameters();
+
+            if ("GET".equals(httpMethod) && path.contains("/players/") && path.endsWith("/privacy")) {
+                return getPrivacySettings(request, context);
+            } else if ("PUT".equals(httpMethod) && path.contains("/players/") && path.endsWith("/privacy")) {
+                return updatePrivacySettings(request, context);
+            } else if ("POST".equals(httpMethod) && path.contains("/players/") && path.endsWith("/privacy/location-sharing")) {
+                return updateLocationSharing(request, context);
+            } else if ("POST".equals(httpMethod) && path.contains("/players/") && path.endsWith("/privacy/visibility")) {
+                return updateLocationVisibility(request, context);
             } else {
-                return ApiGatewayResponseBuilder.buildErrorResponse(404, "Endpoint not found");
+                return ApiGatewayResponseBuilder.buildErrorResponse(404, "Privacy endpoint not found");
             }
 
         } catch (PlayerNotFoundException e) {
@@ -74,210 +75,249 @@ public class PrivacyHandler implements RequestHandler<APIGatewayProxyRequestEven
     /**
      * Get current privacy settings for the authenticated player.
      */
-    private APIGatewayProxyResponseEvent getPrivacySettings(APIGatewayProxyRequestEvent request) {
-        String playerId = extractPlayerIdFromCognito(request);
-        
-        Optional<Player> playerOpt = playerDao.getPlayerById(playerId);
-        if (!playerOpt.isPresent()) {
-            throw new PlayerNotFoundException("Player not found: " + playerId);
-        }
+    private APIGatewayProxyResponseEvent getPrivacySettings(APIGatewayProxyRequestEvent request, Context context) {
+        try {
+            String playerId = request.getPathParameters().get("playerId");
+            if (playerId == null) {
+                return ApiGatewayResponseBuilder.buildErrorResponse(400, "Player ID is required");
+            }
 
-        Player player = playerOpt.get();
-        
-        Map<String, Object> privacySettings = new HashMap<>();
-        privacySettings.put("locationSharingEnabled", player.getLocationSharingEnabled());
-        privacySettings.put("locationVisibility", player.getLocationVisibility());
-        privacySettings.put("proximityAlertsEnabled", player.getProximityAlertsEnabled());
-        privacySettings.put("trackingHistoryEnabled", player.getTrackingHistoryEnabled());
-        
-        logger.info("Retrieved privacy settings for player {}", playerId);
-        return ApiGatewayResponseBuilder.buildResponse(200, GsonUtil.toJson(privacySettings));
+            // Verify player access
+            String requestingPlayerId = extractPlayerIdFromContext(request.getRequestContext());
+            if (!playerId.equals(requestingPlayerId)) {
+                return ApiGatewayResponseBuilder.buildErrorResponse(403, "Can only access your own privacy settings");
+            }
+
+            // Get player
+            var playerOpt = playerDao.getPlayerById(playerId);
+            if (!playerOpt.isPresent()) {
+                return ApiGatewayResponseBuilder.buildErrorResponse(404, "Player not found");
+            }
+
+            Player player = playerOpt.get();
+            
+            // Build privacy settings response
+            Map<String, Object> privacySettings = new HashMap<>();
+            privacySettings.put("playerId", playerId);
+            privacySettings.put("locationSharingEnabled", player.getLocationSharingEnabled());
+            privacySettings.put("locationVisibility", player.getLocationVisibility());
+            privacySettings.put("proximityAlertsEnabled", player.getProximityAlertsEnabled());
+            privacySettings.put("trackingHistoryEnabled", player.getTrackingHistoryEnabled());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("privacySettings", privacySettings);
+            response.put("lastUpdated", System.currentTimeMillis());
+
+            return ApiGatewayResponseBuilder.buildResponse(200, GsonUtil.getGson().toJson(response));
+
+        } catch (Exception e) {
+            logger.error("Error getting privacy settings", e);
+            return ApiGatewayResponseBuilder.buildErrorResponse(500, "Error retrieving privacy settings");
+        }
     }
 
     /**
      * Update privacy settings for the authenticated player.
      */
-    private APIGatewayProxyResponseEvent updatePrivacySettings(APIGatewayProxyRequestEvent request) {
-        String playerId = extractPlayerIdFromCognito(request);
-        String requestBody = request.getBody();
-
-        if (requestBody == null || requestBody.trim().isEmpty()) {
-            throw new ValidationException("Request body is required");
-        }
-
-        Optional<Player> playerOpt = playerDao.getPlayerById(playerId);
-        if (!playerOpt.isPresent()) {
-            throw new PlayerNotFoundException("Player not found: " + playerId);
-        }
-
-        Player player = playerOpt.get();
-
+    private APIGatewayProxyResponseEvent updatePrivacySettings(APIGatewayProxyRequestEvent request, Context context) {
         try {
-            JsonNode json = JsonUtil.parseJson(requestBody);
-            
-            // Update location sharing settings
-            if (json.has("locationSharingEnabled")) {
-                player.setLocationSharingEnabled(json.get("locationSharingEnabled").asBoolean());
+            String playerId = request.getPathParameters().get("playerId");
+            if (playerId == null) {
+                return ApiGatewayResponseBuilder.buildErrorResponse(400, "Player ID is required");
+            }
+
+            // Verify player access
+            String requestingPlayerId = extractPlayerIdFromContext(request.getRequestContext());
+            if (!playerId.equals(requestingPlayerId)) {
+                return ApiGatewayResponseBuilder.buildErrorResponse(403, "Can only update your own privacy settings");
+            }
+
+            // Parse request body
+            if (request.getBody() == null || request.getBody().trim().isEmpty()) {
+                return ApiGatewayResponseBuilder.buildErrorResponse(400, "Request body is required");
             }
             
-            if (json.has("locationVisibility")) {
-                String visibility = json.get("locationVisibility").asText();
-                validateLocationVisibility(visibility);
-                player.setLocationVisibility(visibility);
+            JsonObject requestBody = JsonParser.parseString(request.getBody()).getAsJsonObject();
+
+            // Get player
+            var playerOpt = playerDao.getPlayerById(playerId);
+            if (!playerOpt.isPresent()) {
+                return ApiGatewayResponseBuilder.buildErrorResponse(404, "Player not found");
             }
+
+            Player player = playerOpt.get();
             
-            if (json.has("proximityAlertsEnabled")) {
-                player.setProximityAlertsEnabled(json.get("proximityAlertsEnabled").asBoolean());
+            // Update privacy settings from request
+            if (requestBody.has("locationSharingEnabled")) {
+                player.setLocationSharingEnabled(requestBody.get("locationSharingEnabled").getAsBoolean());
             }
-            
-            if (json.has("trackingHistoryEnabled")) {
-                player.setTrackingHistoryEnabled(json.get("trackingHistoryEnabled").asBoolean());
+            if (requestBody.has("locationVisibility")) {
+                player.setLocationVisibility(requestBody.get("locationVisibility").getAsString());
+            }
+            if (requestBody.has("proximityAlertsEnabled")) {
+                player.setProximityAlertsEnabled(requestBody.get("proximityAlertsEnabled").getAsBoolean());
+            }
+            if (requestBody.has("trackingHistoryEnabled")) {
+                player.setTrackingHistoryEnabled(requestBody.get("trackingHistoryEnabled").getAsBoolean());
             }
 
             // Save updated player
             playerDao.savePlayer(player);
-            
+
+            // Build response
+            Map<String, Object> privacySettings = new HashMap<>();
+            privacySettings.put("playerId", playerId);
+            privacySettings.put("locationSharingEnabled", player.getLocationSharingEnabled());
+            privacySettings.put("locationVisibility", player.getLocationVisibility());
+            privacySettings.put("proximityAlertsEnabled", player.getProximityAlertsEnabled());
+            privacySettings.put("trackingHistoryEnabled", player.getTrackingHistoryEnabled());
+
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Privacy settings updated successfully");
-            response.put("settings", Map.of(
-                "locationSharingEnabled", player.getLocationSharingEnabled(),
-                "locationVisibility", player.getLocationVisibility(),
-                "proximityAlertsEnabled", player.getProximityAlertsEnabled(),
-                "trackingHistoryEnabled", player.getTrackingHistoryEnabled()
-            ));
+            response.put("privacySettings", privacySettings);
+            response.put("updatedAt", System.currentTimeMillis());
 
-            logger.info("Updated privacy settings for player {}", playerId);
-            return ApiGatewayResponseBuilder.build(200, response);
+            return ApiGatewayResponseBuilder.buildResponse(200, GsonUtil.getGson().toJson(response));
 
         } catch (Exception e) {
-            logger.error("Error updating privacy settings for player {}", playerId, e);
-            throw new ValidationException("Invalid request format: " + e.getMessage());
+            logger.error("Error updating privacy settings", e);
+            return ApiGatewayResponseBuilder.buildErrorResponse(500, "Error updating privacy settings");
         }
     }
 
     /**
      * Toggle location sharing on/off for the authenticated player.
      */
-    private APIGatewayProxyResponseEvent toggleLocationSharing(APIGatewayProxyRequestEvent request) {
-        String playerId = extractPlayerIdFromCognito(request);
-        
-        Optional<Player> playerOpt = playerDao.getPlayerById(playerId);
-        if (!playerOpt.isPresent()) {
-            throw new PlayerNotFoundException("Player not found: " + playerId);
-        }
-
-        Player player = playerOpt.get();
-        boolean newSharingState = !player.getLocationSharingEnabled();
-        player.setLocationSharingEnabled(newSharingState);
-        
-        playerDao.savePlayer(player);
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("message", "Location sharing " + (newSharingState ? "enabled" : "disabled"));
-        response.put("locationSharingEnabled", newSharingState);
-
-        logger.info("Toggled location sharing for player {} to {}", playerId, newSharingState);
-        return ApiGatewayResponseBuilder.build(200, response);
-    }
-
-    /**
-     * Export player data for GDPR compliance.
-     */
-    private APIGatewayProxyResponseEvent exportPlayerData(APIGatewayProxyRequestEvent request) {
-        String playerId = extractPlayerIdFromCognito(request);
-        
-        Optional<Player> playerOpt = playerDao.getPlayerById(playerId);
-        if (!playerOpt.isPresent()) {
-            throw new PlayerNotFoundException("Player not found: " + playerId);
-        }
-
-        Player player = playerOpt.get();
-        
-        // Create a sanitized export of player data
-        Map<String, Object> exportData = new HashMap<>();
-        exportData.put("playerId", player.getPlayerID());
-        exportData.put("playerName", player.getPlayerName());
-        exportData.put("email", player.getEmail());
-        exportData.put("killCount", player.getKillCount());
-        exportData.put("status", player.getStatus());
-        exportData.put("locationSharingEnabled", player.getLocationSharingEnabled());
-        exportData.put("locationVisibility", player.getLocationVisibility());
-        exportData.put("proximityAlertsEnabled", player.getProximityAlertsEnabled());
-        exportData.put("trackingHistoryEnabled", player.getTrackingHistoryEnabled());
-        exportData.put("subscriptionTier", player.getCurrentSubscriptionTierId());
-        exportData.put("exportTimestamp", java.time.Instant.now().toString());
-
-        logger.info("Exported data for player {}", playerId);
-        return ApiGatewayResponseBuilder.build(200, exportData);
-    }
-
-    /**
-     * Delete player data for GDPR compliance (right to be forgotten).
-     */
-    private APIGatewayProxyResponseEvent deletePlayerData(APIGatewayProxyRequestEvent request) {
-        String playerId = extractPlayerIdFromCognito(request);
-        
-        // Note: This is a simplified implementation. In a real system, you would need to:
-        // 1. Check if player is in an active game (prevent deletion)
-        // 2. Anonymize historical data instead of deleting
-        // 3. Remove from all related tables (kills, games, etc.)
-        // 4. Send confirmation email
-        
-        Optional<Player> playerOpt = playerDao.getPlayerById(playerId);
-        if (!playerOpt.isPresent()) {
-            throw new PlayerNotFoundException("Player not found: " + playerId);
-        }
-
-        Player player = playerOpt.get();
-        
-        // Check if player is in an active game
-        if ("ACTIVE".equals(player.getStatus()) || "PENDING".equals(player.getStatus())) {
-            throw new ValidationException("Cannot delete data while player is in an active game");
-        }
-
-        // For now, just mark as deleted rather than actually deleting
-        player.setActive(false);
-        player.setEmail("deleted@example.com");
-        player.setPlayerName("Deleted User");
-        player.setLocationSharingEnabled(false);
-        playerDao.savePlayer(player);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("message", "Player data deletion initiated. Account has been deactivated.");
-        response.put("deletionTimestamp", java.time.Instant.now().toString());
-
-        logger.info("Initiated data deletion for player {}", playerId);
-        return ApiGatewayResponseBuilder.build(200, response);
-    }
-
-    /**
-     * Validate location visibility setting.
-     */
-    private void validateLocationVisibility(String visibility) {
-        if (visibility == null || (!visibility.equals("GAME_ONLY") && 
-                                  !visibility.equals("TEAM_ONLY") && 
-                                  !visibility.equals("FRIENDS_ONLY") && 
-                                  !visibility.equals("PRIVATE"))) {
-            throw new ValidationException("Invalid location visibility. Must be one of: GAME_ONLY, TEAM_ONLY, FRIENDS_ONLY, PRIVATE");
-        }
-    }
-
-    /**
-     * Extract player ID from Cognito claims in the request.
-     */
-    private String extractPlayerIdFromCognito(APIGatewayProxyRequestEvent request) {
-        Map<String, Object> requestContext = request.getRequestContext();
-        if (requestContext != null && requestContext.containsKey("authorizer")) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> authorizer = (Map<String, Object>) requestContext.get("authorizer");
-            if (authorizer != null && authorizer.containsKey("claims")) {
-                @SuppressWarnings("unchecked")
-                Map<String, String> claims = (Map<String, String>) authorizer.get("claims");
-                if (claims != null && claims.containsKey("sub")) {
-                    return claims.get("sub");
-                }
+    private APIGatewayProxyResponseEvent updateLocationSharing(APIGatewayProxyRequestEvent request, Context context) {
+        try {
+            String playerId = request.getPathParameters().get("playerId");
+            if (playerId == null) {
+                return ApiGatewayResponseBuilder.buildErrorResponse(400, "Player ID is required");
             }
+
+            // Verify player access
+            String requestingPlayerId = extractPlayerIdFromContext(request.getRequestContext());
+            if (!playerId.equals(requestingPlayerId)) {
+                return ApiGatewayResponseBuilder.buildErrorResponse(403, "Can only update your own location sharing settings");
+            }
+
+            // Parse request body
+            if (request.getBody() == null || request.getBody().trim().isEmpty()) {
+                return ApiGatewayResponseBuilder.buildErrorResponse(400, "Request body is required");
+            }
+            
+            JsonObject requestBody = JsonParser.parseString(request.getBody()).getAsJsonObject();
+            if (!requestBody.has("enabled")) {
+                return ApiGatewayResponseBuilder.buildErrorResponse(400, "enabled field is required");
+            }
+
+            boolean enabled = requestBody.get("enabled").getAsBoolean();
+
+            // Get player
+            var playerOpt = playerDao.getPlayerById(playerId);
+            if (!playerOpt.isPresent()) {
+                return ApiGatewayResponseBuilder.buildErrorResponse(404, "Player not found");
+            }
+
+            Player player = playerOpt.get();
+            player.setLocationSharingEnabled(enabled);
+            
+            // Save updated player
+            playerDao.savePlayer(player);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Location sharing updated successfully");
+            response.put("playerId", playerId);
+            response.put("locationSharingEnabled", enabled);
+            response.put("updatedAt", System.currentTimeMillis());
+
+            return ApiGatewayResponseBuilder.buildResponse(200, GsonUtil.getGson().toJson(response));
+
+        } catch (Exception e) {
+            logger.error("Error updating location sharing", e);
+            return ApiGatewayResponseBuilder.buildErrorResponse(500, "Error updating location sharing");
         }
-        throw new ValidationException("Unable to extract player ID from request");
+    }
+
+    private APIGatewayProxyResponseEvent updateLocationVisibility(APIGatewayProxyRequestEvent request, Context context) {
+        try {
+            String playerId = request.getPathParameters().get("playerId");
+            if (playerId == null) {
+                return ApiGatewayResponseBuilder.buildErrorResponse(400, "Player ID is required");
+            }
+
+            // Verify player access
+            String requestingPlayerId = extractPlayerIdFromContext(request.getRequestContext());
+            if (!playerId.equals(requestingPlayerId)) {
+                return ApiGatewayResponseBuilder.buildErrorResponse(403, "Can only update your own location visibility settings");
+            }
+
+            // Parse request body
+            if (request.getBody() == null || request.getBody().trim().isEmpty()) {
+                return ApiGatewayResponseBuilder.buildErrorResponse(400, "Request body is required");
+            }
+            
+            JsonObject requestBody = JsonParser.parseString(request.getBody()).getAsJsonObject();
+            if (!requestBody.has("visibility")) {
+                return ApiGatewayResponseBuilder.buildErrorResponse(400, "visibility field is required");
+            }
+
+            String visibility = requestBody.get("visibility").getAsString();
+            
+            // Validate visibility level
+            if (!isValidVisibilityLevel(visibility)) {
+                return ApiGatewayResponseBuilder.buildErrorResponse(400, 
+                    "Invalid visibility level. Must be one of: GAME_ONLY, TEAM_ONLY, FRIENDS_ONLY, PRIVATE");
+            }
+
+            // Get player
+            var playerOpt = playerDao.getPlayerById(playerId);
+            if (!playerOpt.isPresent()) {
+                return ApiGatewayResponseBuilder.buildErrorResponse(404, "Player not found");
+            }
+
+            Player player = playerOpt.get();
+            player.setLocationVisibility(visibility);
+            
+            // Save updated player
+            playerDao.savePlayer(player);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Location visibility updated successfully");
+            response.put("playerId", playerId);
+            response.put("locationVisibility", visibility);
+            response.put("updatedAt", System.currentTimeMillis());
+
+            return ApiGatewayResponseBuilder.buildResponse(200, GsonUtil.getGson().toJson(response));
+
+        } catch (Exception e) {
+            logger.error("Error updating location visibility", e);
+            return ApiGatewayResponseBuilder.buildErrorResponse(500, "Error updating location visibility");
+        }
+    }
+
+    private boolean isValidVisibilityLevel(String visibility) {
+        return "GAME_ONLY".equals(visibility) || 
+               "TEAM_ONLY".equals(visibility) || 
+               "FRIENDS_ONLY".equals(visibility) || 
+               "PRIVATE".equals(visibility);
+    }
+
+
+
+    private String extractPlayerIdFromContext(APIGatewayProxyRequestEvent.ProxyRequestContext requestContext) {
+        try {
+            // Extract player ID from Cognito claims
+            Map<String, Object> claims = requestContext.getAuthorizer();
+            if (claims != null && claims.containsKey("claims")) {
+                @SuppressWarnings("unchecked")
+                Map<String, String> cognitoClaims = (Map<String, String>) claims.get("claims");
+                return cognitoClaims.get("sub"); // Cognito user ID
+            }
+            return null;
+        } catch (Exception e) {
+            logger.warn("Could not extract player ID from request context", e);
+            return null;
+        }
     }
 } 

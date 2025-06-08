@@ -98,7 +98,11 @@ public class HandlerUtils {
                     .map(APIGatewayProxyRequestEvent.ProxyRequestContext::getAuthorizer)
                     .map(auth -> auth.get("claims"))
                     .filter(claims -> claims instanceof Map)
-                    .map(claims -> (Map<String, Object>) claims)
+                    .map(claims -> {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> claimsMap = (Map<String, Object>) claims;
+                        return claimsMap;
+                    })
                     .map(claims -> claims.get("sub"))
                     .map(Object::toString);
         } catch (Exception e) {

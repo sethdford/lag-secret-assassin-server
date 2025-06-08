@@ -113,6 +113,7 @@ public class KillHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
                 .orElseThrow(() -> new ValidationException("Killer ID (sub claim) not found in request context."));
 
         // Parse the entire request body into a Map
+        @SuppressWarnings("unchecked")
         Map<String, Object> requestBodyMap = gson.fromJson(request.getBody(), new TypeToken<Map<String, Object>>(){}.getType());
 
         // For testing, if we can't get the killer ID from the auth context, try using the one from the request body
@@ -131,7 +132,9 @@ public class KillHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         if (rawVerificationData instanceof Map) {
             try {
                 // Attempt to cast/convert. This might need more robust handling depending on Gson's behavior.
-                verificationData = (Map<String, String>) rawVerificationData;
+                @SuppressWarnings("unchecked")
+                Map<String, String> tempData = (Map<String, String>) rawVerificationData;
+                verificationData = tempData;
             } catch (ClassCastException e) {
                 logger.warn("Could not cast verificationData to Map<String, String>");
                 // Handle error or use default empty map

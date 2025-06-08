@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -102,6 +103,9 @@ class KillServiceTest {
     void setUp() throws Exception {
         MockitoAnnotations.openMocks(this);
         
+        // Set up required system properties for dependencies
+        System.setProperty("SAFE_ZONES_TABLE_NAME", "test-safe-zones");
+        
         // Create the KillService with mocked dependencies
         killService = new KillService(killDao, playerDao, gameDao, notificationService, verificationManager, mapConfigurationService);
         
@@ -160,6 +164,12 @@ class KillServiceTest {
         lenient().when(violationDetector.checkEliminationAttempt(anyString(), anyString(), anyString(), 
                                                                  anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyLong()))
                 .thenReturn(ViolationCheckResult.noViolation(false));
+    }
+
+    @AfterEach
+    void tearDown() {
+        // Clean up system properties
+        System.clearProperty("SAFE_ZONES_TABLE_NAME");
     }
 
     @Test
@@ -480,7 +490,7 @@ class KillServiceTest {
         ValidationException exception = assertThrows(ValidationException.class, () -> {
             killService.reportKill(killerId, victimId, 40.7128, -74.0060, "GPS", Collections.emptyMap());
         });
-        assertEquals("Victim " + victimId + " is not active in the game.", exception.getMessage());
+        assertEquals("Victim " + victimId + " is not active in the game (Status: DEAD).", exception.getMessage());
         verify(killDao, never()).saveKill(any(Kill.class));
     }
 
