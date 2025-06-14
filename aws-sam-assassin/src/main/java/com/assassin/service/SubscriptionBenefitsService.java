@@ -64,7 +64,7 @@ public class SubscriptionBenefitsService {
             // Apply tier-specific bonus
             return applyTierDailyBonus(player, subscription.getTierId());
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.severe("Error applying daily login bonus for player " + playerId + ": " + e.getMessage());
             return new BenefitResult(false, "Error applying bonus: " + e.getMessage(), null);
         }
@@ -94,7 +94,7 @@ public class SubscriptionBenefitsService {
                 default: return 1.0;
             }
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.warning("Error getting currency multiplier for player " + playerId + ": " + e.getMessage());
             return 1.0; // Safe default
         }

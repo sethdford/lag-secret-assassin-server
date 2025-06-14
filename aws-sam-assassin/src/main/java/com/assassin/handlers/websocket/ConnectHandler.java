@@ -63,7 +63,7 @@ public class ConnectHandler implements RequestHandler<APIGatewayV2WebSocketEvent
             } else {
                 logger.info("Successfully saved unassociated connection {}", connectionId);
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Failed to save connection {}: {}", connectionId, e.getMessage(), e);
             // Return 500 to indicate failure
             APIGatewayV2WebSocketResponse errorResponse = new APIGatewayV2WebSocketResponse();

@@ -45,7 +45,7 @@ public class DynamoDbBlockedEntityDao implements BlockedEntityDao {
                     Instant expiration = Instant.parse(blockedEntity.getExpiresAt());
                     LocalDate expirationDate = LocalDate.ofInstant(expiration, java.time.ZoneOffset.UTC);
                     blockedEntity.setExpirationDate(expirationDate.format(DateTimeFormatter.ISO_LOCAL_DATE));
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     // If parsing fails, set to today's date
                     blockedEntity.setExpirationDate(LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE));
                 }
@@ -53,7 +53,7 @@ public class DynamoDbBlockedEntityDao implements BlockedEntityDao {
             
             table.putItem(blockedEntity);
             return blockedEntity;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             return null;
         }
     }
@@ -63,7 +63,7 @@ public class DynamoDbBlockedEntityDao implements BlockedEntityDao {
         try {
             BlockedEntity item = table.getItem(Key.builder().partitionValue(entityId).build());
             return Optional.ofNullable(item);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             return Optional.empty();
         }
     }
@@ -85,7 +85,7 @@ public class DynamoDbBlockedEntityDao implements BlockedEntityDao {
                     deactivateBlockedEntity(entityId);
                     return false;
                 }
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 // If we can't parse the expiration, assume it's still active
             }
         }
@@ -102,7 +102,7 @@ public class DynamoDbBlockedEntityDao implements BlockedEntityDao {
                     .stream()
                     .flatMap(page -> page.items().stream())
                     .collect(Collectors.toList());
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             return List.of();
         }
     }
@@ -116,7 +116,7 @@ public class DynamoDbBlockedEntityDao implements BlockedEntityDao {
                     .stream()
                     .flatMap(page -> page.items().stream())
                     .collect(Collectors.toList());
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             return List.of();
         }
     }
@@ -137,7 +137,7 @@ public class DynamoDbBlockedEntityDao implements BlockedEntityDao {
                 return true;
             }
             return false;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             return false;
         }
     }
@@ -147,7 +147,7 @@ public class DynamoDbBlockedEntityDao implements BlockedEntityDao {
         try {
             table.deleteItem(Key.builder().partitionValue(entityId).build());
             return true;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             return false;
         }
     }
@@ -164,7 +164,7 @@ public class DynamoDbBlockedEntityDao implements BlockedEntityDao {
                     .items()
                     .stream()
                     .collect(Collectors.toList());
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             return List.of();
         }
     }
@@ -186,12 +186,12 @@ public class DynamoDbBlockedEntityDao implements BlockedEntityDao {
                                 deactivatedCount++;
                             }
                         }
-                    } catch (Exception e) {
+                    } catch (RuntimeException e) {
                         // Skip entities with invalid expiration timestamps
                     }
                 }
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             // Log error but don't throw
         }
         

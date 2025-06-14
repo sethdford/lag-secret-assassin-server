@@ -58,7 +58,7 @@ public class SecurityMonitoringHandler implements RequestHandler<APIGatewayProxy
                     return ApiGatewayResponseBuilder.buildResponse(404, 
                         gson.toJson(Map.of("error", "Endpoint not found: " + path)));
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error processing security monitoring request", e);
             return ApiGatewayResponseBuilder.buildResponse(500, 
                 gson.toJson(Map.of("error", "Internal server error: " + e.getMessage())));
@@ -77,7 +77,7 @@ public class SecurityMonitoringHandler implements RequestHandler<APIGatewayProxy
                 securityMonitoringService.generateSecurityReport(hoursBack);
             
             return ApiGatewayResponseBuilder.buildResponse(200, gson.toJson(report));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error generating security report", e);
             return ApiGatewayResponseBuilder.buildResponse(500, 
                 gson.toJson(Map.of("error", "Failed to generate security report: " + e.getMessage())));
@@ -101,7 +101,7 @@ public class SecurityMonitoringHandler implements RequestHandler<APIGatewayProxy
             response.put("timeRange", hoursBack + " hours");
             
             return ApiGatewayResponseBuilder.buildResponse(200, gson.toJson(response));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error checking security alerts", e);
             return ApiGatewayResponseBuilder.buildResponse(500, 
                 gson.toJson(Map.of("error", "Failed to check security alerts: " + e.getMessage())));
@@ -120,7 +120,7 @@ public class SecurityMonitoringHandler implements RequestHandler<APIGatewayProxy
                 securityMonitoringService.getSecurityMetrics(hoursBack);
             
             return ApiGatewayResponseBuilder.buildResponse(200, gson.toJson(metrics));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error getting security metrics", e);
             return ApiGatewayResponseBuilder.buildResponse(500, 
                 gson.toJson(Map.of("error", "Failed to get security metrics: " + e.getMessage())));
@@ -146,7 +146,7 @@ public class SecurityMonitoringHandler implements RequestHandler<APIGatewayProxy
             response.put("limit", limit);
             
             return ApiGatewayResponseBuilder.buildResponse(200, gson.toJson(response));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error getting top threats", e);
             return ApiGatewayResponseBuilder.buildResponse(500, 
                 gson.toJson(Map.of("error", "Failed to get top threats: " + e.getMessage())));
@@ -187,7 +187,11 @@ public class SecurityMonitoringHandler implements RequestHandler<APIGatewayProxy
                 securityMonitoringService.performAutomatedResponse(ip, hoursBack);
             
             return ApiGatewayResponseBuilder.buildResponse(200, gson.toJson(response));
-        } catch (Exception e) {
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            logger.error("Error parsing JSON request body", e);
+            return ApiGatewayResponseBuilder.buildResponse(400, 
+                gson.toJson(Map.of("error", "Invalid JSON in request body: " + e.getMessage())));
+        } catch (RuntimeException e) {
             logger.error("Error performing automated response", e);
             return ApiGatewayResponseBuilder.buildResponse(500, 
                 gson.toJson(Map.of("error", "Failed to perform automated response: " + e.getMessage())));

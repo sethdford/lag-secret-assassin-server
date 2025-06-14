@@ -248,10 +248,10 @@ public class DynamoDbNotificationDao implements NotificationDao {
             // Depending on the error (e.g., conditional check failure vs. service error), 
             // you might handle this differently. For simplicity, wrap in RuntimeException.
             throw new RuntimeException("Failed to mark notification as read: " + e.getMessage(), e);
-        } catch (Exception e) { // Catch potential NPEs or other issues
-            logger.error("Unexpected error marking notification as read for recipient={}, id={}: {}", 
+        } catch (RuntimeException e) { // Catch potential NPEs or other issues
+            logger.error("Unexpected runtime error marking notification as read for recipient={}, id={}: {}", 
                        recipientPlayerId, notificationId, e.getMessage(), e);
-            throw new RuntimeException("Unexpected error marking notification as read", e);
+            throw new RuntimeException("Unexpected runtime error marking notification as read", e);
         }
     }
 }

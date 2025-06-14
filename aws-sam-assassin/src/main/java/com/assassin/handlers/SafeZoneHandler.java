@@ -83,7 +83,7 @@ public class SafeZoneHandler implements RequestHandler<APIGatewayProxyRequestEve
         } catch (UnauthorizedException e) {
             logger.warn("Authorization failed: {}", e.getMessage());
             return response.withStatusCode(403).withBody(gson.toJson(Map.of("message", e.getMessage())));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error processing safe zone request: {}", e.getMessage(), e);
             return response.withStatusCode(500).withBody(gson.toJson(Map.of("message", "Internal Server Error", "error", e.getClass().getSimpleName())));
         }

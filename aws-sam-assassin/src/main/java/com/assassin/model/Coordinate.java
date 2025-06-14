@@ -12,6 +12,8 @@ public class Coordinate {
 
     private double latitude;
     private double longitude;
+    private Double accuracy;  // GPS accuracy in meters
+    private Double altitude;  // Altitude in meters
 
     // Default constructor is needed by DynamoDB Enhanced Client
     public Coordinate() {}
@@ -19,6 +21,12 @@ public class Coordinate {
     public Coordinate(double latitude, double longitude) {
         this.latitude = latitude;
         this.longitude = longitude;
+    }
+    
+    public Coordinate(double latitude, double longitude, Double accuracy) {
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.accuracy = accuracy;
     }
 
     public double getLatitude() {
@@ -35,6 +43,22 @@ public class Coordinate {
 
     public void setLongitude(double longitude) {
         this.longitude = longitude;
+    }
+    
+    public Double getAccuracy() {
+        return accuracy;
+    }
+    
+    public void setAccuracy(Double accuracy) {
+        this.accuracy = accuracy;
+    }
+    
+    public Double getAltitude() {
+        return altitude;
+    }
+    
+    public void setAltitude(Double altitude) {
+        this.altitude = altitude;
     }
 
     @Override

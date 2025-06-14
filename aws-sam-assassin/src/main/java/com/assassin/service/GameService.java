@@ -64,94 +64,94 @@ public class GameService {
      * @throws PlayerPersistenceException If there's an error updating player records.
      */
     public void startGameAndAssignTargets(String gameId) throws GameNotFoundException, GameStateException, PlayerPersistenceException {
-        logger.info("Attempting to start game and assign targets for game ID: {}", gameId);
+            logger.info("Attempting to start game and assign targets for game ID: {}", gameId);
 
-        // 1. Fetch the game
-        Game game = gameDao.getGameById(gameId)
-                .orElseThrow(() -> new GameNotFoundException("Game not found with ID: " + gameId));
+            // 1. Fetch the game
+            Game game = gameDao.getGameById(gameId)
+                    .orElseThrow(() -> new GameNotFoundException("Game not found with ID: " + gameId));
 
-        // 2. Validate game state
-        if (!GameStatus.PENDING.name().equalsIgnoreCase(game.getStatus())) {
-            throw new GameStateException("Game " + gameId + " cannot be started. Current status: " + game.getStatus());
-        }
-
-        // 3. Fetch player IDs from the game object
-        List<String> playerIdsInGame = game.getPlayerIDs();
-        if (playerIdsInGame == null) {
-            playerIdsInGame = new ArrayList<>(); // Handle null list
-        }
-
-        if (playerIdsInGame.size() < 2) {
-            throw new GameStateException("Game " + gameId + " requires at least 2 players to start. Found: " + playerIdsInGame.size());
-        }
-
-        // 4. Fetch Player objects and filter for ACTIVE status
-        // Consider optimizing this for large games (e.g., batch get or GSI query)
-        List<Player> activePlayers = new ArrayList<>();
-        for (String playerId : playerIdsInGame) {
-            Player player = playerDao.getPlayerById(playerId).orElse(null);
-            if (player != null && PlayerStatus.ACTIVE.name().equalsIgnoreCase(player.getStatus())) {
-                activePlayers.add(player);
+            // 2. Validate game state
+            if (!GameStatus.PENDING.name().equalsIgnoreCase(game.getStatus())) {
+                throw new GameStateException("Game " + gameId + " cannot be started. Current status: " + game.getStatus());
             }
-        }
 
-        if (activePlayers.size() < 2) {
-            throw new GameStateException("Game " + gameId + " requires at least 2 *active* players to start. Found: " + activePlayers.size());
-        }
+            // 3. Fetch player IDs from the game object
+            List<String> playerIdsInGame = game.getPlayerIDs();
+            if (playerIdsInGame == null) {
+                playerIdsInGame = new ArrayList<>(); // Handle null list
+            }
 
-        logger.info("Found {} active players for game {}. Shuffling and assigning targets.", activePlayers.size(), gameId);
+            if (playerIdsInGame.size() < 2) {
+                throw new GameStateException("Game " + gameId + " requires at least 2 players to start. Found: " + playerIdsInGame.size());
+            }
 
-        // 5. Shuffle players for random assignment
-        Collections.shuffle(activePlayers);
+            // 4. Fetch Player objects and filter for ACTIVE status
+            // Consider optimizing this for large games (e.g., batch get or GSI query)
+            List<Player> activePlayers = new ArrayList<>();
+            for (String playerId : playerIdsInGame) {
+                Player player = playerDao.getPlayerById(playerId).orElse(null);
+                if (player != null && PlayerStatus.ACTIVE.name().equalsIgnoreCase(player.getStatus())) {
+                    activePlayers.add(player);
+                }
+            }
 
-        // 6. Assign targets in a circular chain
-        int numPlayers = activePlayers.size();
-        for (int i = 0; i < numPlayers; i++) {
-            Player currentPlayer = activePlayers.get(i);
-            Player targetPlayer = activePlayers.get((i + 1) % numPlayers); // Next player in the shuffled list (wraps around)
+            if (activePlayers.size() < 2) {
+                throw new GameStateException("Game " + gameId + " requires at least 2 *active* players to start. Found: " + activePlayers.size());
+            }
 
-            currentPlayer.setTargetID(targetPlayer.getPlayerID());
-            currentPlayer.setTargetName(targetPlayer.getPlayerName()); // Optionally set target name for convenience
+            logger.info("Found {} active players for game {}. Shuffling and assigning targets.", activePlayers.size(), gameId);
 
-            // Persist changes for each player
+            // 5. Shuffle players for random assignment
+            Collections.shuffle(activePlayers);
+
+            // 6. Assign targets in a circular chain
+            int numPlayers = activePlayers.size();
+            for (int i = 0; i < numPlayers; i++) {
+                Player currentPlayer = activePlayers.get(i);
+                Player targetPlayer = activePlayers.get((i + 1) % numPlayers); // Next player in the shuffled list (wraps around)
+
+                currentPlayer.setTargetID(targetPlayer.getPlayerID());
+                currentPlayer.setTargetName(targetPlayer.getPlayerName()); // Optionally set target name for convenience
+
+                // Persist changes for each player
+                try {
+                    playerDao.savePlayer(currentPlayer);
+                    logger.debug("Assigned target {} ({}) to player {} ({})", 
+                               targetPlayer.getPlayerID(), targetPlayer.getPlayerName(), 
+                               currentPlayer.getPlayerID(), currentPlayer.getPlayerName());
+                } catch (PlayerPersistenceException e) {
+                    logger.error("Failed to save target assignment for player {}: {}\n{}", currentPlayer.getPlayerID(), e.getMessage(), e);
+                    // Decide on error handling: continue? rollback? For now, rethrow.
+                    throw new PlayerPersistenceException("Failed to save target assignment for player " + currentPlayer.getPlayerID(), e);
+                }
+            }
+
+            // 7. Update game status to ACTIVE
+            game.setStatus(GameStatus.ACTIVE.name());
+            // Optionally update other game fields like startTime
+            // game.setSettings(...); // Example if storing start time in settings
             try {
-                playerDao.savePlayer(currentPlayer);
-                logger.debug("Assigned target {} ({}) to player {} ({})", 
-                           targetPlayer.getPlayerID(), targetPlayer.getPlayerName(), 
-                           currentPlayer.getPlayerID(), currentPlayer.getPlayerName());
-            } catch (PlayerPersistenceException e) {
-                logger.error("Failed to save target assignment for player {}: {}\n{}", currentPlayer.getPlayerID(), e.getMessage(), e);
-                // Decide on error handling: continue? rollback? For now, rethrow.
-                throw new PlayerPersistenceException("Failed to save target assignment for player " + currentPlayer.getPlayerID(), e);
+                gameDao.saveGame(game);
+                logger.info("Successfully started game {} and assigned targets.", gameId);
+            } catch (RuntimeException e) { // Catch potential DAO exceptions
+                logger.error("Failed to update game status to ACTIVE for game {}: {}", gameId, e.getMessage(), e);
+                // Consider rollback mechanisms for player updates if game status update fails
+                throw new RuntimeException("Failed to update game status after assigning targets.", e);
             }
-        }
-
-        // 7. Update game status to ACTIVE
-        game.setStatus(GameStatus.ACTIVE.name());
-        // Optionally update other game fields like startTime
-        // game.setSettings(...); // Example if storing start time in settings
-        try {
-            gameDao.saveGame(game);
-            logger.info("Successfully started game {} and assigned targets.", gameId);
-        } catch (Exception e) { // Catch potential DAO exceptions
-            logger.error("Failed to update game status to ACTIVE for game {}: {}", gameId, e.getMessage(), e);
-            // Consider rollback mechanisms for player updates if game status update fails
-            throw new RuntimeException("Failed to update game status after assigning targets.", e);
-        }
-        
-        // 8. Initialize shrinking zone state if enabled for this game
-        try {
-            shrinkingZoneService.initializeZoneState(game);
-            logger.info("Shrinking zone initialization completed for game {}", gameId);
-        } catch (GameStateException e) {
-            // Log but don't fail the game start if zone initialization fails
-            logger.warn("Failed to initialize shrinking zone for game {}: {}", gameId, e.getMessage());
-            // Game can still proceed without shrinking zone if configuration is missing
-        } catch (Exception e) {
-            // Unexpected errors during zone initialization
-            logger.error("Unexpected error during shrinking zone initialization for game {}: {}", gameId, e.getMessage(), e);
-            // Don't fail the game start for zone initialization errors
-        }
+            
+            // 8. Initialize shrinking zone state if enabled for this game
+            try {
+                shrinkingZoneService.initializeZoneState(game);
+                logger.info("Shrinking zone initialization completed for game {}", gameId);
+            } catch (GameStateException e) {
+                // Log but don't fail the game start if zone initialization fails
+                logger.warn("Failed to initialize shrinking zone for game {}: {}", gameId, e.getMessage());
+                // Game can still proceed without shrinking zone if configuration is missing
+            } catch (RuntimeException e) {
+                // Unexpected runtime errors during zone initialization
+                logger.error("Unexpected runtime error during shrinking zone initialization for game {}: {}", gameId, e.getMessage(), e);
+                // Don't fail the game start for zone initialization errors
+            }
     }
 
     /**
@@ -196,7 +196,7 @@ public class GameService {
             gameDao.saveGame(game);
             logger.info("Successfully updated boundary for game {}.", gameId);
             return game;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Failed to save updated boundary for game {}: {}", gameId, e.getMessage(), e);
             // Consider specific exceptions from DAO
             throw new RuntimeException("Failed to save game with updated boundary.", e);
@@ -271,7 +271,7 @@ public class GameService {
         try {
             gameDao.saveGame(game);
             logger.info("Successfully force ended game {}. Status changed to CANCELLED.", gameId);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Failed to save force ended game {}: {}", gameId, e.getMessage(), e);
             throw new RuntimeException("Failed to save game with updated status.", e);
         }
@@ -283,7 +283,7 @@ public class GameService {
         } catch (GameNotFoundException e) {
             // Game not found during cleanup (shouldn't happen since we just fetched it)
             logger.warn("Game not found during zone cleanup for game {}: {}", gameId, e.getMessage());
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             // Log cleanup errors but don't fail the game ending
             logger.error("Error during shrinking zone cleanup for game {}: {}", gameId, e.getMessage(), e);
             // Game is still successfully ended even if cleanup fails
@@ -333,7 +333,7 @@ public class GameService {
         try {
             gameDao.saveGame(game);
             logger.info("Successfully completed game {}. Status changed to COMPLETED.", gameId);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Failed to save completed game {}: {}", gameId, e.getMessage(), e);
             throw new RuntimeException("Failed to save game with updated status.", e);
         }
@@ -345,7 +345,7 @@ public class GameService {
         } catch (GameNotFoundException e) {
             // Game not found during cleanup (shouldn't happen since we just fetched it)
             logger.warn("Game not found during zone cleanup for game {}: {}", gameId, e.getMessage());
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             // Log cleanup errors but don't fail the game completion
             logger.error("Error during shrinking zone cleanup for game {}: {}", gameId, e.getMessage(), e);
             // Game is still successfully completed even if cleanup fails

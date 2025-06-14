@@ -144,8 +144,8 @@ public class MapConfigurationService {
         } catch (ConfigurationNotFoundException e) {
             logger.error("Could not retrieve map configuration for game {}: {}. Using default boundary.", gameId, e.getMessage());
             return DEFAULT_GAME_BOUNDARY;
-        } catch (Exception e) {
-            logger.error("Unexpected error retrieving game boundary for game {}: {}. Using default boundary.", gameId, e.getMessage(), e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error retrieving game boundary for game {}: {}. Using default boundary.", gameId, e.getMessage(), e);
             return DEFAULT_GAME_BOUNDARY;
         }
     }
@@ -210,7 +210,7 @@ public class MapConfigurationService {
                     return isCoordinateInActiveZone(gameId, coordinate);
                 }
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error validating coordinate for game {}: {}", gameId, e.getMessage());
         }
         
@@ -351,7 +351,7 @@ public class MapConfigurationService {
             }
             logger.info("Successfully fetched MapConfiguration from DB for mapId: {}", mapId);
             return config;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("DynamoDB error fetching MapConfiguration for mapId {}: {}", mapId, e.getMessage(), e);
             throw new ConfigurationNotFoundException("Error retrieving MapConfiguration from DB for mapId: " + mapId, e);
         }

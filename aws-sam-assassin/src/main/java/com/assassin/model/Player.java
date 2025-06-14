@@ -369,7 +369,7 @@ public class Player {
         try {
             java.time.Instant expirationTime = java.time.Instant.parse(subscriptionValidUntil);
             return java.time.Instant.now().isBefore(expirationTime);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             // If we can't parse the expiration time, default to expired
             return false;
         }

@@ -449,7 +449,7 @@ public class ProximityDetectionService {
             double distanceMeters;
             try {
                 distanceMeters = GeoUtils.calculateDistance(previousCoord, newestCoord);
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 // Handle calculation error
                 return new double[] {0.0, 0.0};
             }
@@ -463,7 +463,7 @@ public class ProximityDetectionService {
                 directionDegrees = GeoUtils.calculateBearing(
                     previousCoord.getLatitude(), previousCoord.getLongitude(),
                     newestCoord.getLatitude(), newestCoord.getLongitude());
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 directionDegrees = 0.0;
             }
             
@@ -511,7 +511,7 @@ public class ProximityDetectionService {
                     double distance = GeoUtils.calculateDistance(currentCoord, nextCoord);
                     double velocity = distance / timeDiffSec;
                     velocities.add(velocity);
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     // Skip on calculation error
                     continue;
                 }
@@ -966,7 +966,7 @@ public class ProximityDetectionService {
         double actualDistance;
         try {
              actualDistance = GeoUtils.calculateDistance(smoothedKillerCoordinate, smoothedVictimCoordinate);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
              logger.error("Error calculating distance between smoothed locations for {} and {}: {}", 
                         playerId, targetId, e.getMessage(), e);
              return false; // Cannot determine proximity if distance calculation fails
@@ -1026,7 +1026,7 @@ public class ProximityDetectionService {
             double distance = GeoUtils.calculateDistance(smoothedLocation1, smoothedLocation2);
             logger.debug("Distance between {} and {} (smoothed): {:.2f}m", player1Id, player2Id, distance);
             return distance;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error calculating distance between smoothed locations for {} and {}: {}", 
                        player1Id, player2Id, e.getMessage(), e);
             return Double.MAX_VALUE;
@@ -1185,8 +1185,8 @@ public class ProximityDetectionService {
 
         } catch (PlayerNotFoundException | GameNotFoundException e) {
             logger.error("Error checking proximity alerts for player {}: {}", playerId, e.getMessage());
-        } catch (Exception e) {
-            logger.error("Unexpected error checking proximity alerts for player {}: {}", playerId, e.getMessage(), e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error checking proximity alerts for player {}: {}", playerId, e.getMessage(), e);
         }
         // Clean up expired alert cache entries periodically
         cleanupAlertCache();
@@ -1297,7 +1297,7 @@ public class ProximityDetectionService {
             }
         } catch (PlayerNotFoundException e) {
             logger.warn("Could not send proximity alert: {}", e.getMessage());
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error checking proximity between player {} and subject {}: {}", 
                        player.getPlayerID(), subjectPlayerId, e.getMessage(), e);
         }
@@ -1327,7 +1327,7 @@ public class ProximityDetectionService {
                 new Coordinate(player1.getLatitude(), player1.getLongitude()),
                 new Coordinate(player2.getLatitude(), player2.getLongitude())
             );
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
              logger.error("Error calculating distance between {} and {}: {}", 
                         player1.getPlayerID(), player2.getPlayerID(), e.getMessage(), e);
              return Double.MAX_VALUE; // Return max value on calculation error
@@ -1408,7 +1408,7 @@ public class ProximityDetectionService {
             
             logger.info("Processed proximity detection for {} players in game {}", players.size(), gameId);
             return results;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error during large-scale proximity detection for game {}: {}", gameId, e.getMessage(), e);
             return Map.of(); // Return empty map on error
         }
@@ -1607,7 +1607,7 @@ public class ProximityDetectionService {
             logger.debug("Generated heatmap with {} occupied cells for game {}", heatmapGrid.size(), gameId);
             return heatmapGrid;
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error generating player activity heatmap for game {}: {}", gameId, e.getMessage(), e);
             return Map.of();
         }
@@ -1722,7 +1722,7 @@ public class ProximityDetectionService {
                 logger.debug("No proximity notifications to send for game {}", gameId);
             }
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error processing batch proximity notifications for game {}: {}", 
                     gameId, e.getMessage(), e);
         }

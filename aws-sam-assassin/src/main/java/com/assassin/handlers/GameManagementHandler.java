@@ -165,8 +165,8 @@ public class GameManagementHandler implements RequestHandler<APIGatewayProxyRequ
             } catch (GamePersistenceException e) {
                 logger.error("Database error: {}", e.getMessage(), e);
                 return HandlerUtils.createErrorResponse(500, "Internal server error during game operation.");
-            } catch (Exception e) {
-                logger.error("Unexpected error in GameManagementHandler: {}", e.getMessage(), e);
+            } catch (RuntimeException e) {
+                logger.error("Unexpected runtime error in GameManagementHandler: {}", e.getMessage(), e);
                 return HandlerUtils.createErrorResponse(500, "An unexpected error occurred.");
             }
             
@@ -176,8 +176,8 @@ public class GameManagementHandler implements RequestHandler<APIGatewayProxyRequ
         } catch (JwkException e) {
             logger.error("JWK retrieval error during JWT validation: {}", e.getMessage(), e);
             return HandlerUtils.createErrorResponse(500, "Authentication service temporarily unavailable.");
-        } catch (Exception e) {
-            logger.error("Unexpected error during authorization: {}", e.getMessage(), e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error during authorization: {}", e.getMessage(), e);
             return HandlerUtils.createErrorResponse(500, "Authentication error occurred.");
         }
     }
@@ -224,8 +224,8 @@ public class GameManagementHandler implements RequestHandler<APIGatewayProxyRequ
         } catch (ValidationException | JsonSyntaxException e) {
             logger.warn("Invalid boundary data provided: {}", e.getMessage());
             return HandlerUtils.createErrorResponse(400, "Invalid boundary data: " + e.getMessage());
-        } catch (Exception e) {
-            logger.error("Unexpected error updating game boundary for game {}: {}", gameId, e.getMessage(), e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error updating game boundary for game {}: {}", gameId, e.getMessage(), e);
             return HandlerUtils.createErrorResponse(500, "Failed to update game boundary due to an internal error.");
         }
     }

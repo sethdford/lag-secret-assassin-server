@@ -1,0 +1,320 @@
+# Example AWS SAM template configuration for X-Ray tracing
+# Add these configurations to your existing template.yaml
+
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Assassin Game API with X-Ray Tracing
+
+Globals:
+  Function:
+    Runtime: java17
+    MemorySize: 1024
+    Timeout: 30
+    Environment:
+      Variables:
+        STAGE: !Ref Stage
+        AWS_REGION: !Ref AWS::Region
+    # Enable X-Ray tracing for all functions
+    Tracing: Active
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+    Description: Deployment stage
+
+Resources:
+  # Lambda Functions with X-Ray Tracing
+  GameHandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: target/assassin-game-api-1.0.0.jar
+      Handler: com.assassin.handlers.GameHandler::handleRequest
+      # X-Ray tracing is enabled globally
+      Events:
+        GameApi:
+          Type: Api
+          Properties:
+            Path: /games
+            Method: any
+            RestApiId: !Ref AssassinGameApi
+      Environment:
+        Variables:
+          GAMES_TABLE_NAME: !Ref GamesTable
+
+  PaymentHandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: target/assassin-game-api-1.0.0.jar
+      Handler: com.assassin.handlers.PaymentHandler::handleRequest
+      Events:
+        PaymentApi:
+          Type: Api
+          Properties:
+            Path: /payments
+            Method: any
+            RestApiId: !Ref AssassinGameApi
+      Environment:
+        Variables:
+          STRIPE_SECRET_KEY: !Ref StripeSecretKey
+
+  PlayerHandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: target/assassin-game-api-1.0.0.jar
+      Handler: com.assassin.handlers.PlayerHandler::handleRequest
+      Events:
+        PlayerApi:
+          Type: Api
+          Properties:
+            Path: /players
+            Method: any
+            RestApiId: !Ref AssassinGameApi
+      Environment:
+        Variables:
+          PLAYER_TABLE_NAME: !Ref PlayersTable
+
+  # API Gateway with X-Ray Tracing
+  AssassinGameApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Stage
+      # Enable X-Ray tracing for API Gateway
+      TracingConfig:
+        TracingEnabled: true
+      Cors:
+        AllowMethods: "'*'"
+        AllowHeaders: "'*'"
+        AllowOrigin: "'*'"
+        MaxAge: "'600'"
+
+  # DynamoDB Tables with X-Ray Tracing
+  GamesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${Stage}-assassin-games"
+      BillingMode: PAY_PER_REQUEST
+      # Enable DynamoDB streams for X-Ray tracing
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      AttributeDefinitions:
+        - AttributeName: gameID
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: gameID
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: StatusCreatedAtIndex
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      # Enable point-in-time recovery
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  PlayersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${Stage}-assassin-players"
+      BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      AttributeDefinitions:
+        - AttributeName: playerID
+          AttributeType: S
+      KeySchema:
+        - AttributeName: playerID
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  # IAM Role for Lambda Functions with X-Ray Permissions
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        # X-Ray tracing permissions
+        - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:BatchGetItem
+                  - dynamodb:BatchWriteItem
+                Resource:
+                  - !GetAtt GamesTable.Arn
+                  - !GetAtt PlayersTable.Arn
+                  - !Sub "${GamesTable.Arn}/index/*"
+                  - !Sub "${PlayersTable.Arn}/index/*"
+        - PolicyName: AWSServicesAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Comprehend access for content moderation
+              - Effect: Allow
+                Action:
+                  - comprehend:DetectToxicContent
+                  - comprehend:DetectSentiment
+                Resource: '*'
+              # Rekognition access for image moderation
+              - Effect: Allow
+                Action:
+                  - rekognition:DetectModerationLabels
+                  - rekognition:DetectText
+                Resource: '*'
+              # CloudWatch access for security metrics
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+
+  # CloudWatch Log Groups with retention
+  GameHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${GameHandlerFunction}"
+      RetentionInDays: 14
+
+  PaymentHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${PaymentHandlerFunction}"
+      RetentionInDays: 30  # Longer retention for financial data
+
+  PlayerHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${PlayerHandlerFunction}"
+      RetentionInDays: 14
+
+  # X-Ray Service Map and Sampling Rules
+  XRaySamplingRule:
+    Type: AWS::XRay::SamplingRule
+    Properties:
+      SamplingRule:
+        RuleName: AssassinGameHighPriority
+        Priority: 9000
+        FixedRate: 1.0
+        ReservoirSize: 2
+        ServiceName: "assassin-game-api"
+        ServiceType: "*"
+        Host: "*"
+        HTTPMethod: "*"
+        URLPath: "/payments*"
+        Version: 1
+
+  XRayGameOperationsSamplingRule:
+    Type: AWS::XRay::SamplingRule
+    Properties:
+      SamplingRule:
+        RuleName: AssassinGameOperations
+        Priority: 9001
+        FixedRate: 0.3
+        ReservoirSize: 1
+        ServiceName: "assassin-game-api"
+        ServiceType: "*"
+        Host: "*"
+        HTTPMethod: "POST"
+        URLPath: "/games*"
+        Version: 1
+
+  XRayLocationUpdatesSamplingRule:
+    Type: AWS::XRay::SamplingRule
+    Properties:
+      SamplingRule:
+        RuleName: AssassinLocationUpdates
+        Priority: 9002
+        FixedRate: 0.05
+        ReservoirSize: 1
+        ServiceName: "assassin-game-api"
+        ServiceType: "*"
+        Host: "*"
+        HTTPMethod: "PUT"
+        URLPath: "/players/*/location"
+        Version: 1
+
+  # CloudWatch Alarms for X-Ray Metrics
+  HighErrorRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${Stage}-assassin-game-high-error-rate"
+      AlarmDescription: "High error rate detected in Assassin Game API"
+      MetricName: ErrorRate
+      Namespace: AWS/X-Ray
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 5.0
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ServiceName
+          Value: "assassin-game-api"
+      TreatMissingData: notBreaching
+
+  HighResponseTimeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${Stage}-assassin-game-high-response-time"
+      AlarmDescription: "High response time detected in Assassin Game API"
+      MetricName: ResponseTime
+      Namespace: AWS/X-Ray
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 2000  # 2 seconds
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ServiceName
+          Value: "assassin-game-api"
+      TreatMissingData: notBreaching
+
+Outputs:
+  ApiUrl:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${AssassinGameApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
+    Export:
+      Name: !Sub "${Stage}-assassin-game-api-url"
+
+  XRayServiceMap:
+    Description: "X-Ray Service Map URL"
+    Value: !Sub "https://console.aws.amazon.com/xray/home?region=${AWS::Region}#/service-map"
+
+  XRayTraces:
+    Description: "X-Ray Traces URL"
+    Value: !Sub "https://console.aws.amazon.com/xray/home?region=${AWS::Region}#/traces"
+
+# Deployment commands:
+# sam build
+# sam deploy --parameter-overrides Stage=dev --guided
+# 
+# To view X-Ray traces:
+# 1. Go to AWS X-Ray console
+# 2. View Service Map for overall architecture
+# 3. View Traces for detailed request flows
+# 4. Set up custom filters for specific operations

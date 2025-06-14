@@ -77,7 +77,13 @@ public interface GameDao {
      */
     void deleteGame(String gameId) throws GameNotFoundException, GamePersistenceException;
 
-    // Potentially add other methods like:
-    // List<Game> listAllGames(); // Use with caution, potentially expensive scan
+    /**
+     * Retrieves all games from the database.
+     * Use with caution as this performs a scan operation which can be expensive.
+     *
+     * @return A list of all Game objects.
+     * @throws GamePersistenceException If there's an error retrieving games.
+     */
+    List<Game> getAllGames() throws GamePersistenceException;
 
 } 

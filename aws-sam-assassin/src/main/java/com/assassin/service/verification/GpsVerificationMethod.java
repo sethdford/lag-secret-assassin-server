@@ -172,9 +172,9 @@ public class GpsVerificationMethod implements IVerificationMethod {
         } catch (PlayerNotFoundException | GameNotFoundException e) {
             logger.error("Failed to fetch game settings for GPS threshold (Kill={}_{}): {}. Using default threshold.",
                          kill.getKillerID(), kill.getTime(), e.getMessage());
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             // Catch unexpected errors during DAO calls or processing
-            logger.error("Unexpected error fetching game settings for GPS threshold (Kill={}_{}): {}. Using default threshold.",
+            logger.error("Unexpected runtime error fetching game settings for GPS threshold (Kill={}_{}): {}. Using default threshold.",
                          kill.getKillerID(), kill.getTime(), e.getMessage(), e);
         }
 

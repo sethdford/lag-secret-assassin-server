@@ -86,7 +86,7 @@ public class NotificationHandler implements RequestHandler<APIGatewayProxyReques
         } catch (NumberFormatException e) {
             logger.warn("Invalid number format: {}", e.getMessage());
             return HandlerUtils.createErrorResponse(400, "Invalid number format in request parameters");
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error processing notification request: {}", e.getMessage(), e);
             return HandlerUtils.createErrorResponse(500, "Internal Server Error");
         }
@@ -126,7 +126,7 @@ public class NotificationHandler implements RequestHandler<APIGatewayProxyReques
             
             // Return the created notification
             return HandlerUtils.createApiResponse(201, gson.toJson(notification));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error creating notification: {}", e.getMessage(), e);
             return HandlerUtils.createErrorResponse(400, "Invalid notification data: " + e.getMessage());
         }
@@ -151,7 +151,7 @@ public class NotificationHandler implements RequestHandler<APIGatewayProxyReques
         try {
             List<Notification> notifications = notificationService.getNotificationsForPlayer(playerId, sinceTimestamp, limit);
             return HandlerUtils.createApiResponse(200, gson.toJson(notifications));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error retrieving notifications for player: {}", e.getMessage(), e);
             return HandlerUtils.createErrorResponse(500, "Error retrieving notifications: " + e.getMessage());
         }
@@ -175,7 +175,7 @@ public class NotificationHandler implements RequestHandler<APIGatewayProxyReques
             } else {
                 return HandlerUtils.createErrorResponse(404, "Notification not found");
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error retrieving notification: {}", e.getMessage(), e);
             return HandlerUtils.createErrorResponse(500, "Error retrieving notification: " + e.getMessage());
         }

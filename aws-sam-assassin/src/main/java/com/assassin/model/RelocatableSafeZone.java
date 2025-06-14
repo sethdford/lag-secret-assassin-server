@@ -156,7 +156,7 @@ public class RelocatableSafeZone extends SafeZone {
             Instant now = Instant.now();
             
             return now.isBefore(cooldownEnd);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             // If there's any error parsing timestamps, assume not on cooldown
             return false;
         }
@@ -182,7 +182,7 @@ public class RelocatableSafeZone extends SafeZone {
             }
             
             return cooldownEnd.getEpochSecond() - now.getEpochSecond();
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             return 0;
         }
     }

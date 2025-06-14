@@ -105,8 +105,12 @@ Globals:
         TRANSACTIONS_TABLE_NAME: !Ref TransactionsTable
         REPORTS_TABLE_NAME: !Ref ReportsTable
         SECURITY_EVENTS_TABLE_NAME: !Ref SecurityEventsTable
+        MEDIA_FILE_TABLE_NAME: !Ref MediaFileTable
+        MEDIA_BUCKET_NAME: !Ref MediaBucket
         STRIPE_SECRET_KEY: !Sub '{{resolve:ssm:/assassin/${Environment}/stripe/secret_key:1}}'
         STRIPE_WEBHOOK_SECRET: !Sub '{{resolve:ssm:/assassin/${Environment}/stripe/webhook_secret:1}}'
+        EVENT_BUS_NAME: !Ref GameEventBus
+        WEBSOCKET_API_ENDPOINT: !Sub 'https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
         ASSASSIN_TEST_MODE: false
     Tracing: Active
     Tags:
@@ -168,6 +172,8 @@ Resources:
         PointInTimeRecoveryEnabled: true
       SSESpecification:
         SSEEnabled: true
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       Tags:
         - Key: Environment
           Value: !Ref Environment
@@ -214,6 +220,8 @@ Resources:
         PointInTimeRecoveryEnabled: true
       SSESpecification:
         SSEEnabled: true
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       Tags:
         - Key: Environment
           Value: !Ref Environment
@@ -273,6 +281,8 @@ Resources:
         PointInTimeRecoveryEnabled: true
       SSESpecification:
         SSEEnabled: true
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       Tags:
         - Key: Environment
           Value: !Ref Environment
@@ -841,6 +851,43 @@ Resources:
       StageName: !Ref Environment
       DeploymentId: !Ref WebSocketDeployment
       AutoDeploy: true
+
+  # --- EventBridge Resources ---
+  GameEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub ${Environment}-assassin-game-events
+      Description: !Sub EventBridge bus for ${Environment} Assassin Game events
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: AssassinGame
+
+  # SQS Dead Letter Queues for event processing
+  EventProcessingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${Environment}-assassin-event-processing-dlq
+      MessageRetentionPeriod: 1209600  # 14 days
+      VisibilityTimeoutSeconds: 60
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: AssassinGame
+
+  StreamProcessingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${Environment}-assassin-stream-processing-dlq
+      MessageRetentionPeriod: 1209600  # 14 days
+      VisibilityTimeoutSeconds: 60
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: AssassinGame
 
   # --- Lambda Functions (Now correctly inherit Globals) ---
   
@@ -1855,6 +1902,207 @@ Resources:
             Auth:
               Authorizer: NONE # Stripe webhooks don't use Cognito auth
 
+  # --- Event Processing Functions ---
+  PlayerStreamFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - PlayersTable
+      - GameEventBus
+    Properties:
+      Handler: com.assassin.handlers.stream.PlayerStreamHandler::handleRequest
+      Description: Processes DynamoDB Stream events from Players table
+      CodeUri: ./
+      MemorySize: 512
+      Timeout: 60
+      Environment:
+        Variables:
+          EVENT_BUS_NAME: !Ref GameEventBus
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt StreamProcessingDLQ.Arn
+      ReservedConcurrencyLimit: 5
+      Events:
+        PlayerStreamEvent:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt PlayersTable.StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 10
+            MaximumBatchingWindowInSeconds: 5
+            ParallelizationFactor: 2
+            MaximumRetryAttempts: 3
+            BisectBatchOnFunctionError: true
+            MaximumRecordAgeInSeconds: 86400
+      Policies:
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref GameEventBus
+        - DynamoDBStreamReadPolicy:
+            TableName: !Ref PlayersTable
+            StreamName: !Select [3, !Split ["/", !GetAtt PlayersTable.StreamArn]]
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt StreamProcessingDLQ.QueueName
+
+  GameStreamFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - GamesTable
+      - GameEventBus
+    Properties:
+      Handler: com.assassin.handlers.stream.GameStreamHandler::handleRequest
+      Description: Processes DynamoDB Stream events from Games table
+      CodeUri: ./
+      MemorySize: 512
+      Timeout: 60
+      Environment:
+        Variables:
+          EVENT_BUS_NAME: !Ref GameEventBus
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt StreamProcessingDLQ.Arn
+      ReservedConcurrencyLimit: 5
+      Events:
+        GameStreamEvent:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt GamesTable.StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 10
+            MaximumBatchingWindowInSeconds: 5
+            ParallelizationFactor: 2
+            MaximumRetryAttempts: 3
+            BisectBatchOnFunctionError: true
+            MaximumRecordAgeInSeconds: 86400
+      Policies:
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref GameEventBus
+        - DynamoDBStreamReadPolicy:
+            TableName: !Ref GamesTable
+            StreamName: !Select [3, !Split ["/", !GetAtt GamesTable.StreamArn]]
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt StreamProcessingDLQ.QueueName
+
+  KillStreamFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - KillsTable
+      - GameEventBus
+    Properties:
+      Handler: com.assassin.handlers.stream.GameStreamHandler::handleRequest
+      Description: Processes DynamoDB Stream events from Kills table
+      CodeUri: ./
+      MemorySize: 512
+      Timeout: 60
+      Environment:
+        Variables:
+          EVENT_BUS_NAME: !Ref GameEventBus
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt StreamProcessingDLQ.Arn
+      ReservedConcurrencyLimit: 5
+      Events:
+        KillStreamEvent:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt KillsTable.StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 10
+            MaximumBatchingWindowInSeconds: 5
+            ParallelizationFactor: 2
+            MaximumRetryAttempts: 3
+            BisectBatchOnFunctionError: true
+            MaximumRecordAgeInSeconds: 86400
+      Policies:
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref GameEventBus
+        - DynamoDBStreamReadPolicy:
+            TableName: !Ref KillsTable
+            StreamName: !Select [3, !Split ["/", !GetAtt KillsTable.StreamArn]]
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt StreamProcessingDLQ.QueueName
+
+  EventBridgeEventFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - GameEventBus
+      - WebSocketApi
+    Properties:
+      Handler: com.assassin.handlers.EventBridgeEventHandler::handleRequest
+      Description: Processes EventBridge events and routes them to appropriate services
+      CodeUri: ./
+      MemorySize: 512
+      Timeout: 60
+      Environment:
+        Variables:
+          EVENT_BUS_NAME: !Ref GameEventBus
+          WEBSOCKET_API_ENDPOINT: !Sub 'https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt EventProcessingDLQ.Arn
+      ReservedConcurrencyLimit: 10
+      Events:
+        PlayerEvents:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !Ref GameEventBus
+            Pattern:
+              source: ["assassin-game"]
+              detail-type:
+                - "assassin.player.created"
+                - "assassin.player.status_changed"
+                - "assassin.player.eliminated"
+                - "assassin.player.joined_game"
+                - "assassin.player.left_game"
+        GameEvents:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !Ref GameEventBus
+            Pattern:
+              source: ["assassin-game"]
+              detail-type:
+                - "assassin.game.started"
+                - "assassin.game.ended"
+                - "assassin.game.status_changed"
+                - "assassin.game.boundary_updated"
+        KillEvents:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !Ref GameEventBus
+            Pattern:
+              source: ["assassin-game"]
+              detail-type:
+                - "assassin.kill.reported"
+                - "assassin.kill.verified"
+                - "assassin.kill.confirmed"
+        SecurityEvents:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !Ref GameEventBus
+            Pattern:
+              source: ["assassin-game"]
+              detail-type:
+                - "assassin.security.threat_detected"
+                - "assassin.security.violation_occurred"
+                - "assassin.security.suspicious_activity"
+      Policies:
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref GameEventBus
+        - DynamoDBReadPolicy:
+            TableName: !Ref PlayersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref GamesTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref WebSocketConnectionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource:
+                - !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt EventProcessingDLQ.QueueName
+
   # --- Log Groups ---
   ApiGatewayAccessLogGroup:
     Type: AWS::Logs::LogGroup
@@ -2233,6 +2481,359 @@ Resources:
           ]
         }
   
+  # --- S3 Resources for Media Storage ---
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${Environment}-assassin-media-${AWS::AccountId}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: true
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicReadAccess: true
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+          - Id: TransitionToIA
+            Status: Enabled
+            Transition:
+              Days: 30
+              StorageClass: STANDARD_IA
+          - Id: TransitionToGlacier
+            Status: Enabled
+            Transition:
+              Days: 90
+              StorageClass: GLACIER
+          - Id: ExpireOldVersions
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 30
+          - Id: DeleteExpiredFiles
+            Status: Enabled
+            Filter:
+              Prefix: temp/
+            ExpirationInDays: 7
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt MediaProcessingFunction.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: profile/
+                  - Name: prefix
+                    Value: kill-verification/
+                  - Name: prefix
+                    Value: screenshots/
+      CorsConfiguration:
+        CorsRules:
+          - Id: AllowedOrigins
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - HEAD
+            AllowedOrigins:
+              - "*"
+            AllowedHeaders:
+              - "*"
+            MaxAge: 3600
+            ExposedHeaders:
+              - ETag
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: AssassinGame
+        - Key: Purpose
+          Value: MediaStorage
+
+  MediaBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref MediaBucket
+      PolicyDocument:
+        Statement:
+          - Sid: DenyInsecureConnections
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !Sub "${MediaBucket}/*"
+              - !GetAtt MediaBucket.Arn
+            Condition:
+              Bool:
+                "aws:SecureTransport": false
+          - Sid: AllowCloudFrontAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${MediaCloudFrontOAI}"
+            Action: "s3:GetObject"
+            Resource: !Sub "${MediaBucket}/*"
+
+  MediaFileTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-MediaFiles
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: mediaId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: gameId
+          AttributeType: S
+        - AttributeName: processingStatus
+          AttributeType: S
+        - AttributeName: moderationStatus
+          AttributeType: S
+        - AttributeName: uploadedAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: mediaId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserIdIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: uploadedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: GameIdIndex
+          KeySchema:
+            - AttributeName: gameId
+              KeyType: HASH
+            - AttributeName: uploadedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: ProcessingStatusIndex
+          KeySchema:
+            - AttributeName: processingStatus
+              KeyType: HASH
+            - AttributeName: uploadedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: ModerationStatusIndex
+          KeySchema:
+            - AttributeName: moderationStatus
+              KeyType: HASH
+            - AttributeName: uploadedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: AssassinGame
+
+  MediaCloudFrontOAI:
+    Type: AWS::CloudFront::OriginAccessIdentity
+    Properties:
+      OriginAccessIdentityConfig:
+        Comment: !Sub "OAI for ${Environment} AssassinGame Media Bucket"
+
+  MediaCloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: !Sub "${Environment} AssassinGame Media CDN"
+        Enabled: true
+        HttpVersion: http2
+        PriceClass: PriceClass_100
+        DefaultCacheBehavior:
+          TargetOriginId: MediaBucketOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          Compress: true
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # AWS Managed CachingOptimized
+          OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf # AWS Managed CORS-S3Origin
+        Origins:
+          - Id: MediaBucketOrigin
+            DomainName: !GetAtt MediaBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${MediaCloudFrontOAI}"
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 404
+            ResponsePagePath: /404.html
+            ErrorCachingMinTTL: 300
+          - ErrorCode: 404
+            ResponseCode: 404
+            ResponsePagePath: /404.html
+            ErrorCachingMinTTL: 300
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: AssassinGame
+
+  MediaUploadFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - MediaBucket
+      - MediaFileTable
+    Properties:
+      Handler: com.assassin.handlers.MediaUploadHandler::handleRequest
+      Description: Handles media upload operations with presigned URLs and file management
+      CodeUri: ./
+      MemorySize: 512
+      Timeout: 30
+      Environment:
+        Variables:
+          MEDIA_BUCKET_NAME: !Ref MediaBucket
+          MEDIA_FILE_TABLE_NAME: !Ref MediaFileTable
+          CLOUDFRONT_DISTRIBUTION_ID: !Ref MediaCloudFrontDistribution
+          CLOUDFRONT_DOMAIN: !GetAtt MediaCloudFrontDistribution.DomainName
+          PRESIGNED_URL_EXPIRATION_MINUTES: '15'
+      Policies:
+        - S3FullAccessPolicy:
+            BucketName: !Ref MediaBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MediaFileTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - rekognition:DetectModerationLabels
+                - rekognition:DetectLabels
+                - comprehend:DetectSentiment
+                - comprehend:DetectPiiEntities
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - cloudfront:CreateInvalidation
+              Resource: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${MediaCloudFrontDistribution}"
+      Events:
+        MediaUpload:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /media/upload
+            Method: POST
+        GetMedia:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /media/{mediaId}
+            Method: GET
+        DeleteMedia:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /media/{mediaId}
+            Method: DELETE
+        ProcessMedia:
+          Type: Api
+          Properties:
+            RestApiId: !Ref AssassinApi
+            Path: /media/{mediaId}/process
+            Method: POST
+
+  MediaProcessingFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - MediaBucket
+      - MediaFileTable
+    Properties:
+      Handler: com.assassin.handlers.MediaProcessingHandler::handleRequest
+      Description: Processes uploaded media files (thumbnails, moderation, metadata extraction)
+      CodeUri: ./
+      MemorySize: 1024
+      Timeout: 300
+      Environment:
+        Variables:
+          MEDIA_BUCKET_NAME: !Ref MediaBucket
+          MEDIA_FILE_TABLE_NAME: !Ref MediaFileTable
+          CLOUDFRONT_DISTRIBUTION_ID: !Ref MediaCloudFrontDistribution
+          CLOUDFRONT_DOMAIN: !GetAtt MediaCloudFrontDistribution.DomainName
+      Policies:
+        - S3FullAccessPolicy:
+            BucketName: !Ref MediaBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MediaFileTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - rekognition:DetectModerationLabels
+                - rekognition:DetectLabels
+                - rekognition:DetectText
+                - rekognition:DetectFaces
+                - comprehend:DetectSentiment
+                - comprehend:DetectPiiEntities
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - cloudfront:CreateInvalidation
+              Resource: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${MediaCloudFrontDistribution}"
+
+  MediaProcessingPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt MediaProcessingFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !GetAtt MediaBucket.Arn
+
+  MediaLifecycleFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - MediaBucket
+      - MediaFileTable
+    Properties:
+      Handler: com.assassin.handlers.MediaLifecycleHandler::handleRequest
+      Description: Scheduled function for media lifecycle management and cleanup
+      CodeUri: ./
+      MemorySize: 512
+      Timeout: 900
+      Environment:
+        Variables:
+          MEDIA_BUCKET_NAME: !Ref MediaBucket
+          MEDIA_FILE_TABLE_NAME: !Ref MediaFileTable
+      Policies:
+        - S3FullAccessPolicy:
+            BucketName: !Ref MediaBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MediaFileTable
+      Events:
+        ScheduledCleanup:
+          Type: Schedule
+          Properties:
+            Schedule: rate(6 hours)
+            Description: Scheduled media cleanup and lifecycle management
+            Enabled: true
+
   # --- SSM Parameters ---
   StripeWebhookSecretParameter:
     Type: AWS::SSM::Parameter
@@ -2290,3 +2891,47 @@ Outputs:
   BlockedEntitiesTableName:
     Description: Blocked Entities DynamoDB table name
     Value: !Ref BlockedEntitiesTable
+
+  MediaBucketName:
+    Description: S3 Media Storage Bucket Name
+    Value: !Ref MediaBucket
+
+  MediaFileTableName:
+    Description: Media Files DynamoDB table name
+    Value: !Ref MediaFileTable
+
+  MediaCdnDomain:
+    Description: CloudFront CDN domain for media delivery
+    Value: !GetAtt MediaCloudFrontDistribution.DomainName
+
+  MediaCdnDistributionId:
+    Description: CloudFront Distribution ID for media CDN
+    Value: !Ref MediaCloudFrontDistribution
+
+  GameEventBusName:
+    Description: EventBridge bus name for game events
+    Value: !Ref GameEventBus
+
+  GameEventBusArn:
+    Description: EventBridge bus ARN for game events
+    Value: !GetAtt GameEventBus.Arn
+
+  StreamProcessingDLQUrl:
+    Description: SQS DLQ URL for stream processing failures
+    Value: !Ref StreamProcessingDLQ
+
+  EventProcessingDLQUrl:
+    Description: SQS DLQ URL for event processing failures
+    Value: !Ref EventProcessingDLQ
+
+  PlayerStreamArn:
+    Description: Players table DynamoDB Stream ARN
+    Value: !GetAtt PlayersTable.StreamArn
+
+  GameStreamArn:
+    Description: Games table DynamoDB Stream ARN
+    Value: !GetAtt GamesTable.StreamArn
+
+  KillStreamArn:
+    Description: Kills table DynamoDB Stream ARN
+    Value: !GetAtt KillsTable.StreamArn

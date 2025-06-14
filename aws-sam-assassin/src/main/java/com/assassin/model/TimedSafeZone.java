@@ -86,7 +86,7 @@ public class TimedSafeZone extends SafeZone {
             
             // Check if the provided timestamp is within the active period
             return timestamp >= startTimeMs && timestamp <= endTimeMs;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             // If there's any error parsing the timestamps, fall back to the general isActive status
             // Consider logging this exception
             return isActive != null ? isActive : true; // Default to true if null
@@ -108,7 +108,7 @@ public class TimedSafeZone extends SafeZone {
             long endTimeMs = Instant.parse(endTime).toEpochMilli();
             long currentTimeMs = System.currentTimeMillis();
             return currentTimeMs > endTimeMs;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             return false;
         }
     }

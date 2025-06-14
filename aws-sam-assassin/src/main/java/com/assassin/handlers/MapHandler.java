@@ -108,7 +108,7 @@ public class MapHandler implements RequestHandler<APIGatewayProxyRequestEvent, A
             return response
                     .withStatusCode(404)
                     .withBody(gson.toJson(Map.of("message", e.getMessage())));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error processing map request: {}", e.getMessage(), e);
             return response
                     .withStatusCode(500)

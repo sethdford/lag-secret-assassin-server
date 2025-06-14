@@ -65,7 +65,7 @@ public class SecurityMonitoringService {
             }
             
             return analyzeSecurityEvents(events, hoursBack);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error generating security report", e);
             return new SecurityMonitoringReport();
         }
@@ -110,7 +110,7 @@ public class SecurityMonitoringService {
             // Check for abuse detection
             checkAbuseDetection(eventsByType, alerts);
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error checking security alerts", e);
         }
         
@@ -139,7 +139,7 @@ public class SecurityMonitoringService {
             List<BlockedEntity> activeBlocks = blockedEntityDao.getActiveBlockedEntities();
             
             return calculateSecurityMetrics(events, activeBlocks, hoursBack);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error getting security metrics", e);
             return new SecurityMetrics();
         }
@@ -184,7 +184,7 @@ public class SecurityMonitoringService {
                 .sorted((a, b) -> Integer.compare(b.getThreatScore(), a.getThreatScore()))
                 .limit(limit)
                 .collect(Collectors.toList());
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error getting top threat IPs", e);
             return List.of();
         }
@@ -225,7 +225,7 @@ public class SecurityMonitoringService {
             } else {
                 return new SecurityResponse("MONITORED", "IP under monitoring. Threat score: " + threatScore);
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error performing automated response for IP: " + ip, e);
             return new SecurityResponse("ERROR", "Failed to perform automated response");
         }

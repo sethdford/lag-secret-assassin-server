@@ -115,7 +115,7 @@ public class StatisticsHandler implements RequestHandler<APIGatewayProxyRequestE
             String responseBody = gson.toJson(leaderboard);
             return HandlerUtils.createApiResponse(200, responseBody);
                     
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error fetching kill leaderboard: {}", e.getMessage(), e);
             return HandlerUtils.createErrorResponse(500, "Failed to fetch kill leaderboard");
         }
@@ -162,7 +162,7 @@ public class StatisticsHandler implements RequestHandler<APIGatewayProxyRequestE
         } catch (PlayerNotFoundException e) {
              logger.warn("Player not found for stats request: {}", playerId);
              return HandlerUtils.createErrorResponse(404, "Player not found: " + playerId);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error fetching statistics for player {}: {}", playerId, e.getMessage(), e);
             return HandlerUtils.createErrorResponse(500, "Failed to fetch statistics for player " + playerId);
         }

@@ -61,7 +61,7 @@ public class SecurityMetricsSchedulerHandler implements RequestHandler<Scheduled
             this.securityEventDao = new DynamoDbSecurityEventDao();
             this.blockedEntityDao = new DynamoDbBlockedEntityDao(DynamoDbClientProvider.getDynamoDbEnhancedClient());
             this.metricsPublisher = new SecurityMetricsPublisher();
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Failed to initialize SecurityMetricsSchedulerHandler: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to initialize handler", e);
         }
@@ -93,7 +93,7 @@ public class SecurityMetricsSchedulerHandler implements RequestHandler<Scheduled
             logger.info("Successfully published security metrics to CloudWatch");
             return "Security metrics published successfully";
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Failed to publish security metrics: {}", e.getMessage(), e);
             return "Failed to publish security metrics: " + e.getMessage();
         }
@@ -115,7 +115,7 @@ public class SecurityMetricsSchedulerHandler implements RequestHandler<Scheduled
             logger.debug("Published rate limiting metrics: {} violations, {} auth failures", 
                         rateLimitEvents.size(), authFailures.size());
                         
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.warn("Failed to publish rate limiting metrics: {}", e.getMessage());
         }
     }
@@ -141,7 +141,7 @@ public class SecurityMetricsSchedulerHandler implements RequestHandler<Scheduled
             logger.debug("Published security event metrics: {} hourly events, {} suspicious activities", 
                         hourlyEvents, suspiciousEvents.size());
                         
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.warn("Failed to publish security event metrics: {}", e.getMessage());
         }
     }
@@ -159,7 +159,7 @@ public class SecurityMetricsSchedulerHandler implements RequestHandler<Scheduled
             try {
                 List<SecurityEvent> events = securityEventDao.getSecurityEventsByType(eventType, startTime, endTime);
                 metricsPublisher.publishSecurityEventByType(eventType, events.size());
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 logger.warn("Failed to publish metric for event type {}: {}", eventType, e.getMessage());
             }
         }
@@ -176,7 +176,7 @@ public class SecurityMetricsSchedulerHandler implements RequestHandler<Scheduled
             
             logger.debug("Published blocked entity metrics: {} active entities", activeEntities.size());
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.warn("Failed to publish blocked entity metrics: {}", e.getMessage());
         }
     }
@@ -205,7 +205,7 @@ public class SecurityMetricsSchedulerHandler implements RequestHandler<Scheduled
             
             logger.debug("Published threat detection metrics: threat score {}", threatScore);
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.warn("Failed to publish threat detection metrics: {}", e.getMessage());
         }
     }

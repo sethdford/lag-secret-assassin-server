@@ -28,7 +28,7 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.DynamoDbException;
 
 /**
- * DynamoDB implementation of the GameDao interface.
+ * DynamoDB implementation of the GameDao interface with X-Ray tracing support.
  */
 public class DynamoDbGameDao implements GameDao {
 
@@ -42,7 +42,7 @@ public class DynamoDbGameDao implements GameDao {
 
     public DynamoDbGameDao() {
         DynamoDbEnhancedClient enhancedClient = DynamoDbClientProvider.getDynamoDbEnhancedClient();
-        this.tableName = getTableName();
+        this.tableName = System.getProperty(GAMES_TABLE_NAME_ENV_VAR, System.getenv(GAMES_TABLE_NAME_ENV_VAR));
         if (this.tableName == null || this.tableName.isEmpty()) {
             throw new IllegalStateException("Could not determine Games table name from System Property or Environment Variable '" + GAMES_TABLE_NAME_ENV_VAR + "'");
         }
@@ -54,7 +54,7 @@ public class DynamoDbGameDao implements GameDao {
 
     // Constructor for dependency injection (e.g., for testing or specific client configuration)
     public DynamoDbGameDao(DynamoDbEnhancedClient enhancedClient) {
-        this.tableName = getTableName(); // Still need to determine table name
+        this.tableName = System.getProperty(GAMES_TABLE_NAME_ENV_VAR, System.getenv(GAMES_TABLE_NAME_ENV_VAR)); // Still need to determine table name
         if (this.tableName == null || this.tableName.isEmpty()) {
             throw new IllegalStateException("Could not determine Games table name from System Property or Environment Variable '" + GAMES_TABLE_NAME_ENV_VAR + "'");
         }
@@ -64,13 +64,17 @@ public class DynamoDbGameDao implements GameDao {
         logger.info("Initialized GameDao with provided DynamoDbEnhancedClient for table: {}", this.tableName);
     }
 
+
     @Override
     public void saveGame(Game game) throws GamePersistenceException {
         try {
             gameTable.putItem(game);
             logger.info("Saved/Updated game: {}", game.getGameID());
-        } catch (Exception e) {
-            logger.error("Error saving game {}: {}", game.getGameID(), e.getMessage(), e);
+        } catch (DynamoDbException e) {
+            logger.error("DynamoDB error saving game {}: {}", game.getGameID(), e.getMessage(), e);
+            throw new GamePersistenceException("Failed to save game: " + game.getGameID(), e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected error saving game {}: {}", game.getGameID(), e.getMessage(), e);
             throw new GamePersistenceException("Failed to save game: " + game.getGameID(), e);
         }
     }
@@ -102,8 +106,11 @@ public class DynamoDbGameDao implements GameDao {
         } catch (GameNotFoundException e) {
             logger.warn("Cannot update boundary, game not found: {}", gameId);
             throw e;
-        } catch (Exception e) {
-            logger.error("Error updating boundary for game {}: {}", gameId, e.getMessage(), e);
+        } catch (DynamoDbException e) {
+            logger.error("DynamoDB error updating boundary for game {}: {}", gameId, e.getMessage(), e);
+            throw new GamePersistenceException("Failed to update boundary for game: " + gameId, e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected error updating boundary for game {}: {}", gameId, e.getMessage(), e);
             throw new GamePersistenceException("Failed to update boundary for game: " + gameId, e);
         }
     }
@@ -119,8 +126,11 @@ public class DynamoDbGameDao implements GameDao {
         } catch (GameNotFoundException e) {
              logger.warn("Cannot delete game, game not found: {}", gameId);
              throw e;
-        } catch (Exception e) {
-            logger.error("Error deleting game {}: {}", gameId, e.getMessage(), e);
+        } catch (DynamoDbException e) {
+            logger.error("DynamoDB error deleting game {}: {}", gameId, e.getMessage(), e);
+            throw new GamePersistenceException("Failed to delete game: " + gameId, e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected error deleting game {}: {}", gameId, e.getMessage(), e);
             throw new GamePersistenceException("Failed to delete game: " + gameId, e);
         }
     }
@@ -135,8 +145,8 @@ public class DynamoDbGameDao implements GameDao {
         } catch (DynamoDbException e) {
             logger.error("DynamoDbException getting game by ID {}: {}", gameId, e.getMessage(), e);
             return Optional.empty(); // Return empty on DB error, service layer can decide how to handle
-        } catch (Exception e) {
-            logger.error("Unexpected error getting game by ID {}: {}", gameId, e.getMessage(), e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error getting game by ID {}: {}", gameId, e.getMessage(), e);
             return Optional.empty();
         }
     }
@@ -159,8 +169,8 @@ public class DynamoDbGameDao implements GameDao {
         } catch (DynamoDbException e) {
             logger.error("DynamoDbException listing games by status {}: {}", status, e.getMessage(), e);
             return Collections.emptyList();
-        } catch (Exception e) {
-            logger.error("Unexpected error listing games by status {}: {}", status, e.getMessage(), e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error listing games by status {}: {}", status, e.getMessage(), e);
             return Collections.emptyList();
         }
     }
@@ -187,8 +197,8 @@ public class DynamoDbGameDao implements GameDao {
         } catch (DynamoDbException e) {
             logger.error("DynamoDB error counting games for player {}: {}", playerId, e.awsErrorDetails().errorMessage(), e);
             throw new GamePersistenceException("Failed to count games played", e);
-        } catch (Exception e) {
-             logger.error("Unexpected error counting games for player {}: {}", playerId, e.getMessage(), e);
+        } catch (RuntimeException e) {
+             logger.error("Unexpected runtime error counting games for player {}: {}", playerId, e.getMessage(), e);
              throw new GamePersistenceException("Unexpected error counting games played", e);
         }
     }
@@ -214,28 +224,31 @@ public class DynamoDbGameDao implements GameDao {
         } catch (DynamoDbException e) {
             logger.error("DynamoDB error counting wins for player {}: {}", playerId, e.awsErrorDetails().errorMessage(), e);
             throw new GamePersistenceException("Failed to count wins", e);
-         } catch (Exception e) {
-             logger.error("Unexpected error counting wins for player {}: {}", playerId, e.getMessage(), e);
+         } catch (RuntimeException e) {
+             logger.error("Unexpected runtime error counting wins for player {}: {}", playerId, e.getMessage(), e);
              throw new GamePersistenceException("Unexpected error counting wins", e);
         }
     }
 
-    private String getTableName() {
-        String systemPropTableName = System.getProperty(GAMES_TABLE_NAME_ENV_VAR);
-        if (systemPropTableName != null && !systemPropTableName.isEmpty()) {
-            logger.info("Using games table name from system property: {}", systemPropTableName);
-            return systemPropTableName;
+    @Override
+    public List<Game> getAllGames() throws GamePersistenceException {
+        logger.warn("Performing full table scan to get all games - this can be expensive!");
+        try {
+            ScanEnhancedRequest scanRequest = ScanEnhancedRequest.builder().build();
+            
+            List<Game> games = gameTable.scan(scanRequest).stream()
+                                       .flatMap(page -> page.items().stream())
+                                       .collect(Collectors.toList());
+            
+            logger.debug("Retrieved {} games from table scan", games.size());
+            return games;
+        } catch (DynamoDbException e) {
+            logger.error("DynamoDB error scanning all games: {}", e.awsErrorDetails().errorMessage(), e);
+            throw new GamePersistenceException("Failed to retrieve all games", e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error scanning all games: {}", e.getMessage(), e);
+            throw new GamePersistenceException("Unexpected error retrieving all games", e);
         }
-
-        String envTableName = System.getenv(GAMES_TABLE_NAME_ENV_VAR);
-        if (envTableName != null && !envTableName.isEmpty()) {
-            logger.info("Using games table name from environment variable: {}", envTableName);
-            return envTableName;
-        }
-        
-        String defaultTable = "dev-Games";
-        logger.warn("'{}' system property or environment variable not set, using default '{}'", 
-                    GAMES_TABLE_NAME_ENV_VAR, defaultTable);
-        return defaultTable;
     }
+
 } 

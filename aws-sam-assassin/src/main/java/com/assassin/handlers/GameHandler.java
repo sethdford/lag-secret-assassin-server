@@ -10,8 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.amazonaws.services.lambda.runtime.Context;
-import com.amazonaws.services.lambda.runtime.RequestHandler; // Assuming Game model exists
-import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent; // Assuming GameService exists
+import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.assassin.exception.GameNotFoundException;
 import com.assassin.exception.GameStateException;
@@ -20,20 +19,25 @@ import com.assassin.exception.PlayerPersistenceException;
 import com.assassin.exception.UnauthorizedException;
 import com.assassin.exception.ValidationException;
 import com.assassin.model.Game;
-import com.assassin.model.Coordinate; // Import Coordinate
+import com.assassin.model.Coordinate;
 import com.assassin.service.GameService;
 import com.assassin.util.GsonUtil;
 import com.assassin.util.HandlerUtils;
+import com.assassin.util.XRayTraceUtils;
+import com.assassin.util.ApiEndpoint;
+import com.assassin.util.ApiResponse;
+import com.assassin.util.ApiParam;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
-import com.google.gson.reflect.TypeToken; // Import TypeToken
-import java.lang.reflect.Type; // Import Type
+import com.google.gson.reflect.TypeToken;
+import java.lang.reflect.Type;
 
 /**
- * Handler for Game management API requests.
+ * Handler for Game management API requests with X-Ray tracing support.
  */
-public class GameHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
+@ApiEndpoint(tags = {"Games"})
+public class GameHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(GameHandler.class);
     private static final Gson gson = GsonUtil.getGson();
@@ -56,81 +60,69 @@ public class GameHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         this.gameService = gameService;
     }
 
-    @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
-        logger.info("Received game request: Method={}, Path={}", request.getHttpMethod(), request.getPath());
-        
         String httpMethod = request.getHttpMethod();
         String path = request.getPath();
         APIGatewayProxyResponseEvent response = new APIGatewayProxyResponseEvent()
-                .withHeaders(HandlerUtils.getResponseHeaders()); // Use utility method
+                .withHeaders(HandlerUtils.getResponseHeaders());
 
-        try {
-            // Routing based on HTTP method and path
-            Matcher playerInGameMatcher = PLAYER_IN_GAME_PATTERN.matcher(path);
-            Matcher gameActionMatcher = GAME_ACTION_PATTERN.matcher(path);
-            Matcher gameIdMatcher = GAME_ID_PATTERN.matcher(path);
-            Matcher gameBoundaryMatcher = GAME_BOUNDARY_PATTERN.matcher(path); // Matcher for boundary path
+        return XRayTraceUtils.traceFunction(
+            "GameHandler.routeRequest",
+            Map.of("http.method", httpMethod, "http.path", path),
+            Map.of("routing", "game_handler"),
+            () -> {
+                // Routing based on HTTP method and path
+                Matcher playerInGameMatcher = PLAYER_IN_GAME_PATTERN.matcher(path);
+                Matcher gameActionMatcher = GAME_ACTION_PATTERN.matcher(path);
+                Matcher gameIdMatcher = GAME_ID_PATTERN.matcher(path);
+                Matcher gameBoundaryMatcher = GAME_BOUNDARY_PATTERN.matcher(path);
 
-            if ("POST".equals(httpMethod) && "/games".equals(path)) {
-                return createGame(request, response);
-            } else if ("GET".equals(httpMethod) && "/games".equals(path)) {
-                return listGames(request, response);
-            } else if ("GET".equals(httpMethod) && gameIdMatcher.matches()) {
-                String gameId = gameIdMatcher.group(1);
-                return getGame(gameId, response);
-            } else if ("PUT".equals(httpMethod) && gameBoundaryMatcher.matches()) { // Handle PUT /games/{gameId}/boundary
-                String gameId = gameBoundaryMatcher.group(1);
-                return updateGameBoundary(gameId, request, response);
-            } else if ("POST".equals(httpMethod) && gameActionMatcher.matches()) {
-                String gameId = gameActionMatcher.group(1);
-                String action = gameActionMatcher.group(2);
-                if ("join".equals(action)) {
-                    return joinGame(gameId, request, response);
-                } else if ("start".equals(action)) {
-                    return startGame(gameId, request, response);
-                } else if ("end".equals(action)) { // New Admin Action: Force End Game
-                    return forceEndGame(gameId, request, response);
-                }
-            } else if ("DELETE".equals(httpMethod) && playerInGameMatcher.matches()) {
-                // New Admin Action: Remove Player from Pending Game
-                String gameId = playerInGameMatcher.group(1);
-                String playerIdToRemove = playerInGameMatcher.group(2);
-                return removePlayerFromGame(gameId, playerIdToRemove, request, response);
-            } 
+                if ("POST".equals(httpMethod) && "/games".equals(path)) {
+                    return createGame(request, response);
+                } else if ("GET".equals(httpMethod) && "/games".equals(path)) {
+                    return listGames(request, response);
+                } else if ("GET".equals(httpMethod) && gameIdMatcher.matches()) {
+                    String gameId = gameIdMatcher.group(1);
+                    return getGame(gameId, response);
+                } else if ("PUT".equals(httpMethod) && gameBoundaryMatcher.matches()) {
+                    String gameId = gameBoundaryMatcher.group(1);
+                    return updateGameBoundary(gameId, request, response);
+                } else if ("POST".equals(httpMethod) && gameActionMatcher.matches()) {
+                    String gameId = gameActionMatcher.group(1);
+                    String action = gameActionMatcher.group(2);
+                    if ("join".equals(action)) {
+                        return joinGame(gameId, request, response);
+                    } else if ("start".equals(action)) {
+                        return startGame(gameId, request, response);
+                    } else if ("end".equals(action)) {
+                        return forceEndGame(gameId, request, response);
+                    }
+                } else if ("DELETE".equals(httpMethod) && playerInGameMatcher.matches()) {
+                    String gameId = playerInGameMatcher.group(1);
+                    String playerIdToRemove = playerInGameMatcher.group(2);
+                    return removePlayerFromGame(gameId, playerIdToRemove, request, response);
+                } 
 
-            // If no routes match
-            return response.withStatusCode(404).withBody(gson.toJson(Map.of("error", "Route not found")));
-           
-        } catch (GameNotFoundException | PlayerNotFoundException e) {
-            logger.warn("Resource not found: {}", e.getMessage());
-            return response.withStatusCode(404).withBody(gson.toJson(Map.of("error", e.getMessage())));
-        } catch (UnauthorizedException e) {
-            logger.warn("Authorization failed: {}", e.getMessage());
-            return response.withStatusCode(403).withBody(gson.toJson(Map.of("error", e.getMessage())));
-        } catch (ValidationException | GameStateException | IllegalArgumentException e) {
-            logger.warn("Invalid request or state: {}", e.getMessage());
-            return response.withStatusCode(400).withBody(gson.toJson(Map.of("error", e.getMessage())));
-        } catch (JsonSyntaxException e) {
-            logger.error("Invalid JSON input: {}\nBody: {}", e.getMessage(), request.getBody()); // Log body on parse error
-            return response.withStatusCode(400).withBody(gson.toJson(Map.of("error", "Invalid JSON format: " + e.getMessage())));
-        } catch (PlayerPersistenceException e) {
-            logger.error("Database error processing game request: {}", e.getMessage(), e);
-            return response.withStatusCode(500).withBody(gson.toJson(Map.of("error", "Database error occurred")));
-        } catch (Exception e) {
-            logger.error("Internal server error processing game request", e);
-            return response.withStatusCode(500).withBody(gson.toJson(Map.of("error", "Internal Server Error")));
-        }
+                // If no routes match
+                return response.withStatusCode(404).withBody(gson.toJson(Map.of("error", "Route not found")));
+            }
+        );
     }
 
     private APIGatewayProxyResponseEvent createGame(APIGatewayProxyRequestEvent request, APIGatewayProxyResponseEvent response) throws ValidationException {
-        JsonObject body = gson.fromJson(request.getBody(), JsonObject.class);
-        String gameName = Optional.ofNullable(body.get("gameName")).map(com.google.gson.JsonElement::getAsString).orElse(null);
-        String playerId = HandlerUtils.getPlayerIdFromRequest(request)
-                .orElseThrow(() -> new ValidationException("Player ID not found in request context."));
+        return XRayTraceUtils.traceFunction(
+            "GameHandler.createGame", 
+            Map.of("game.operation", "create"),
+            () -> {
+                JsonObject body = gson.fromJson(request.getBody(), JsonObject.class);
+                String gameName = Optional.ofNullable(body.get("gameName")).map(com.google.gson.JsonElement::getAsString).orElse(null);
+                String playerId = HandlerUtils.getPlayerIdFromRequest(request)
+                        .orElseThrow(() -> new ValidationException("Player ID not found in request context."));
 
-        Game createdGame = gameService.createGame(gameName, playerId);
-        return response.withStatusCode(201).withBody(gson.toJson(createdGame));
+                Game createdGame = gameService.createGame(gameName, playerId);
+                return response.withStatusCode(201).withBody(gson.toJson(createdGame));
+            }
+        );
     }
 
     private APIGatewayProxyResponseEvent listGames(APIGatewayProxyRequestEvent request, APIGatewayProxyResponseEvent response) {

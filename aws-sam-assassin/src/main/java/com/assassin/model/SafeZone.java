@@ -377,7 +377,7 @@ public class SafeZone {
                     if (start.isAfter(end)) {
                         throw new IllegalStateException("Start time must be before end time for timed safe zones.");
                     }
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     throw new IllegalStateException("Invalid start or end time format for timed safe zone.", e);
                 }
                 break;

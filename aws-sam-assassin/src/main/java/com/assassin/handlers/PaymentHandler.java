@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public class PaymentHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
+public class PaymentHandler {
 
     private static final Logger LOG = LoggerFactory.getLogger(PaymentHandler.class);
     private static final Gson GSON = new Gson();
@@ -43,7 +43,6 @@ public class PaymentHandler implements RequestHandler<APIGatewayProxyRequestEven
         this.transactionDao = transactionDao;
     }
 
-    @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
         String path = request.getPath();
         String httpMethod = request.getHttpMethod();
@@ -74,7 +73,7 @@ public class PaymentHandler implements RequestHandler<APIGatewayProxyRequestEven
             }
 
             return ApiGatewayResponseBuilder.buildErrorResponse(404, "Not Found: The requested payment resource or action was not found.");
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             LOG.error("Error processing payment request: {}", e.getMessage(), e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "Internal server error during payment processing.");
         }
@@ -200,8 +199,8 @@ public class PaymentHandler implements RequestHandler<APIGatewayProxyRequestEven
             failedTx.initializeTimestamps();
             transactionDao.saveTransaction(failedTx);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "Payment processing failed due to an issue with the payment provider. Error: " + e.getMessage());
-        } catch (Exception e) {
-            LOG.error("Unexpected error during payment processing for Game ID {} / Player {}: {}", gameId, playerId, e.getMessage(), e);
+        } catch (RuntimeException e) {
+            LOG.error("Unexpected runtime error during payment processing for Game ID {} / Player {}: {}", gameId, playerId, e.getMessage(), e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "An unexpected error occurred while processing your payment.");
         }
     }
@@ -278,8 +277,8 @@ public class PaymentHandler implements RequestHandler<APIGatewayProxyRequestEven
         } catch (StripeException e) {
             LOG.error("Stripe API error creating PaymentIntent for Game ID {} / Player {}: {}", gameId, playerId, e.getMessage(), e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "Failed to create payment intent: " + e.getMessage());
-        } catch (Exception e) {
-            LOG.error("Unexpected error creating PaymentIntent for Game ID {} / Player {}: {}", gameId, playerId, e.getMessage(), e);
+        } catch (RuntimeException e) {
+            LOG.error("Unexpected runtime error creating PaymentIntent for Game ID {} / Player {}: {}", gameId, playerId, e.getMessage(), e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "An unexpected error occurred while creating payment intent.");
         }
     }
@@ -363,8 +362,8 @@ public class PaymentHandler implements RequestHandler<APIGatewayProxyRequestEven
         } catch (StripeException e) {
             LOG.error("Stripe API error confirming payment {}: {}", paymentIntentId, e.getMessage(), e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "Failed to confirm payment: " + e.getMessage());
-        } catch (Exception e) {
-            LOG.error("Unexpected error confirming payment {}: {}", paymentIntentId, e.getMessage(), e);
+        } catch (RuntimeException e) {
+            LOG.error("Unexpected runtime error confirming payment {}: {}", paymentIntentId, e.getMessage(), e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "An unexpected error occurred while confirming payment.");
         }
     }

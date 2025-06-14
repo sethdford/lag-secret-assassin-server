@@ -174,7 +174,7 @@ public class NotificationService {
                             // Connection is no longer valid, remove it from the table
                             logger.warn("Attempted to send to stale connection {}. Removing.", connectionId);
                             removeStaleConnection(connectionId);
-                        } catch (Exception e) {
+                        } catch (RuntimeException e) {
                             // Log other errors during postToConnection but potentially continue with other connections
                             logger.error("Failed to send notification to connection {}: {}", connectionId, e.getMessage(), e);
                         }
@@ -187,7 +187,7 @@ public class NotificationService {
                     // TODO: Trigger push notification logic here if needed
                 }
 
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 // Log errors related to querying connections or initializing the API client
                 logger.error("Error preparing or sending WebSocket message for player {}: {}", recipientPlayerId, e.getMessage(), e);
             }
@@ -207,7 +207,7 @@ public class NotificationService {
             Key key = Key.builder().partitionValue(connectionId).build();
             connectionsTable.deleteItem(key);
             logger.info("Removed stale connection: {}", connectionId);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Failed to remove stale connection {}: {}", connectionId, e.getMessage(), e);
         }
     }
@@ -237,7 +237,7 @@ public class NotificationService {
             // Note: This implementation assumes notificationId is the same as timestamp
             // In a real system, you might need a more sophisticated lookup mechanism
             return notificationDao.getNotification(recipientPlayerId, notificationId);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error retrieving notification: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to retrieve notification", e);
         }
@@ -267,7 +267,7 @@ public class NotificationService {
         
         try {
             return notificationDao.findNotificationsByPlayer(playerId, sinceTimestamp, limit);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error retrieving notifications for player: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to retrieve notifications for player", e);
         }
@@ -299,7 +299,7 @@ public class NotificationService {
             Optional<Notification> updatedNotification = notificationDao.markNotificationAsRead(recipientPlayerId, notificationId);
             // Return true if the DAO call was successful (Optional is present)
             return updatedNotification.isPresent(); 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error marking notification as read for recipient {}, ID {}: {}", 
                        recipientPlayerId, notificationId, e.getMessage(), e);
             // Depending on DAO behavior, you might want to throw or return false

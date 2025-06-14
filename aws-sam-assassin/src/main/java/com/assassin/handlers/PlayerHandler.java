@@ -91,7 +91,7 @@ public class PlayerHandler implements RequestHandler<APIGatewayProxyRequestEvent
             return response
                     .withStatusCode(404)
                     .withBody(gson.toJson(Map.of("message", e.getMessage())));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error processing player request: {}", e.getMessage(), e);
             return response
                     .withStatusCode(500)
@@ -213,7 +213,7 @@ public class PlayerHandler implements RequestHandler<APIGatewayProxyRequestEvent
                     .orElseThrow(() -> new ValidationException("Player ID not found in request context."));
             logger.info("Getting profile for authenticated player ID: {}", playerId);
             return getPlayer(playerId, response); // Reuse the existing getPlayer logic
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error getting authenticated player profile: {}", e.getMessage(), e);
             return response
                     .withStatusCode(500)
@@ -248,7 +248,7 @@ public class PlayerHandler implements RequestHandler<APIGatewayProxyRequestEvent
                         .withStatusCode(404)
                         .withBody(gson.toJson(Map.of("message", "Player not found")));
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             // Catch potential errors from getPlayerIdFromRequest or DAO
             logger.error("Error getting target for player: {}", e.getMessage(), e);
             return response
@@ -261,7 +261,7 @@ public class PlayerHandler implements RequestHandler<APIGatewayProxyRequestEvent
     private String getResourceIdFromPath(String path) {
         try {
             return path.substring(path.lastIndexOf('/') + 1);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Could not extract resource ID from path: {}", path, e);
             throw new IllegalArgumentException("Invalid resource path format");
         }

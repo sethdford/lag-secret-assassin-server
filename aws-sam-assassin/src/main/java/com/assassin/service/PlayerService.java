@@ -74,7 +74,7 @@ public class PlayerService {
             logger.info("Successfully synced federated user profile for user: {}, provider: {}", userId, provider);
             
             return player;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error syncing federated user to player: {}", e.getMessage(), e);
             throw new PlayerPersistenceException("Failed to sync federated user profile: " + e.getMessage(), e);
         }

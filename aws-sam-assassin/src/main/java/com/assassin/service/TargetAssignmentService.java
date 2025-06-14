@@ -389,7 +389,7 @@ public class TargetAssignmentService {
                 if (player.isPresent() && PlayerStatus.ACTIVE.name().equalsIgnoreCase(player.get().getStatus())) {
                     activePlayers.add(player.get());
                 }
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 logger.warn("Error fetching player {}: {}", playerId, e.getMessage());
             }
         }
@@ -467,7 +467,7 @@ public class TargetAssignmentService {
             
             logger.debug("No alternative target found for assassin {}", assassinPlayerId);
             return null;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error finding alternative target for assassin {}: {}", assassinPlayerId, e.getMessage(), e);
             return null;
         }

@@ -109,13 +109,13 @@ public class ZoneUpdateHandler implements RequestHandler<ScheduledEvent, String>
                             if (damageCheckPerformed) {
                                 damageAppliedCount++;
                             }
-                        } catch (Exception e) {
+                        } catch (RuntimeException e) {
                             // Log error for specific player but continue processing others
                             logger.error("Error applying zone damage to player {} in game {}: {}", 
                                          playerId, gameId, e.getMessage(), e);
                         }
                     }
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     // Log error for specific game but continue processing others
                     logger.error("Error processing zone update for game {}: {}", gameId, e.getMessage(), e);
                 }
@@ -126,7 +126,7 @@ public class ZoneUpdateHandler implements RequestHandler<ScheduledEvent, String>
             logger.info(summary);
             return summary;
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Fatal error during scheduled zone update: {}", e.getMessage(), e);
             return "Error during zone update: " + e.getMessage();
         }

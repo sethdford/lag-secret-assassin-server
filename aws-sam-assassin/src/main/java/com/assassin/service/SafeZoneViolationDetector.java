@@ -156,7 +156,7 @@ public class SafeZoneViolationDetector {
                 return ViolationCheckResult.noViolation(false);
             }
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error checking safe zone violations for player {} in game {}: {}", 
                         playerId, gameId, e.getMessage(), e);
             throw new PersistenceException("Error checking safe zone violations", e);
@@ -240,7 +240,7 @@ public class SafeZoneViolationDetector {
             
             return expiredCount;
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error handling expired safe zones for game {}: {}", gameId, e.getMessage(), e);
             throw new PersistenceException("Error handling expired safe zones", e);
         }
@@ -276,7 +276,7 @@ public class SafeZoneViolationDetector {
             
             notificationService.sendNotification(notification);
             logger.debug("Sent safe zone notification to player {}: {}", playerId, message);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.warn("Failed to send safe zone notification to player {}: {}", playerId, e.getMessage());
         }
     }
@@ -300,7 +300,7 @@ public class SafeZoneViolationDetector {
             
             notificationService.sendNotification(notification);
             logger.debug("Sent elimination blocked notification to attacker {}", attackerId);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.warn("Failed to send elimination blocked notification to attacker {}: {}", attackerId, e.getMessage());
         }
     }
@@ -312,7 +312,7 @@ public class SafeZoneViolationDetector {
         try {
             // TODO: Implement game-wide notification system
             logger.info("Should notify all players in game {} about {} expired safe zones", gameId, expiredCount);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.warn("Failed to send expired zones notification for game {}: {}", gameId, e.getMessage());
         }
     }

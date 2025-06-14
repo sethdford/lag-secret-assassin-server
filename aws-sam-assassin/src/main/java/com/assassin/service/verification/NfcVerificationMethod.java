@@ -54,7 +54,7 @@ public class NfcVerificationMethod implements IVerificationMethod {
         try {
             victim = playerDao.getPlayerById(kill.getVictimID())
                    .orElse(null); // Handle case where victim might not be found
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("NFC verification failed: Error fetching victim profile for ID: {}. Kill={}_{}",
                          kill.getVictimID(), kill.getKillerID(), kill.getTime(), e);
             return VerificationResult.rejected("Could not retrieve victim data for NFC verification.");

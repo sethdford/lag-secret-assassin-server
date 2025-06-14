@@ -57,7 +57,7 @@ public class SecurityHandler implements RequestHandler<APIGatewayProxyRequestEve
                 return ApiGatewayResponseBuilder.buildErrorResponse(404, "Security endpoint not found");
             }
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error in security handler: {}", e.getMessage(), e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "Internal security service error");
         }
@@ -95,7 +95,7 @@ public class SecurityHandler implements RequestHandler<APIGatewayProxyRequestEve
             
             return ApiGatewayResponseBuilder.buildResponse(200, gson.toJson(response));
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error checking rate limit: {}", e.getMessage(), e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "Rate limit check failed");
         }
@@ -130,7 +130,7 @@ public class SecurityHandler implements RequestHandler<APIGatewayProxyRequestEve
             
             return ApiGatewayResponseBuilder.buildResponse(200, gson.toJson(response));
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error detecting abuse: {}", e.getMessage(), e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "Abuse detection failed");
         }
@@ -171,7 +171,7 @@ public class SecurityHandler implements RequestHandler<APIGatewayProxyRequestEve
             
             return ApiGatewayResponseBuilder.buildResponse(200, gson.toJson(response));
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error checking location spoofing: {}", e.getMessage(), e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "Location spoofing check failed");
         }
@@ -214,7 +214,7 @@ public class SecurityHandler implements RequestHandler<APIGatewayProxyRequestEve
             
             return ApiGatewayResponseBuilder.buildResponse(200, gson.toJson(response));
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error logging security event: {}", e.getMessage(), e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "Security event logging failed");
         }

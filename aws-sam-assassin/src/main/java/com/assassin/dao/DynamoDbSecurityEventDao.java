@@ -56,7 +56,7 @@ public class DynamoDbSecurityEventDao implements SecurityEventDao {
             logger.info("Successfully saved security event for IP: {} with type: {}", 
                        securityEvent.getSourceIP(), securityEvent.getEventType());
             return securityEvent;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error saving security event: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to save security event", e);
         }
@@ -93,7 +93,7 @@ public class DynamoDbSecurityEventDao implements SecurityEventDao {
             
             logger.info("Found {} security events for IP: {}", events.size(), sourceIP);
             return events;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error querying security events by IP: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to query security events by IP", e);
         }
@@ -130,7 +130,7 @@ public class DynamoDbSecurityEventDao implements SecurityEventDao {
             
             logger.info("Found {} security events for user: {}", events.size(), userID);
             return events;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error querying security events by user: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to query security events by user", e);
         }
@@ -167,7 +167,7 @@ public class DynamoDbSecurityEventDao implements SecurityEventDao {
             
             logger.info("Found {} security events for type: {}", events.size(), eventType);
             return events;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error querying security events by type: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to query security events by type", e);
         }
@@ -219,7 +219,7 @@ public class DynamoDbSecurityEventDao implements SecurityEventDao {
             SecurityEvent latestEvent = events.get(0);
             logger.debug("Found latest security event for IP: {} at {}", sourceIP, latestEvent.getTimestamp());
             return Optional.of(latestEvent);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error getting latest security event by IP: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to get latest security event by IP", e);
         }

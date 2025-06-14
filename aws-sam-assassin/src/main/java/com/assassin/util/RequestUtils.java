@@ -40,7 +40,7 @@ public class RequestUtils {
             }
             LOG.warn("Authorizer claims not found in request context.");
             return null;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             LOG.error("Error extracting player ID from request: {}", e.getMessage(), e);
             return null;
         }
@@ -57,7 +57,7 @@ public class RequestUtils {
         }
         try {
             return GSON.fromJson(request.getBody(), JsonObject.class);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             LOG.error("Error parsing request body to JsonObject: {}", e.getMessage());
             return null;
         }

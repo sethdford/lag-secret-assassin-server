@@ -101,7 +101,7 @@ public class KillHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         } catch (KillNotFoundException | GameNotFoundException e) {
             logger.warn("Kill verification failed: {}", e.getMessage());
             return response.withStatusCode(404).withBody(gson.toJson(Map.of("message", e.getMessage())));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Internal server error processing kill request", e);
             return response.withStatusCode(500).withBody(gson.toJson(Map.of("message", "Internal Server Error")));
         }
@@ -218,7 +218,7 @@ public class KillHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
              logger.warn("No recent kills found: {}", e.getMessage());
             return response.withStatusCode(404)
                     .withBody(gson.toJson(Map.of("message", "No recent kills found")));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error getting recent kills: {}", e.getMessage(), e);
             return response.withStatusCode(500)
                     .withBody(gson.toJson(Map.of("message", "Error retrieving recent kills: " + e.getMessage())));
@@ -277,7 +277,7 @@ public class KillHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         } catch (GameNotFoundException e) {
             logger.warn("Game not found while fetching timeline for gameID {}: {}", gameId, e.getMessage());
             return response.withStatusCode(404).withBody(gson.toJson(Map.of("message", e.getMessage())));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error fetching timeline for gameID {}: {}", gameId, e.getMessage(), e);
              return response.withStatusCode(500)
                     .withBody(gson.toJson(Map.of("message", "Error retrieving game timeline: " + e.getMessage())));

@@ -105,8 +105,14 @@ public class HandlerUtils {
                     })
                     .map(claims -> claims.get("sub"))
                     .map(Object::toString);
-        } catch (Exception e) {
-            logger.error("Error extracting player ID from request context", e);
+        } catch (ClassCastException e) {
+            logger.error("Invalid claims structure in request context", e);
+            return Optional.empty();
+        } catch (NullPointerException e) {
+            logger.error("Missing required context or authorizer data", e);
+            return Optional.empty();
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error extracting player ID from request context", e);
             return Optional.empty();
         }
     }
@@ -126,8 +132,11 @@ public class HandlerUtils {
                     .filter(authHeader -> authHeader != null && authHeader.startsWith("Bearer "))
                     .map(authHeader -> authHeader.substring(7).trim()) // Remove "Bearer " prefix and trim
                     .filter(token -> !token.isEmpty());
-        } catch (Exception e) {
-            logger.error("Error extracting JWT token from Authorization header", e);
+        } catch (NullPointerException e) {
+            logger.error("Missing headers or Authorization header in request", e);
+            return Optional.empty();
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error extracting JWT token from Authorization header", e);
             return Optional.empty();
         }
     }

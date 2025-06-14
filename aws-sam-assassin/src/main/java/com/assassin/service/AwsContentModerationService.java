@@ -164,7 +164,14 @@ public class AwsContentModerationService implements ContentModerationService {
         try {
             CompletableFuture<ModerationResult> future = moderateImages(List.of(request.getImageUrl()));
             return future.get(); // Block and wait for result
-        } catch (Exception e) {
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // Restore interrupted status
+            LOG.error("Image moderation was interrupted", e);
+            throw ModerationException.imageError("Image moderation was interrupted", e);
+        } catch (java.util.concurrent.ExecutionException e) {
+            LOG.error("Error in synchronous image moderation", e);
+            throw ModerationException.imageError("Synchronous image moderation failed", e.getCause());
+        } catch (RuntimeException e) {
             LOG.error("Error in synchronous image moderation", e);
             throw ModerationException.imageError("Synchronous image moderation failed", e);
         }
@@ -181,7 +188,14 @@ public class AwsContentModerationService implements ContentModerationService {
         try {
             CompletableFuture<ModerationResult> future = moderateText(request.getTextContent());
             return future.get(); // Block and wait for result
-        } catch (Exception e) {
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // Restore interrupted status
+            LOG.error("Text moderation was interrupted", e);
+            throw ModerationException.textError("Text moderation was interrupted", e);
+        } catch (java.util.concurrent.ExecutionException e) {
+            LOG.error("Error in synchronous text moderation", e);
+            throw ModerationException.textError("Synchronous text moderation failed", e.getCause());
+        } catch (RuntimeException e) {
             LOG.error("Error in synchronous text moderation", e);
             throw ModerationException.textError("Synchronous text moderation failed", e);
         }
@@ -238,7 +252,7 @@ public class AwsContentModerationService implements ContentModerationService {
                 LOG.debug("Text moderation completed with {} flags", flags.size());
                 return flags;
                 
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 LOG.error("Error moderating text content: {}", e.getMessage(), e);
                 throw ModerationException.textError(e.getMessage(), e);
             }
@@ -297,7 +311,7 @@ public class AwsContentModerationService implements ContentModerationService {
                 LOG.debug("Image moderation completed for {} with {} flags", imageUrl, flags.size());
                 return flags;
                 
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 LOG.error("Error moderating image {}: {}", imageUrl, e.getMessage(), e);
                 throw ModerationException.imageError("Failed to moderate image: " + imageUrl, e);
             }
@@ -366,7 +380,7 @@ public class AwsContentModerationService implements ContentModerationService {
                 return new String[]{parts[0], parts[1]};
             }
             throw new IllegalArgumentException("Unsupported S3 URL format: " + s3Url);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             throw new IllegalArgumentException("Invalid S3 URL format: " + s3Url, e);
         }
     }
@@ -387,7 +401,7 @@ public class AwsContentModerationService implements ContentModerationService {
             rekognitionClient.close();
             comprehendClient.close();
             LOG.info("AwsContentModerationService shutdown completed");
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             LOG.error("Error during service shutdown", e);
         }
     }

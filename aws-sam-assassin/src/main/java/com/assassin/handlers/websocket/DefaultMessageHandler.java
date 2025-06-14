@@ -66,7 +66,7 @@ public class DefaultMessageHandler implements RequestHandler<APIGatewayV2WebSock
                 .build();
             managementApiClient.postToConnection(postRequest);
             logger.info("Echoed message back to connection: {}", connectionId);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Failed to post message to connection {}: {}", connectionId, e.getMessage(), e);
             // Handle specific exceptions like GoneException if the connection no longer exists
         }

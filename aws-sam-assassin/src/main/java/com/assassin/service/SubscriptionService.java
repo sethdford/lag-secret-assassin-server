@@ -135,7 +135,7 @@ public class SubscriptionService {
             logger.info("Successfully cancelled subscription for player: " + playerId);
             return true;
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.severe("Error cancelling subscription for player " + playerId + ": " + e.getMessage());
             return false;
         }
@@ -161,7 +161,7 @@ public class SubscriptionService {
         if (validUntilStr != null) {
             try {
                 validUntil = Instant.parse(validUntilStr);
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 logger.warning("Invalid subscription valid until date: " + validUntilStr);
             }
         }
@@ -249,7 +249,10 @@ public class SubscriptionService {
             
             return new WebhookResult(true, "Webhook processed successfully");
             
-        } catch (Exception e) {
+        } catch (com.stripe.exception.StripeException e) {
+            logger.severe("Stripe error processing webhook: " + e.getMessage());
+            return new WebhookResult(false, "Stripe error processing webhook: " + e.getMessage());
+        } catch (RuntimeException e) {
             logger.severe("Error processing webhook: " + e.getMessage());
             return new WebhookResult(false, "Error processing webhook: " + e.getMessage());
         }
@@ -287,7 +290,7 @@ public class SubscriptionService {
             
             logger.info("Updated subscription for player " + playerId + " to tier " + tierId);
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.severe("Error updating player subscription: " + e.getMessage());
         }
     }
@@ -312,7 +315,7 @@ public class SubscriptionService {
         try {
             Instant validUntil = Instant.parse(validUntilStr);
             return validUntil.isAfter(Instant.now());
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.warning("Invalid subscription valid until date: " + validUntilStr);
             return false;
         }
@@ -338,7 +341,7 @@ public class SubscriptionService {
             Instant validUntil = Instant.parse(validUntilStr);
             Instant sevenDaysFromNow = Instant.now().plus(7, ChronoUnit.DAYS);
             return validUntil.isBefore(sevenDaysFromNow);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.warning("Invalid subscription valid until date: " + validUntilStr);
             return true; // Consider invalid dates as expiring
         }

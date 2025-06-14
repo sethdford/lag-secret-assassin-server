@@ -50,6 +50,201 @@ public class SecurityMetricsPublisher {
     }
     
     /**
+     * Publish anti-cheat violation metric
+     */
+    public void publishAntiCheatViolation(String cheatType, int severity) {
+        logger.info("Publishing anti-cheat violation metric: {} (severity: {})", cheatType, severity);
+        
+        try {
+            MetricDatum datum = MetricDatum.builder()
+                .metricName("AntiCheatViolation")
+                .value((double) severity)
+                .unit(StandardUnit.NONE)
+                .timestamp(Instant.now())
+                .dimensions(
+                    Dimension.builder()
+                        .name("CheatType")
+                        .value(cheatType)
+                        .build()
+                )
+                .build();
+            
+            PutMetricDataRequest request = PutMetricDataRequest.builder()
+                .namespace(NAMESPACE)
+                .metricData(datum)
+                .build();
+            
+            cloudWatchClient.putMetricData(request);
+            
+        } catch (Exception e) {
+            logger.error("Failed to publish anti-cheat violation metric: {}", e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Publish suspicious kill metric
+     */
+    public void publishSuspiciousKill(String killerPlayerId, String targetPlayerId, String cheatType) {
+        logger.info("Publishing suspicious kill metric: {} -> {} ({})", killerPlayerId, targetPlayerId, cheatType);
+        
+        try {
+            MetricDatum datum = MetricDatum.builder()
+                .metricName("SuspiciousKill")
+                .value(1.0)
+                .unit(StandardUnit.COUNT)
+                .timestamp(Instant.now())
+                .dimensions(
+                    Dimension.builder()
+                        .name("CheatType")
+                        .value(cheatType)
+                        .build()
+                )
+                .build();
+            
+            PutMetricDataRequest request = PutMetricDataRequest.builder()
+                .namespace(NAMESPACE)
+                .metricData(datum)
+                .build();
+            
+            cloudWatchClient.putMetricData(request);
+            
+        } catch (Exception e) {
+            logger.error("Failed to publish suspicious kill metric: {}", e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Publish automated response metric
+     */
+    public void publishAutomatedResponse(String playerId, String cheatType, int severity) {
+        logger.info("Publishing automated response metric for player: {} ({}, severity: {})", 
+                   playerId, cheatType, severity);
+        
+        try {
+            MetricDatum datum = MetricDatum.builder()
+                .metricName("AutomatedResponse")
+                .value((double) severity)
+                .unit(StandardUnit.NONE)
+                .timestamp(Instant.now())
+                .dimensions(
+                    Dimension.builder()
+                        .name("CheatType")
+                        .value(cheatType)
+                        .build(),
+                    Dimension.builder()
+                        .name("ResponseType")
+                        .value(getResponseType(severity))
+                        .build()
+                )
+                .build();
+            
+            PutMetricDataRequest request = PutMetricDataRequest.builder()
+                .namespace(NAMESPACE)
+                .metricData(datum)
+                .build();
+            
+            cloudWatchClient.putMetricData(request);
+            
+        } catch (Exception e) {
+            logger.error("Failed to publish automated response metric: {}", e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Publish player suspended metric
+     */
+    public void publishPlayerSuspended(String playerId, String reason) {
+        logger.info("Publishing player suspended metric for: {} (reason: {})", playerId, reason);
+        
+        try {
+            MetricDatum datum = MetricDatum.builder()
+                .metricName("PlayerSuspended")
+                .value(1.0)
+                .unit(StandardUnit.COUNT)
+                .timestamp(Instant.now())
+                .dimensions(
+                    Dimension.builder()
+                        .name("SuspensionType")
+                        .value("AUTOMATED")
+                        .build()
+                )
+                .build();
+            
+            PutMetricDataRequest request = PutMetricDataRequest.builder()
+                .namespace(NAMESPACE)
+                .metricData(datum)
+                .build();
+            
+            cloudWatchClient.putMetricData(request);
+            
+        } catch (Exception e) {
+            logger.error("Failed to publish player suspended metric: {}", e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Publish player flagged for review metric
+     */
+    public void publishPlayerFlaggedForReview(String playerId, String reason) {
+        logger.info("Publishing player flagged for review metric for: {} (reason: {})", playerId, reason);
+        
+        try {
+            MetricDatum datum = MetricDatum.builder()
+                .metricName("PlayerFlaggedForReview")
+                .value(1.0)
+                .unit(StandardUnit.COUNT)
+                .timestamp(Instant.now())
+                .build();
+            
+            PutMetricDataRequest request = PutMetricDataRequest.builder()
+                .namespace(NAMESPACE)
+                .metricData(datum)
+                .build();
+            
+            cloudWatchClient.putMetricData(request);
+            
+        } catch (Exception e) {
+            logger.error("Failed to publish player flagged for review metric: {}", e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Publish monitoring level increased metric
+     */
+    public void publishMonitoringLevelIncreased(String playerId) {
+        logger.info("Publishing monitoring level increased metric for player: {}", playerId);
+        
+        try {
+            MetricDatum datum = MetricDatum.builder()
+                .metricName("MonitoringLevelIncreased")
+                .value(1.0)
+                .unit(StandardUnit.COUNT)
+                .timestamp(Instant.now())
+                .build();
+            
+            PutMetricDataRequest request = PutMetricDataRequest.builder()
+                .namespace(NAMESPACE)
+                .metricData(datum)
+                .build();
+            
+            cloudWatchClient.putMetricData(request);
+            
+        } catch (Exception e) {
+            logger.error("Failed to publish monitoring level increased metric: {}", e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Determines response type based on severity
+     */
+    private String getResponseType(int severity) {
+        if (severity >= 9) return "SUSPENSION";
+        if (severity >= 7) return "FLAG_FOR_REVIEW";
+        if (severity >= 4) return "INCREASED_MONITORING";
+        return "WARNING";
+    }
+    
+    /**
      * Publish the number of alerts generated
      */
     public void publishAlertsGenerated(int count) {
@@ -135,7 +330,7 @@ public class SecurityMetricsPublisher {
             
             logger.info("Successfully published {} security metrics to CloudWatch", metrics.size());
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Failed to publish batch security metrics to CloudWatch", e);
             throw new RuntimeException("Failed to publish security metrics", e);
         }
@@ -177,7 +372,7 @@ public class SecurityMetricsPublisher {
             cloudWatchClient.putMetricData(request);
             logger.debug("Published security metric: {} = {} to CloudWatch", metricName, value);
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Failed to publish security metric {} = {} to CloudWatch", metricName, value, e);
             throw new RuntimeException("Failed to publish security metric: " + metricName, e);
         }

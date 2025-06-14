@@ -66,8 +66,8 @@ public class PrivacyHandler implements RequestHandler<APIGatewayProxyRequestEven
         } catch (ValidationException e) {
             logger.warn("Validation error: {}", e.getMessage());
             return ApiGatewayResponseBuilder.buildErrorResponse(400, e.getMessage());
-        } catch (Exception e) {
-            logger.error("Unexpected error in privacy handler", e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error in privacy handler", e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "Internal server error");
         }
     }
@@ -110,7 +110,7 @@ public class PrivacyHandler implements RequestHandler<APIGatewayProxyRequestEven
 
             return ApiGatewayResponseBuilder.buildResponse(200, GsonUtil.getGson().toJson(response));
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error getting privacy settings", e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "Error retrieving privacy settings");
         }
@@ -179,7 +179,7 @@ public class PrivacyHandler implements RequestHandler<APIGatewayProxyRequestEven
 
             return ApiGatewayResponseBuilder.buildResponse(200, GsonUtil.getGson().toJson(response));
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error updating privacy settings", e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "Error updating privacy settings");
         }
@@ -233,7 +233,7 @@ public class PrivacyHandler implements RequestHandler<APIGatewayProxyRequestEven
 
             return ApiGatewayResponseBuilder.buildResponse(200, GsonUtil.getGson().toJson(response));
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error updating location sharing", e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "Error updating location sharing");
         }
@@ -290,7 +290,7 @@ public class PrivacyHandler implements RequestHandler<APIGatewayProxyRequestEven
 
             return ApiGatewayResponseBuilder.buildResponse(200, GsonUtil.getGson().toJson(response));
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error updating location visibility", e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "Error updating location visibility");
         }
@@ -315,7 +315,7 @@ public class PrivacyHandler implements RequestHandler<APIGatewayProxyRequestEven
                 return cognitoClaims.get("sub"); // Cognito user ID
             }
             return null;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.warn("Could not extract player ID from request context", e);
             return null;
         }

@@ -398,7 +398,7 @@ public class DynamoDbTargetAssignmentDao implements TargetAssignmentDao {
             
             logger.debug("Assignment integrity validation completed for game {}: {} issues found", gameId, issues.size());
             return issues;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Failed to validate assignment integrity for game {}: {}", gameId, e.getMessage(), e);
             throw new PersistenceException("Failed to validate assignment integrity for game: " + gameId, e);
         }

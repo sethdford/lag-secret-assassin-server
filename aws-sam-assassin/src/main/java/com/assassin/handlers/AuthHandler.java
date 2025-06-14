@@ -73,7 +73,7 @@ public class AuthHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
                 logger.warn("Unhandled auth route: {} {}", method, path);
                 return createErrorResponse(404, "Not found");
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error processing authentication request", e);
             return createErrorResponse(500, "Internal server error: " + e.getMessage());
         }
@@ -192,8 +192,8 @@ public class AuthHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         } catch (CognitoIdentityProviderException e) {
             logger.error("Error exchanging OAuth code for tokens: {}", e.getMessage());
             return createErrorResponse(400, "OAuth authentication failed: " + e.getMessage());
-        } catch (Exception e) {
-            logger.error("Unexpected error during OAuth callback handling", e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error during OAuth callback handling", e);
             return createErrorResponse(500, "Internal server error during OAuth processing");
         }
     }
@@ -266,7 +266,7 @@ public class AuthHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid OAuth URL request: {}", e.getMessage());
             return createErrorResponse(400, e.getMessage());
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error generating OAuth URL: {}", e.getMessage());
             return createErrorResponse(500, "Error generating OAuth URL: " + e.getMessage());
         }

@@ -1,0 +1,87 @@
+{
+  "version": 2,
+  "default": {
+    "fixed_target": 1,
+    "rate": 0.1
+  },
+  "rules": [
+    {
+      "description": "High priority operations - always trace",
+      "service_name": "assassin-game-api",
+      "http_method": "*",
+      "url_path": "*",
+      "fixed_target": 2,
+      "rate": 1.0,
+      "attributes": {
+        "business.function": "kill_verification"
+      }
+    },
+    {
+      "description": "Authentication operations - high sampling",
+      "service_name": "assassin-game-api",
+      "http_method": "*",
+      "url_path": "/auth/*",
+      "fixed_target": 1,
+      "rate": 0.5
+    },
+    {
+      "description": "Game management operations - medium sampling",
+      "service_name": "assassin-game-api",
+      "http_method": "POST",
+      "url_path": "/games*",
+      "fixed_target": 1,
+      "rate": 0.3
+    },
+    {
+      "description": "Player management operations - medium sampling",
+      "service_name": "assassin-game-api",
+      "http_method": "*",
+      "url_path": "/players*",
+      "fixed_target": 1,
+      "rate": 0.3
+    },
+    {
+      "description": "Location updates - low sampling due to high volume",
+      "service_name": "assassin-game-api",
+      "http_method": "PUT",
+      "url_path": "/players/*/location",
+      "fixed_target": 1,
+      "rate": 0.05
+    },
+    {
+      "description": "Health checks - minimal sampling",
+      "service_name": "assassin-game-api",
+      "http_method": "GET",
+      "url_path": "/health",
+      "fixed_target": 0,
+      "rate": 0.01
+    },
+    {
+      "description": "Error cases - always trace",
+      "service_name": "assassin-game-api",
+      "http_method": "*",
+      "url_path": "*",
+      "fixed_target": 2,
+      "rate": 1.0,
+      "attributes": {
+        "error": "true"
+      }
+    },
+    {
+      "description": "Payment operations - always trace for financial compliance",
+      "service_name": "assassin-game-api",
+      "http_method": "*",
+      "url_path": "/payments*",
+      "fixed_target": 2,
+      "rate": 1.0
+    },
+    {
+      "description": "Admin operations - always trace",
+      "service_name": "assassin-game-api",
+      "http_method": "*",
+      "url_path": "/admin*",
+      "fixed_target": 2,
+      "rate": 1.0
+    }
+  ]
+}

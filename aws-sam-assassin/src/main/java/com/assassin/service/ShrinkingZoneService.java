@@ -489,7 +489,7 @@ public class ShrinkingZoneService {
             // Delete the zone state
             gameZoneStateDao.deleteGameZoneState(gameId);
             logger.info("Successfully cleaned up zone state for game {}. Game status: {}", gameId, game.getStatus());
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Failed to cleanup zone state for game {}: {}", gameId, e.getMessage(), e);
             // Don't throw exception here as cleanup failure shouldn't prevent game ending
             // Log the error but allow the game to end normally
@@ -570,7 +570,7 @@ public class ShrinkingZoneService {
             try {
                 initializeZoneState(gameId, mapConfig);
                 return gameZoneStateDao.getGameZoneState(gameId);
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 logger.error("Failed to initialize zone state for game {}: {}", gameId, e.getMessage());
                 return Optional.empty();
             }
@@ -596,7 +596,7 @@ public class ShrinkingZoneService {
             try {
                 initializeZoneState(gameId, mapConfig);
                 return gameZoneStateDao.getGameZoneState(gameId);
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 logger.error("Failed to initialize zone state for game {}: {}", gameId, e.getMessage());
                 return Optional.empty();
             }

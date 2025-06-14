@@ -338,7 +338,7 @@ public class SafeZoneService {
                     long remainingCooldown = RELOCATION_COOLDOWN_MS - (Instant.now().toEpochMilli() - lastRelo.toEpochMilli());
                     throw new ValidationException("Safe zone relocation is on cooldown. Time remaining: " + formatCooldownTime(remainingCooldown / 1000));
         }
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 logger.warn("Could not parse lastRelocationTime for zone {}: {}", safeZoneId, safeZone.getLastRelocationTime());
                 // Decide if this should block relocation or proceed with caution
             }
@@ -476,7 +476,7 @@ public class SafeZoneService {
             if (endTime.isBefore(startTime)) {
                 throw new ValidationException("End time cannot be before start time");
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             if (e instanceof ValidationException) {
                 throw e;
             }
@@ -748,7 +748,7 @@ public class SafeZoneService {
                     return false;
                 }
                 
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 logger.error("Error checking shrinking zone safety for player {} in game {}: {}", 
                             playerId, gameId, e.getMessage(), e);
                 // On error, default to unsafe to prevent exploitation
@@ -808,7 +808,7 @@ public class SafeZoneService {
                         }
                     }
                 }
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 logger.warn("Error checking shrinking zone for location safety: {}", e.getMessage());
             }
         }
@@ -851,7 +851,7 @@ public class SafeZoneService {
                             expiredCount++;
                             logger.info("Marked timed safe zone {} as inactive (expired).", zone.getSafeZoneId());
                         }
-                    } catch (Exception e) {
+                    } catch (RuntimeException e) {
                         logger.error("Error parsing endTime for timed safe zone {} during cleanup: {}", zone.getSafeZoneId(), e.getMessage());
                     }
                 }
@@ -1035,7 +1035,7 @@ public class SafeZoneService {
             Thread.currentThread().interrupt();
             logger.error("Payment processing interrupted for player {}: {}", playerId, e.getMessage());
             return false;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Payment processing error for player {}: {}", playerId, e.getMessage(), e);
             return false;
         }

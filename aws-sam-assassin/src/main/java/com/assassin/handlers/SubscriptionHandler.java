@@ -93,7 +93,7 @@ public class SubscriptionHandler implements RequestHandler<APIGatewayProxyReques
             return response
                     .withStatusCode(400)
                     .withBody(gson.toJson(Map.of("message", e.getMessage())));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error processing subscription request: {}", e.getMessage(), e);
             return response
                     .withStatusCode(500)
@@ -144,7 +144,7 @@ public class SubscriptionHandler implements RequestHandler<APIGatewayProxyReques
      * @return the completed API Gateway response
      */
     private APIGatewayProxyResponseEvent subscribePlayer(APIGatewayProxyRequestEvent request, 
-                                                       APIGatewayProxyResponseEvent response) throws StripeException {
+                                                       APIGatewayProxyResponseEvent response) {
         String playerId = HandlerUtils.getPlayerIdFromRequest(request)
                 .orElseThrow(() -> new ValidationException("Player ID not found in request context."));
         logger.info("Processing subscription request for player ID: {}", playerId);
@@ -164,33 +164,40 @@ public class SubscriptionHandler implements RequestHandler<APIGatewayProxyReques
             throw new ValidationException("Invalid subscription tier: " + subscriptionRequest.tierId);
         }
         
-        // For free tier, handle directly
-        if ("basic".equals(subscriptionRequest.tierId)) {
-            String result = subscriptionService.subscribePlayer(
+        try {
+            // For free tier, handle directly
+            if ("basic".equals(subscriptionRequest.tierId)) {
+                String result = subscriptionService.subscribePlayer(
+                        playerId, 
+                        subscriptionRequest.tierId, 
+                        "", // No email needed for free tier
+                        "", // No success URL needed
+                        ""  // No cancel URL needed
+                );
+                
+                return response
+                        .withStatusCode(200)
+                        .withBody(gson.toJson(Map.of("message", "Successfully subscribed to basic tier")));
+            }
+            
+            // For paid tiers, create Stripe checkout session
+            String checkoutUrl = subscriptionService.subscribePlayer(
                     playerId, 
                     subscriptionRequest.tierId, 
-                    "", // No email needed for free tier
-                    "", // No success URL needed
-                    ""  // No cancel URL needed
+                    subscriptionRequest.customerEmail != null ? subscriptionRequest.customerEmail : "",
+                    subscriptionRequest.successUrl != null ? subscriptionRequest.successUrl : "/subscription/success",
+                    subscriptionRequest.cancelUrl != null ? subscriptionRequest.cancelUrl : "/subscription/cancel"
             );
             
             return response
                     .withStatusCode(200)
-                    .withBody(gson.toJson(Map.of("message", "Successfully subscribed to basic tier")));
+                    .withBody(gson.toJson(Map.of("checkoutUrl", checkoutUrl)));
+        } catch (com.stripe.exception.StripeException e) {
+            logger.error("Stripe error during subscription: {}", e.getMessage(), e);
+            return response
+                    .withStatusCode(400)
+                    .withBody(gson.toJson(Map.of("message", "Payment processing error: " + e.getMessage())));
         }
-        
-        // For paid tiers, create Stripe checkout session
-        String checkoutUrl = subscriptionService.subscribePlayer(
-                playerId, 
-                subscriptionRequest.tierId, 
-                subscriptionRequest.customerEmail != null ? subscriptionRequest.customerEmail : "",
-                subscriptionRequest.successUrl != null ? subscriptionRequest.successUrl : "/subscription/success",
-                subscriptionRequest.cancelUrl != null ? subscriptionRequest.cancelUrl : "/subscription/cancel"
-        );
-        
-        return response
-                .withStatusCode(200)
-                .withBody(gson.toJson(Map.of("checkoutUrl", checkoutUrl)));
     }
     
     /**

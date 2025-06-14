@@ -267,7 +267,7 @@ public class LocationService {
             
             return event;
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error checking shrinking zone boundary for player {} in game {}: {}", 
                         playerId, gameId, e.getMessage(), e);
             return null;
@@ -319,7 +319,7 @@ public class LocationService {
             
             return isOutsideZone;
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error checking zone damage for player {} in game {}: {}", 
                         playerId, gameId, e.getMessage(), e);
             return false;
@@ -411,7 +411,7 @@ public class LocationService {
                     String.format("Movement speed (%.2f m/s) exceeds the maximum allowed (%.2f m/s)", 
                         speed, speedLimit));
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             // If anything goes wrong with the calculation, log it but don't block the update
             // This is a safety check, not a critical validation
             if (!(e instanceof InvalidLocationException)) {

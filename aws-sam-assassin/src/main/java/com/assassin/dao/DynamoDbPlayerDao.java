@@ -175,8 +175,11 @@ public class DynamoDbPlayerDao implements PlayerDao {
         } catch (DynamoDbException e) {
             logger.error("DynamoDB error describing table {}: {}", this.tableName, e.getMessage(), e);
             throw new PlayerPersistenceException("Failed to describe table to get player count", e);
-        } catch (Exception e) { // Catch broader exceptions for unexpected errors
-             logger.error("Unexpected error getting player count for table {}: {}", this.tableName, e.getMessage(), e);
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid table name or request configuration for table {}: {}", this.tableName, e.getMessage(), e);
+            throw new PlayerPersistenceException("Invalid configuration getting player count", e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error getting player count for table {}: {}", this.tableName, e.getMessage(), e);
             throw new PlayerPersistenceException("Unexpected error getting player count", e);
         }
     }
@@ -245,8 +248,11 @@ public class DynamoDbPlayerDao implements PlayerDao {
         } catch (DynamoDbException e) {
             logger.error("DynamoDB error incrementing kill count for player {}: {}", playerId, e.getMessage(), e);
             throw new PlayerPersistenceException("Error incrementing kill count", e);
-        } catch (Exception e) {
-            logger.error("Unexpected error incrementing kill count for player {}: {}", playerId, e.getMessage(), e);
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid player data for incrementing kill count {}: {}", playerId, e.getMessage(), e);
+            throw new PlayerPersistenceException("Invalid player data for kill count increment", e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error incrementing kill count for player {}: {}", playerId, e.getMessage(), e);
             throw new PlayerPersistenceException("Unexpected error incrementing kill count", e);
         }
     }
@@ -310,8 +316,11 @@ public class DynamoDbPlayerDao implements PlayerDao {
         } catch (DynamoDbException e) {
             logger.error("DynamoDB error updating location for player {}: {}", playerId, e.getMessage(), e);
             throw new PlayerPersistenceException("Error updating player location", e);
-        } catch (Exception e) {
-            logger.error("Unexpected error updating location for player {}: {}", playerId, e.getMessage(), e);
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid location data for player {}: {}", playerId, e.getMessage(), e);
+            throw new PlayerPersistenceException("Invalid location data for player update", e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error updating location for player {}: {}", playerId, e.getMessage(), e);
             throw new PlayerPersistenceException("Unexpected error updating player location", e);
         }
     }
@@ -336,8 +345,11 @@ public class DynamoDbPlayerDao implements PlayerDao {
             String errorMessage = e.awsErrorDetails() != null ? e.awsErrorDetails().errorMessage() : e.getMessage();
             logger.error("Error querying GameIdIndex for game {}: {}", gameId, errorMessage, e);
             throw new PlayerPersistenceException("Error finding players by game ID", e);
-        } catch (Exception e) { // Catch broader exceptions
-            logger.error("Unexpected error getting players for game {}: {}", gameId, e.getMessage(), e);
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid game ID or query parameters for game {}: {}", gameId, e.getMessage(), e);
+            throw new PlayerPersistenceException("Invalid query parameters for players by game ID", e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error getting players for game {}: {}", gameId, e.getMessage(), e);
             throw new PlayerPersistenceException("Unexpected error getting players by game ID", e);
         }
     }
@@ -390,8 +402,12 @@ public class DynamoDbPlayerDao implements PlayerDao {
             logger.error("Error querying TargetIdIndex for target {} in game {}: {}", 
                        targetId, gameId, errorMessage, e);
             throw new PlayerPersistenceException("Error finding players by target ID", e);
-        } catch (Exception e) { // Catch broader exceptions
-            logger.error("Unexpected error getting players targeting {} in game {}: {}", 
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid target ID or game ID parameters: targetId={}, gameId={}, error={}", 
+                       targetId, gameId, e.getMessage(), e);
+            throw new PlayerPersistenceException("Invalid parameters for finding players by target ID", e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error getting players targeting {} in game {}: {}", 
                        targetId, gameId, e.getMessage(), e);
             throw new PlayerPersistenceException("Unexpected error finding players by target ID", e);
         }

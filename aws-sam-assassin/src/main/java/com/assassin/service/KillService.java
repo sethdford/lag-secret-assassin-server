@@ -19,9 +19,11 @@ import com.assassin.dao.SafeZoneDao;
 import com.assassin.exception.GameNotFoundException;
 import com.assassin.exception.InvalidGameStateException;
 import com.assassin.exception.KillNotFoundException;
+import com.assassin.exception.KillPersistenceException;
 import com.assassin.exception.PersistenceException;
 import com.assassin.exception.PlayerActionNotAllowedException;
 import com.assassin.exception.PlayerNotFoundException;
+import com.assassin.exception.PlayerPersistenceException;
 import com.assassin.exception.SafeZoneException;
 import com.assassin.exception.ValidationException;
 import com.assassin.model.Coordinate;
@@ -359,8 +361,10 @@ public class KillService {
                     // In test mode, keep target and secrets for now
                     playerDao.savePlayer(v);
                 });
-            } catch (Exception e) {
+            } catch (PlayerNotFoundException | PlayerPersistenceException e) {
                 logger.warn("Error updating player data in test mode (ignored): {}", e.getMessage());
+            } catch (RuntimeException e) {
+                logger.warn("Unexpected error updating player data in test mode (ignored): {}", e.getMessage());
             }
             
             return kill;
@@ -546,9 +550,12 @@ public class KillService {
          if (playerDao instanceof DynamoDbPlayerDao) {
             try {
                 ((DynamoDbPlayerDao) playerDao).incrementPlayerKillCount(killerId);
-            } catch (Exception e) {
+            } catch (PlayerNotFoundException | PlayerPersistenceException e) {
                 // Log error but don't fail the kill report operation
                 logger.error("Failed to increment kill count for player {}: {}", killerId, e.getMessage(), e);
+            } catch (RuntimeException e) {
+                // Log error but don't fail the kill report operation
+                logger.error("Unexpected error incrementing kill count for player {}: {}", killerId, e.getMessage(), e);
             }
         } else {
             logger.warn("Cannot increment kill count: PlayerDao is not an instance of DynamoDbPlayerDao.");
@@ -666,8 +673,11 @@ public class KillService {
                 logger.warn("Victim {} had no target to reassign to killer {}", victimId, killerId);
             }
             
-        } catch (Exception e) {
+        } catch (PlayerNotFoundException | PlayerPersistenceException e) {
             logger.error("Error finalizing kill and reassigning targets for kill by {} at {}: {}", 
+                        kill.getKillerID(), kill.getTime(), e.getMessage(), e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected error finalizing kill and reassigning targets for kill by {} at {}: {}", 
                         kill.getKillerID(), kill.getTime(), e.getMessage(), e);
         }
     }
@@ -712,16 +722,21 @@ public class KillService {
                         
                         timeoutCount++;
                     }
-                } catch (Exception e) {
+                } catch (KillNotFoundException | KillPersistenceException | PlayerNotFoundException | PlayerPersistenceException e) {
                     logger.error("Error processing timeout for kill by {} at {}: {}", 
+                                kill.getKillerID(), kill.getTime(), e.getMessage(), e);
+                } catch (RuntimeException e) {
+                    logger.error("Unexpected error processing timeout for kill by {} at {}: {}", 
                                 kill.getKillerID(), kill.getTime(), e.getMessage(), e);
                 }
             }
             
             logger.info("Processed {} verification timeouts", timeoutCount);
             
-        } catch (Exception e) {
-            logger.error("Error handling verification timeouts: {}", e.getMessage(), e);
+        } catch (KillPersistenceException e) {
+            logger.error("Error retrieving pending kills for timeout handling: {}", e.getMessage(), e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected error handling verification timeouts: {}", e.getMessage(), e);
         }
         
         return timeoutCount;
@@ -757,8 +772,11 @@ public class KillService {
             playerDao.savePlayer(victim);
             logger.info("Restored victim {} from PENDING_DEATH to ACTIVE status", victimId);
             
-        } catch (Exception e) {
+        } catch (PlayerNotFoundException | PlayerPersistenceException e) {
             logger.error("Error restoring victim from pending death for kill by {} at {}: {}", 
+                        kill.getKillerID(), kill.getTime(), e.getMessage(), e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected error restoring victim from pending death for kill by {} at {}: {}", 
                         kill.getKillerID(), kill.getTime(), e.getMessage(), e);
         }
     }
@@ -803,9 +821,13 @@ public class KillService {
             notificationService.sendNotification(notification);
             logger.info("Sent KILL_VERIFIED notification to killer: {}", kill.getKillerID());
 
-        } catch (Exception e) {
+        } catch (PlayerNotFoundException e) {
             // Log error but don't fail the main operation
-            logger.error("Failed to send KILL_VERIFIED notification for kill (Killer: {}, Time: {}): {}",
+            logger.error("Failed to send KILL_VERIFIED notification - killer not found (Killer: {}, Time: {}): {}",
+                         kill.getKillerID(), kill.getTime(), e.getMessage(), e);
+        } catch (RuntimeException e) {
+            // Log error but don't fail the main operation
+            logger.error("Unexpected error sending KILL_VERIFIED notification for kill (Killer: {}, Time: {}): {}",
                          kill.getKillerID(), kill.getTime(), e.getMessage(), e);
         }
     }

@@ -161,7 +161,7 @@ public class AuthorizationUtils {
             // Retrieve the claim. It might be null if the user has no groups or the claim isn't in the token.
             List<String> groups = validatedToken.getClaim("cognito:groups").asList(String.class);
             return groups != null ? groups : Collections.emptyList();
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             // Handle cases where the claim exists but is not a list of strings
             logger.error("Error parsing 'cognito:groups' claim from token for subject {}: {}", validatedToken.getSubject(), e.getMessage());
             return Collections.emptyList();

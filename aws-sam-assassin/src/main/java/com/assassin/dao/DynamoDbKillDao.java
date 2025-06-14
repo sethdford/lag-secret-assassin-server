@@ -96,9 +96,9 @@ public class DynamoDbKillDao implements KillDao {
         } catch (DynamoDbException e) {
             logger.error("DynamoDbException saving kill record: {}", e.getMessage(), e);
             throw new KillPersistenceException("Failed to save kill record: " + e.getMessage(), e);
-        } catch (Exception e) {
-            logger.error("Unexpected error saving kill record: {}", e.getMessage(), e);
-            throw new KillPersistenceException("Unexpected error saving kill record: " + e.getMessage(), e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error saving kill record: {}", e.getMessage(), e);
+            throw new KillPersistenceException("Unexpected runtime error saving kill record: " + e.getMessage(), e);
         }
     }
 
@@ -134,9 +134,9 @@ public class DynamoDbKillDao implements KillDao {
         } catch (DynamoDbException e) {
             logger.error("DynamoDbException finding kills by killer {}: {}", killerID, e.getMessage(), e);
             throw new KillPersistenceException("Database error finding kills by killer: " + e.getMessage(), e);
-        } catch (Exception e) {
-            logger.error("Unexpected error finding kills by killer {}: {}", killerID, e.getMessage(), e);
-            throw new KillPersistenceException("Unexpected error finding kills by killer: " + e.getMessage(), e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error finding kills by killer {}: {}", killerID, e.getMessage(), e);
+            throw new KillPersistenceException("Unexpected runtime error finding kills by killer: " + e.getMessage(), e);
         }
     }
 
@@ -177,9 +177,9 @@ public class DynamoDbKillDao implements KillDao {
         } catch (DynamoDbException e) {
             logger.error("DynamoDbException finding kills by victim {}: {}", victimID, e.getMessage(), e);
             throw new KillPersistenceException("Database error finding kills by victim: " + e.getMessage(), e);
-        } catch (Exception e) {
-            logger.error("Unexpected error finding kills by victim {}: {}", victimID, e.getMessage(), e);
-            throw new KillPersistenceException("Unexpected error finding kills by victim: " + e.getMessage(), e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error finding kills by victim {}: {}", victimID, e.getMessage(), e);
+            throw new KillPersistenceException("Unexpected runtime error finding kills by victim: " + e.getMessage(), e);
         }
     }
     
@@ -228,9 +228,9 @@ public class DynamoDbKillDao implements KillDao {
         } catch (DynamoDbException e) {
             logger.error("DynamoDbException finding recent kills using index {}: {}", STATUS_TIME_INDEX_NAME, e.getMessage(), e);
             throw new KillPersistenceException("Database error finding recent kills: " + e.getMessage(), e);
-        } catch (Exception e) {
-            logger.error("Unexpected error finding recent kills using index {}: {}", STATUS_TIME_INDEX_NAME, e.getMessage(), e);
-            throw new KillPersistenceException("Unexpected error finding recent kills: " + e.getMessage(), e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error finding recent kills using index {}: {}", STATUS_TIME_INDEX_NAME, e.getMessage(), e);
+            throw new KillPersistenceException("Unexpected runtime error finding recent kills: " + e.getMessage(), e);
         }
     }
 
@@ -264,9 +264,9 @@ public class DynamoDbKillDao implements KillDao {
         } catch (DynamoDbException e) {
             logger.error("DynamoDbException counting deaths for victim {}: {}", victimId, e.getMessage(), e);
             throw new KillPersistenceException("Database error counting deaths: " + e.getMessage(), e);
-        } catch (Exception e) {
-            logger.error("Unexpected error counting deaths for victim {}: {}", victimId, e.getMessage(), e);
-            throw new KillPersistenceException("Unexpected error counting deaths: " + e.getMessage(), e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error counting deaths for victim {}: {}", victimId, e.getMessage(), e);
+            throw new KillPersistenceException("Unexpected runtime error counting deaths: " + e.getMessage(), e);
         }
     }
 
@@ -333,9 +333,9 @@ public class DynamoDbKillDao implements KillDao {
         } catch (DynamoDbException e) {
             logger.error("DynamoDB error describing kill table {}: {}", this.tableName, e.getMessage(), e);
             throw new KillPersistenceException("Failed to describe table to get kill count", e);
-        } catch (Exception e) {
-            logger.error("Unexpected error getting kill count for table {}: {}", this.tableName, e.getMessage(), e);
-            throw new KillPersistenceException("Unexpected error getting kill count", e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error getting kill count for table {}: {}", this.tableName, e.getMessage(), e);
+            throw new KillPersistenceException("Unexpected runtime error getting kill count", e);
         }
     }
 
@@ -369,9 +369,9 @@ public class DynamoDbKillDao implements KillDao {
         } catch (DynamoDbException e) {
             logger.error("DynamoDB error counting deaths for victim {}: {}", victimId, e.awsErrorDetails().errorMessage(), e);
             throw new KillPersistenceException("Failed to count deaths by victim", e);
-        } catch (Exception e) {
-            logger.error("Unexpected error counting deaths for victim {}: {}", victimId, e.getMessage(), e);
-            throw new KillPersistenceException("Unexpected error counting deaths by victim", e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error counting deaths for victim {}: {}", victimId, e.getMessage(), e);
+            throw new KillPersistenceException("Unexpected runtime error counting deaths by victim", e);
         }
     }
 
@@ -402,7 +402,7 @@ public class DynamoDbKillDao implements KillDao {
                             playerId, gameId);
                 return false; // Player not found, definitely not alive in this context
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             // Catching general exception from playerDao interaction
             logger.error("Error checking if player {} is alive in game {}: {}", playerId, gameId, e.getMessage(), e);
             // Wrap in KillPersistenceException as this DAO method declares it
@@ -524,9 +524,9 @@ public class DynamoDbKillDao implements KillDao {
         } catch (DynamoDbException e) {
             logger.error("DynamoDbException finding kill record for victim {}: {}", victimId, e.getMessage(), e);
             throw new KillPersistenceException("Database error finding kill record for victim: " + e.getMessage(), e);
-        } catch (Exception e) {
-            logger.error("Unexpected error finding kill record for victim {}: {}", victimId, e.getMessage(), e);
-            throw new KillPersistenceException("Unexpected error finding kill record for victim: " + e.getMessage(), e);
+        } catch (RuntimeException e) {
+            logger.error("Unexpected runtime error finding kill record for victim {}: {}", victimId, e.getMessage(), e);
+            throw new KillPersistenceException("Unexpected runtime error finding kill record for victim: " + e.getMessage(), e);
         }
     }
 

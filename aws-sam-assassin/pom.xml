@@ -28,11 +28,13 @@
         <bytebuddy.version>1.14.13</bytebuddy.version> <!-- Added for JDK 23 compatibility -->
         <gson.version>2.10.1</gson.version> <!-- For JSON handling in example handler -->
         <stripe.version>29.1.0</stripe.version> <!-- Stripe Java SDK -->
+        <jedis.version>5.1.0</jedis.version> <!-- Redis Java client -->
         <!-- Plugin Versions -->
         <maven.shade.plugin.version>3.4.1</maven.shade.plugin.version>
         <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
         <maven.surefire.plugin.version>3.3.1</maven.surefire.plugin.version>
         <auth0.jwt.version>4.4.0</auth0.jwt.version>
+        <aws.xray.version>2.15.1</aws.xray.version>
         <!-- Enable JaCoCo for code coverage on Java 17 -->
         <jacoco.skip>false</jacoco.skip>
     </properties>
@@ -125,6 +127,20 @@
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>cloudwatch</artifactId>
             <!-- Version managed by BOM -->
+        </dependency>
+
+        <!-- AWS SDK v2 EventBridge for event-driven architecture -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>eventbridge</artifactId>
+            <!-- Version managed by BOM -->
+        </dependency>
+
+        <!-- Redis client for distributed caching -->
+        <dependency>
+            <groupId>redis.clients</groupId>
+            <artifactId>jedis</artifactId>
+            <version>${jedis.version}</version>
         </dependency>
 
         <!-- Logging -->
@@ -263,7 +279,69 @@
             <version>${stripe.version}</version>
         </dependency>
 
+        <!-- WebSocket API for server endpoint -->
+        <dependency>
+          <groupId>javax.websocket</groupId>
+          <artifactId>javax.websocket-api</artifactId>
+          <version>1.1</version>
+          <scope>provided</scope>
+        </dependency>
 
+        <!-- AWS X-Ray SDK -->
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-xray-recorder-sdk-core</artifactId>
+            <version>${aws.xray.version}</version>
+        </dependency>
+        
+        <!-- AWS X-Ray SQL Interceptor for database tracing -->
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-xray-recorder-sdk-sql</artifactId>
+            <version>${aws.xray.version}</version>
+        </dependency>
+        
+        <!-- AWS X-Ray AWS SDK Interceptor -->
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-xray-recorder-sdk-aws-sdk-v2</artifactId>
+            <version>${aws.xray.version}</version>
+        </dependency>
+        
+        <!-- AWS X-Ray Apache HTTP Client Interceptor -->
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-xray-recorder-sdk-apache-http</artifactId>
+            <version>${aws.xray.version}</version>
+        </dependency>
+
+        <!-- AWS SDK v2 S3 for media storage -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <!-- Version managed by BOM -->
+        </dependency>
+
+        <!-- AWS SDK v2 CloudFront for CDN -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>cloudfront</artifactId>
+            <!-- Version managed by BOM -->
+        </dependency>
+
+        <!-- Image processing utilities -->
+        <dependency>
+            <groupId>org.imgscalr</groupId>
+            <artifactId>imgscalr-lib</artifactId>
+            <version>4.2</version>
+        </dependency>
+
+        <!-- Apache Tika for content type detection -->
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-core</artifactId>
+            <version>2.9.1</version>
+        </dependency>
 
     </dependencies>
 
@@ -339,6 +417,7 @@
                         <TABLE_NAME>test_data</TABLE_NAME>
                         <PLAYER_TABLE_NAME>test_player</PLAYER_TABLE_NAME>
                         <GAME_TABLE_NAME>test_game</GAME_TABLE_NAME>
+                        <GAMES_TABLE_NAME>test_game</GAMES_TABLE_NAME>
                         <ELIMINATION_TABLE_NAME>test_elimination</ELIMINATION_TABLE_NAME>
                         <GAME_ZONE_STATE_TABLE_NAME>test_game_zone_state</GAME_ZONE_STATE_TABLE_NAME>
                         <MAP_CONFIG_TABLE_NAME>test_map_config</MAP_CONFIG_TABLE_NAME>

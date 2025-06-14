@@ -66,7 +66,7 @@ public class AdminHandler {
 
             return ApiGatewayResponseBuilder.buildErrorResponse(404, "Admin endpoint not found");
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error processing admin request", e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "Internal server error");
         }
@@ -109,7 +109,7 @@ public class AdminHandler {
 
             return ApiGatewayResponseBuilder.buildResponse(200, GsonUtil.getGson().toJson(overview));
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error getting game overview", e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "Error retrieving game overview");
         }
@@ -132,7 +132,7 @@ public class AdminHandler {
             try {
                 gameDao.listGamesByStatus("ACTIVE");
                 health.put("database", "connected");
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 health.put("database", "error");
                 health.put("status", "degraded");
             }
@@ -141,7 +141,7 @@ public class AdminHandler {
 
             return ApiGatewayResponseBuilder.buildResponse(200, GsonUtil.getGson().toJson(health));
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error getting system health", e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "Error retrieving system health");
         }
@@ -173,7 +173,7 @@ public class AdminHandler {
 
             return ApiGatewayResponseBuilder.buildResponse(200, GsonUtil.getGson().toJson(response));
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error starting game", e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "Error starting game");
         }
@@ -204,7 +204,7 @@ public class AdminHandler {
 
             return ApiGatewayResponseBuilder.buildResponse(200, GsonUtil.getGson().toJson(response));
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error ending game", e);
             return ApiGatewayResponseBuilder.buildErrorResponse(500, "Error ending game");
         }

@@ -50,6 +50,101 @@ public class SecurityService {
         this.metricsPublisher = new SecurityMetricsPublisher();
     }
     
+    /**
+     * Suspends a player for a specified duration
+     */
+    public void suspendPlayer(String playerId, String reason, int durationMinutes) {
+        logger.warn("Suspending player {} for {} minutes. Reason: {}", playerId, durationMinutes, reason);
+        
+        try {
+            BlockedEntity blockedEntity = new BlockedEntity();
+            blockedEntity.setEntityId(playerId);
+            blockedEntity.setEntityType("PLAYER");
+            blockedEntity.setBlockReason(reason);
+            blockedEntity.setBlockedAt(Instant.now().toString());
+            blockedEntity.setExpiresAt(Instant.now().plus(durationMinutes, ChronoUnit.MINUTES).toString());
+            blockedEntity.setBlockedBy("ANTI_CHEAT_SYSTEM");
+            
+            blockedEntityDao.saveBlockedEntity(blockedEntity);
+            
+            // Log security event
+            SecurityEvent event = new SecurityEvent();
+            event.setUserID(playerId);
+            event.setEventType("PLAYER_SUSPENDED");
+            event.setTimestamp(Instant.now().toString());
+            
+            Map<String, String> metadata = new HashMap<>();
+            metadata.put("severity", "HIGH");
+            metadata.put("description", String.format("Player suspended: %s", reason));
+            metadata.put("suspensionDurationMinutes", String.valueOf(durationMinutes));
+            metadata.put("reason", reason);
+            event.setMetadata(metadata);
+            
+            securityEventDao.saveSecurityEvent(event);
+            metricsPublisher.publishPlayerSuspended(playerId, reason);
+            
+        } catch (Exception e) {
+            logger.error("Failed to suspend player {}: {}", playerId, e.getMessage(), e);
+            throw new RuntimeException("Failed to suspend player", e);
+        }
+    }
+    
+    /**
+     * Flags a player for manual review
+     */
+    public void flagPlayerForReview(String playerId, String reason) {
+        logger.info("Flagging player {} for review. Reason: {}", playerId, reason);
+        
+        try {
+            SecurityEvent event = new SecurityEvent();
+            event.setUserID(playerId);
+            event.setEventType("PLAYER_FLAGGED_FOR_REVIEW");
+            event.setTimestamp(Instant.now().toString());
+            
+            Map<String, String> metadata = new HashMap<>();
+            metadata.put("severity", "MEDIUM");
+            metadata.put("description", String.format("Player flagged for review: %s", reason));
+            metadata.put("reason", reason);
+            metadata.put("requiresManualReview", "true");
+            event.setMetadata(metadata);
+            
+            securityEventDao.saveSecurityEvent(event);
+            metricsPublisher.publishPlayerFlaggedForReview(playerId, reason);
+            
+        } catch (Exception e) {
+            logger.error("Failed to flag player {} for review: {}", playerId, e.getMessage(), e);
+            throw new RuntimeException("Failed to flag player for review", e);
+        }
+    }
+    
+    /**
+     * Increases monitoring level for a player
+     */
+    public void increaseMonitoringLevel(String playerId) {
+        logger.info("Increasing monitoring level for player: {}", playerId);
+        
+        try {
+            SecurityEvent event = new SecurityEvent();
+            event.setUserID(playerId);
+            event.setEventType("MONITORING_LEVEL_INCREASED");
+            event.setTimestamp(Instant.now().toString());
+            
+            Map<String, String> metadata = new HashMap<>();
+            metadata.put("severity", "LOW");
+            metadata.put("description", "Monitoring level increased due to suspicious activity");
+            metadata.put("monitoringLevel", "ENHANCED");
+            metadata.put("duration", "24_HOURS");
+            event.setMetadata(metadata);
+            
+            securityEventDao.saveSecurityEvent(event);
+            metricsPublisher.publishMonitoringLevelIncreased(playerId);
+            
+        } catch (Exception e) {
+            logger.error("Failed to increase monitoring level for player {}: {}", playerId, e.getMessage(), e);
+            throw new RuntimeException("Failed to increase monitoring level", e);
+        }
+    }
+    
     public SecurityService(SecurityEventDao securityEventDao, BlockedEntityDao blockedEntityDao) {
         this.securityEventDao = securityEventDao;
         this.blockedEntityDao = blockedEntityDao;
@@ -109,7 +204,7 @@ public class SecurityService {
                     metricsPublisher.publishSecurityEventByType("RATE_LIMIT_EXCEEDED", 1);
                     metricsPublisher.publishIPThreatScore(sourceIP, calculateThreatScore(sourceIP));
                     metricsPublisher.publishEndpointAbuseMetric(endpoint, 1);
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     logger.warn("Failed to publish rate limit metrics for IP {}: {}", sourceIP, e.getMessage());
                 }
                 
@@ -119,7 +214,7 @@ public class SecurityService {
             
             return new RateLimitResult(true, "Request allowed", 0);
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error checking rate limit for IP {}: {}", sourceIP, e.getMessage(), e);
             // In case of error, allow the request but log the issue
             return new RateLimitResult(true, "Rate limit check failed - allowing request", 0);
@@ -201,7 +296,7 @@ public class SecurityService {
                     metricsPublisher.publishSuspiciousActivityRate(1);
                     metricsPublisher.publishSecurityEventByType("ABUSE_DETECTED", 1);
                     metricsPublisher.publishIPThreatScore(sourceIP, calculateThreatScore(sourceIP));
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     logger.warn("Failed to publish abuse detection metrics for IP {}: {}", sourceIP, e.getMessage());
                 }
                 
@@ -211,7 +306,7 @@ public class SecurityService {
             
             return new AbuseDetectionResult(false, "No abuse detected", false);
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error detecting abuse for IP {}: {}", sourceIP, e.getMessage(), e);
             return new AbuseDetectionResult(false, "Abuse detection failed", false);
         }
@@ -292,7 +387,7 @@ public class SecurityService {
                 isSuspicious ? "Suspicious speed: " + String.format("%.1f", speedKmh) + " km/h" : "Normal movement",
                 speedKmh);
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error detecting location spoofing for user {}: {}", userID, e.getMessage(), e);
             return new LocationSpoofingResult(false, "Location spoofing detection failed", 0.0);
         }
@@ -307,7 +402,7 @@ public class SecurityService {
     public boolean isEntityBlocked(String entityId) {
         try {
             return blockedEntityDao.isEntityBlocked(entityId);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error checking if entity {} is blocked: {}", entityId, e.getMessage(), e);
             return false; // Default to not blocked on error
         }
@@ -351,7 +446,7 @@ public class SecurityService {
                        entityType, entityId, reason, durationHours != null ? durationHours : "permanent");
             
             return true;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error blocking entity {} ({}): {}", entityId, entityType, e.getMessage(), e);
             return false;
         }
@@ -384,7 +479,7 @@ public class SecurityService {
             }
             
             return blocked;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error applying automatic blocking for IP {} / User {}: {}", sourceIP, userID, e.getMessage(), e);
             return false;
         }
@@ -414,7 +509,7 @@ public class SecurityService {
             securityEventDao.saveSecurityEvent(event);
             
             logger.debug("Logged security event: {} for IP: {}", eventType, sourceIP);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.error("Error logging security event: {}", e.getMessage(), e);
         }
     }
@@ -525,7 +620,7 @@ public class SecurityService {
             
             return Math.min(threatScore, 100); // Cap at 100
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             logger.warn("Failed to calculate threat score for IP {}: {}", sourceIP, e.getMessage());
             return 0; // Default to no threat if calculation fails
         }
