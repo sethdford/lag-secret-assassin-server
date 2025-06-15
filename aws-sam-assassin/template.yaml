@@ -1920,7 +1920,7 @@ Resources:
       DeadLetterQueue:
         Type: SQS
         TargetArn: !GetAtt StreamProcessingDLQ.Arn
-      ReservedConcurrencyLimit: 5
+      ReservedConcurrentExecutions: 5
       Events:
         PlayerStreamEvent:
           Type: DynamoDB
@@ -1959,7 +1959,7 @@ Resources:
       DeadLetterQueue:
         Type: SQS
         TargetArn: !GetAtt StreamProcessingDLQ.Arn
-      ReservedConcurrencyLimit: 5
+      ReservedConcurrentExecutions: 5
       Events:
         GameStreamEvent:
           Type: DynamoDB
@@ -1998,7 +1998,7 @@ Resources:
       DeadLetterQueue:
         Type: SQS
         TargetArn: !GetAtt StreamProcessingDLQ.Arn
-      ReservedConcurrencyLimit: 5
+      ReservedConcurrentExecutions: 5
       Events:
         KillStreamEvent:
           Type: DynamoDB
@@ -2038,7 +2038,7 @@ Resources:
       DeadLetterQueue:
         Type: SQS
         TargetArn: !GetAtt EventProcessingDLQ.Arn
-      ReservedConcurrencyLimit: 10
+      ReservedConcurrentExecutions: 10
       Events:
         PlayerEvents:
           Type: EventBridgeRule

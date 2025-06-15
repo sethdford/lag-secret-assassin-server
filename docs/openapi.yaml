@@ -2,13 +2,20 @@ openapi: 3.1.0
 info:
   title: Assassin Game API
   description: |
-    API for the Assassin Game platform, supporting game creation, player management, 
-    kill reporting, and in-game purchases. Features include real-time notifications,
-    multiple verification methods, shrinking zone mechanics, support for nationwide games with 1000+ players,
-    enhanced payment processing with Apple Pay/Google Pay support, and comprehensive security monitoring.
-  version: 1.0.3
+    Comprehensive API for the Assassin Game platform, supporting game creation, player management, 
+    kill reporting, real-time notifications, interactive mapping, data analytics, security monitoring,
+    subscription management, payment processing, and comprehensive privacy controls.
+    
+    Features include multiple verification methods, shrinking zone mechanics, safe zone system,
+    location-based gameplay, data export capabilities, and support for nationwide games with 1000+ players.
+  version: 2.0.0
   contact:
     name: Assassin Game Development Team
+    email: support@assassingame.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
 servers:
   - url: http://localhost:3002
     description: Local development server
@@ -26,27 +33,37 @@ tags:
   - name: Authentication
     description: User authentication and authorization endpoints
   - name: Games
-    description: Game management endpoints
+    description: Game management and lifecycle endpoints
   - name: Players
-    description: Player management endpoints
+    description: Player management and profile endpoints
   - name: Kills
-    description: Kill reporting and management endpoints
-  - name: Store
-    description: Virtual item store and purchase endpoints
+    description: Kill reporting and verification endpoints
   - name: Location
-    description: Location tracking and safe zone management endpoints
+    description: Location tracking and validation endpoints
+  - name: Safe Zones
+    description: Safe zone creation and management endpoints
+  - name: Map
+    description: Interactive map and geospatial data endpoints
+  - name: Data Export
+    description: Game data export and analytics endpoints
   - name: Statistics
-    description: Game and player statistics endpoints
+    description: Player and game statistics endpoints
   - name: Notifications
     description: Real-time notification endpoints
   - name: WebSocket
-    description: WebSocket connection management
+    description: WebSocket connection and messaging
   - name: Shrinking Zone
-    description: Shrinking zone mechanics and zone state management
+    description: Shrinking zone mechanics and progression
   - name: Payments
-    description: Payment processing and transaction management
+    description: Payment processing and transactions
+  - name: Subscriptions
+    description: Subscription management and billing
   - name: Security
-    description: Security monitoring, reporting, and threat detection
+    description: Security monitoring and threat detection
+  - name: Privacy
+    description: Privacy settings and data protection
+  - name: Admin
+    description: Administrative functions and oversight
 
 components:
   securitySchemes:
@@ -54,6 +71,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: JWT token obtained from authentication endpoints
     cognitoAuth:
       type: oauth2
       flows:
@@ -68,8 +86,14 @@ components:
       in: query
       name: token
       description: JWT token for WebSocket authentication
+    adminAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Admin-level JWT token with elevated permissions
 
   schemas:
+    # Core Domain Objects
     Game:
       type: object
       required:
@@ -85,9 +109,11 @@ components:
         name:
           type: string
           description: Name of the game
+          maxLength: 100
         description:
           type: string
           description: Detailed description of the game
+          maxLength: 500
         status:
           type: string
           enum: [pending, active, paused, completed]
@@ -98,406 +124,748 @@ components:
             amount:
               type: number
               format: float
-              description: Amount of the entry fee
+              minimum: 0
+              description: Entry fee amount
             currency:
               type: string
-              description: Currency code (e.g., USD)
+              default: USD
+              description: Currency code
+        playerCount:
+          type: integer
+          minimum: 0
+          description: Number of players currently in the game
+        maxPlayers:
+          type: integer
+          minimum: 1
+          description: Maximum number of players allowed
+        createdBy:
+          type: string
+          description: ID of the player who created the game
         startTime:
           type: string
           format: date-time
-          description: Scheduled start time of the game
+          description: When the game started (ISO 8601)
         endTime:
           type: string
           format: date-time
-          description: Scheduled end time of the game
-        boundaries:
-          type: object
-          properties:
-            type:
-              type: string
-              enum: [polygon]
-            coordinates:
-              type: array
-              items:
-                type: array
-                items:
-                  type: number
-        rules:
-          type: object
-          description: Custom rules for the game
-          properties:
-            gpsVerificationThresholdMeters:
-              type: number
-              description: Distance threshold for GPS verification in meters
-            requirePhotoModeration:
-              type: boolean
-              description: Whether photo verification requires moderator approval
-            safeZonesEnabled:
-              type: boolean
-              description: Whether safe zones are enabled in this game
-            verificationMethods:
-              type: array
-              items:
-                type: string
-                enum: [GPS, NFC, PHOTO, QR]
-              description: Allowed verification methods in this game
-        createdBy:
+          description: When the game ended (ISO 8601)
+        createdAt:
           type: string
-          description: ID of the user who created the game
+          format: date-time
+          description: When the game was created (ISO 8601)
+        updatedAt:
+          type: string
+          format: date-time
+          description: When the game was last updated (ISO 8601)
+        boundary:
+          $ref: '#/components/schemas/GameBoundary'
+        mapConfig:
+          $ref: '#/components/schemas/MapConfiguration'
+        shrinkingZoneConfig:
+          $ref: '#/components/schemas/ShrinkingZoneConfiguration'
+        safeZones:
+          type: array
+          items:
+            type: string
+          description: Array of safe zone IDs associated with this game
+
+    Player:
+      type: object
+      required:
+        - id
+        - name
+        - email
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the player
+        name:
+          type: string
+          description: Player's display name
+          maxLength: 50
+        email:
+          type: string
+          format: email
+          description: Player's email address
+        profilePictureUrl:
+          type: string
+          format: uri
+          description: URL to player's profile picture
+        currentLocation:
+          $ref: '#/components/schemas/Location'
+        gameStats:
+          $ref: '#/components/schemas/PlayerGameStats'
+        privacySettings:
+          $ref: '#/components/schemas/PrivacySettings'
+        subscription:
+          $ref: '#/components/schemas/SubscriptionInfo'
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
-        playerCount:
-          type: integer
-          description: Current number of players in the game
-        maxPlayers:
-          type: integer
-          description: Maximum number of players allowed (for nationwide games)
-        region:
+        lastActiveAt:
           type: string
-          description: Geographic region for regional competition in nationwide games
+          format: date-time
+          description: When the player was last active
 
-    Player:
+    Kill:
       type: object
       required:
         - id
-        - userId
+        - killerPlayerId
+        - targetPlayerId
         - gameId
         - status
       properties:
         id:
           type: string
           format: uuid
-        userId:
-          type: string
-          description: ID of the user
-        gameId:
-          type: string
-          description: ID of the game
-        status:
-          type: string
-          enum: [alive, eliminated, winner]
-        targetId:
-          type: string
-          description: ID of the current target
-        killCount:
-          type: integer
-          minimum: 0
-        lastKnownLocation:
-          type: object
-          properties:
-            coordinates:
-              type: array
-              items:
-                type: number
-              minItems: 2
-              maxItems: 2
-            timestamp:
-              type: string
-              format: date-time
-            accuracy:
-              type: number
-        activeItems:
-          type: array
-          items:
-            type: object
-            properties:
-              itemId:
-                type: string
-              expiresAt:
-                type: string
-                format: date-time
-        joinedAt:
-          type: string
-          format: date-time
-        eliminatedAt:
-          type: string
-          format: date-time
-        nfcTagId:
-          type: string
-          description: NFC tag ID for NFC verification method
-        subscriptionTier:
-          type: string
-          enum: [basic, hunter, assassin, elite]
-          description: Player's subscription tier
-        regionId:
-          type: string
-          description: Region ID for nationwide games
-
-    Kill:
-      type: object
-      required:
-        - killerID
-        - victimID
-        - time
-      properties:
-        killerID:
+          description: Unique identifier for the kill
+        killerPlayerId:
           type: string
           description: ID of the player who made the kill
-        victimID:
+        targetPlayerId:
           type: string
-          description: ID of the player who was eliminated
-        time:
-          type: string
-          format: date-time
-          description: Timestamp when the kill occurred
+          description: ID of the player who was killed
         gameId:
           type: string
           description: ID of the game where the kill occurred
-        location:
-          type: object
-          properties:
-            latitude:
-              type: number
-            longitude:
-              type: number
-            accuracy:
-              type: number
-        verificationMethod:
-          type: string
-          enum: [GPS, NFC, PHOTO, QR]
-          description: Method used to verify the kill
-        verificationStatus:
-          type: string
-          enum: [PENDING, PENDING_REVIEW, VERIFIED, REJECTED]
-          description: Current status of kill verification
-        verificationNotes:
-          type: string
-          description: Notes about the verification process
-        verificationData:
-          type: object
-          description: Data related to verification (varies by method)
-        moderatorId:
-          type: string
-          description: ID of moderator who verified/rejected (for PHOTO method)
-
-    Item:
-      type: object
-      required:
-        - id
-        - name
-        - type
-        - price
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-        type:
-          type: string
-          enum: [boost, defense, utility, intel]
-        effects:
-          type: object
-        duration:
-          type: integer
-          description: Duration in seconds
-        price:
-          type: object
-          properties:
-            amount:
-              type: number
-            currency:
-              type: string
-        isConsumable:
-          type: boolean
-        cooldown:
-          type: integer
-          description: Cooldown period in seconds
-
-    Purchase:
-      type: object
-      required:
-        - id
-        - userId
-        - itemId
-        - transactionId
-      properties:
-        id:
-          type: string
-        userId:
-          type: string
-        itemId:
-          type: string
-        quantity:
-          type: integer
-          minimum: 1
-          default: 1
-        transactionId:
-          type: string
-        amount:
-          type: number
-        currency:
-          type: string
         status:
           type: string
-          enum: [pending, completed, refunded, failed]
-        purchasedAt:
+          enum: [pending, verified, rejected, pending_death]
+          description: Current verification status of the kill
+        verificationType:
+          type: string
+          enum: [gps, qr_code, photo, nfc, admin]
+          description: Method used for verification
+        location:
+          $ref: '#/components/schemas/Location'
+        verificationData:
+          type: object
+          description: Additional data for verification (photos, QR codes, etc.)
+        verifiedAt:
           type: string
           format: date-time
+          description: When the kill was verified (ISO 8601)
+        reportedAt:
+          type: string
+          format: date-time
+          description: When the kill was reported (ISO 8601)
+        verificationDeadline:
+          type: string
+          format: date-time
+          description: Deadline for kill verification (ISO 8601)
+        notes:
+          type: string
+          description: Additional notes or comments about the kill
+          maxLength: 500
 
+    Location:
+      type: object
+      required:
+        - latitude
+        - longitude
+      properties:
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+          description: Latitude coordinate
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+          description: Longitude coordinate
+        accuracy:
+          type: number
+          format: float
+          minimum: 0
+          description: Location accuracy in meters
+        timestamp:
+          type: string
+          format: date-time
+          description: When the location was recorded (ISO 8601)
+
+    # Safe Zone Objects
     SafeZone:
       type: object
       required:
         - id
         - gameId
-        - radius
-        - center
+        - type
+        - location
+        - radiusMeters
       properties:
         id:
           type: string
+          format: uuid
+          description: Unique identifier for the safe zone
         gameId:
           type: string
+          description: ID of the game this safe zone belongs to
         type:
           type: string
           enum: [public, private, timed, relocatable]
           description: Type of safe zone
-        radius:
-          type: number
-          description: Radius in meters
-        center:
-          type: object
-          properties:
-            lat:
-              type: number
-            lng:
-              type: number
         name:
           type: string
+          description: Human-readable name for the safe zone
+          maxLength: 100
         description:
           type: string
-        startTime:
-          type: string
-          format: date-time
-        endTime:
-          type: string
-          format: date-time
+          description: Description of the safe zone
+          maxLength: 500
+        location:
+          $ref: '#/components/schemas/Location'
+        radiusMeters:
+          type: number
+          format: float
+          minimum: 1
+          maximum: 1000
+          description: Radius of the safe zone in meters
         ownerId:
           type: string
-          description: Player who owns this zone (for private zones)
-        authorizedPlayers:
+          description: ID of the player who owns this safe zone (for private zones)
+        isActive:
+          type: boolean
+          description: Whether the safe zone is currently active
+        activationTime:
+          type: string
+          format: date-time
+          description: When the safe zone becomes active (for timed zones)
+        deactivationTime:
+          type: string
+          format: date-time
+          description: When the safe zone becomes inactive (for timed zones)
+        maxRelocations:
+          type: integer
+          minimum: 0
+          description: Maximum number of times this zone can be relocated
+        relocationsUsed:
+          type: integer
+          minimum: 0
+          description: Number of relocations already used
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # Privacy and Settings
+    PrivacySettings:
+      type: object
+      properties:
+        locationSharingEnabled:
+          type: boolean
+          default: true
+          description: Whether to share location with other players
+        locationVisibility:
+          type: string
+          enum: [public, friends, private]
+          default: friends
+          description: Who can see the player's location
+        profileVisibility:
+          type: string
+          enum: [public, friends, private]
+          default: public
+          description: Who can see the player's profile
+        allowFriendRequests:
+          type: boolean
+          default: true
+          description: Whether to accept friend requests
+        showOnLeaderboards:
+          type: boolean
+          default: true
+          description: Whether to appear on leaderboards
+        allowGameInvitations:
+          type: boolean
+          default: true
+          description: Whether to receive game invitations
+
+    # Subscription Management
+    SubscriptionTier:
+      type: object
+      required:
+        - id
+        - name
+        - pricePerMonth
+        - benefits
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the subscription tier
+        name:
+          type: string
+          description: Name of the subscription tier
+        description:
+          type: string
+          description: Description of the subscription tier
+        pricePerMonth:
+          type: number
+          format: float
+          minimum: 0
+          description: Monthly price in USD
+        currency:
+          type: string
+          default: USD
+          description: Currency code
+        benefits:
+          type: object
+          properties:
+            currencyBonus:
+              type: number
+              format: float
+              description: Percentage bonus for in-game currency
+            freeItems:
+              type: array
+              items:
+                type: string
+              description: List of free items included
+            prioritySupport:
+              type: boolean
+              description: Whether tier includes priority support
+            exclusiveFeatures:
+              type: array
+              items:
+                type: string
+              description: List of exclusive features
+
+    SubscriptionInfo:
+      type: object
+      properties:
+        tierId:
+          type: string
+          description: ID of the current subscription tier
+        tierName:
+          type: string
+          description: Name of the current subscription tier
+        status:
+          type: string
+          enum: [active, cancelled, expired, pending]
+          description: Current subscription status
+        startDate:
+          type: string
+          format: date-time
+          description: When the subscription started
+        endDate:
+          type: string
+          format: date-time
+          description: When the subscription ends
+        autoRenew:
+          type: boolean
+          description: Whether the subscription auto-renews
+        paymentMethodId:
+          type: string
+          description: Stripe payment method ID
+
+    # Map and Geospatial Objects
+    MapConfiguration:
+      type: object
+      properties:
+        centerLatitude:
+          type: number
+          format: double
+          description: Center latitude for map display
+        centerLongitude:
+          type: number
+          format: double
+          description: Center longitude for map display
+        defaultZoomLevel:
+          type: integer
+          minimum: 1
+          maximum: 20
+          description: Default zoom level for map display
+        boundingBox:
+          $ref: '#/components/schemas/BoundingBox'
+        showHeatmap:
+          type: boolean
+          default: true
+          description: Whether to show activity heatmap
+        heatmapCellSize:
+          type: number
+          format: float
+          minimum: 10
+          maximum: 1000
+          description: Cell size for heatmap in meters
+
+    GameBoundary:
+      type: object
+      required:
+        - coordinates
+      properties:
+        coordinates:
           type: array
           items:
-            type: string
-          description: Players authorized to use this zone (for private zones)
-        movementHistory:
+            $ref: '#/components/schemas/Location'
+          description: Array of coordinates defining the game boundary polygon
+        type:
+          type: string
+          enum: [polygon, circle]
+          default: polygon
+          description: Type of boundary shape
+        radius:
+          type: number
+          format: float
+          description: Radius in meters (for circle boundaries)
+
+    BoundingBox:
+      type: object
+      required:
+        - northEast
+        - southWest
+      properties:
+        northEast:
+          $ref: '#/components/schemas/Location'
+        southWest:
+          $ref: '#/components/schemas/Location'
+
+    HeatmapData:
+      type: object
+      properties:
+        cellSize:
+          type: number
+          format: float
+          description: Size of each heatmap cell in meters
+        cells:
+          type: array
+          items:
+            $ref: '#/components/schemas/HeatmapCell'
+        generatedAt:
+          type: string
+          format: date-time
+          description: When the heatmap was generated
+
+    HeatmapCell:
+      type: object
+      required:
+        - latitude
+        - longitude
+        - intensity
+      properties:
+        latitude:
+          type: number
+          format: double
+          description: Center latitude of the cell
+        longitude:
+          type: number
+          format: double
+          description: Center longitude of the cell
+        intensity:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Activity intensity (0-1)
+        playerCount:
+          type: integer
+          minimum: 0
+          description: Number of players in this cell
+        killCount:
+          type: integer
+          minimum: 0
+          description: Number of kills in this cell
+
+    # Data Export Objects
+    GameStatisticsExport:
+      type: object
+      properties:
+        gameId:
+          type: string
+          description: Game identifier
+        gameName:
+          type: string
+          description: Game name
+        totalPlayers:
+          type: integer
+          description: Total number of players
+        totalKills:
+          type: integer
+          description: Total number of kills
+        averageGameDuration:
+          type: number
+          format: float
+          description: Average game duration in minutes
+        mostActiveRegions:
           type: array
           items:
             type: object
             properties:
-              center:
-                type: object
-                properties:
-                  lat:
-                    type: number
-                  lng:
-                    type: number
-              timestamp:
+              region:
                 type: string
-                format: date-time
-          description: History of relocations (for relocatable zones)
-        cooldownPeriod:
-          type: integer
-          description: Cooldown period in seconds before zone can be moved again
-        sponsorId:
-          type: string
-          description: ID of sponsor (for sponsored safe zones)
-        sponsorName:
-          type: string
-          description: Name of sponsor (for sponsored safe zones)
-        createdBy:
-          type: string
-        createdAt:
+              activityScore:
+                type: number
+                format: float
+        exportedAt:
           type: string
           format: date-time
 
-    Notification:
+    PlayerPerformanceExport:
       type: object
-      required:
-        - id
-        - recipientId
-        - type
-        - createdAt
       properties:
-        id:
-          type: string
-        recipientId:
-          type: string
-          description: ID of player receiving the notification
-        type:
-          type: string
-          enum: [kill, game_start, game_end, target_updated, safe_zone_entered, safe_zone_exited, item_expired, hunter_nearby]
-        title:
-          type: string
-        message:
-          type: string
-        data:
-          type: object
-          description: Additional data relevant to the notification
-        priority:
-          type: string
-          enum: [low, normal, high, urgent]
-        read:
-          type: boolean
-          default: false
-        createdAt:
-          type: string
-          format: date-time
-        expiresAt:
-          type: string
-          format: date-time
-
-    WebSocketConnection:
-      type: object
-      required:
-        - connectionId
-        - playerId
-      properties:
-        connectionId:
-          type: string
-          description: WebSocket connection ID
         playerId:
           type: string
-          description: Player ID associated with this connection
-        connectionTime:
+          description: Player identifier
+        playerName:
           type: string
-          format: date-time
-        lastActivity:
+          description: Player name
+        totalGamesPlayed:
+          type: integer
+          description: Total games participated in
+        gamesWon:
+          type: integer
+          description: Number of games won
+        totalKills:
+          type: integer
+          description: Total kills made
+        averageSurvivalTime:
+          type: number
+          format: float
+          description: Average survival time in minutes
+        winRate:
+          type: number
+          format: float
+          description: Win rate percentage
+        killDeathRatio:
+          type: number
+          format: float
+          description: Kill to death ratio
+        exportedAt:
           type: string
           format: date-time
 
-    GameZoneState:
+    LocationHeatmapData:
       type: object
-      required:
-        - gameId
-        - currentStageIndex
-        - currentPhase
       properties:
         gameId:
           type: string
-          description: ID of the game this zone state belongs to
-        currentStageIndex:
-          type: integer
-          description: Current stage index in the shrinking zone progression
-        currentPhase:
+          description: Game identifier
+        cellSize:
+          type: number
+          format: float
+          description: Size of heatmap cells in meters
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/HeatmapCell'
+        exportedAt:
           type: string
-          enum: [WAITING, SHRINKING, STABLE, FINISHED]
-          description: Current phase of the zone
-        currentCenter:
+          format: date-time
+
+    # Security Monitoring Objects
+    SecurityMonitoringReport:
+      type: object
+      properties:
+        reportId:
+          type: string
+          description: Unique report identifier
+        generatedAt:
+          type: string
+          format: date-time
+        timeRange:
           type: object
           properties:
-            latitude:
-              type: number
-            longitude:
-              type: number
-          description: Current center coordinates of the safe zone
+            startTime:
+              type: string
+              format: date-time
+            endTime:
+              type: string
+              format: date-time
+        metrics:
+          $ref: '#/components/schemas/SecurityMetrics'
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/SecurityAlert'
+        topThreats:
+          type: array
+          items:
+            $ref: '#/components/schemas/ThreatIP'
+
+    SecurityMetrics:
+      type: object
+      properties:
+        totalRequests:
+          type: integer
+          description: Total number of requests processed
+        blockedRequests:
+          type: integer
+          description: Number of requests blocked
+        uniqueIPs:
+          type: integer
+          description: Number of unique IP addresses
+        flaggedIPs:
+          type: integer
+          description: Number of flagged IP addresses
+        averageResponseTime:
+          type: number
+          format: float
+          description: Average response time in milliseconds
+        errorRate:
+          type: number
+          format: float
+          description: Error rate percentage
+
+    SecurityAlert:
+      type: object
+      required:
+        - id
+        - type
+        - severity
+        - message
+      properties:
+        id:
+          type: string
+          description: Unique alert identifier
+        type:
+          type: string
+          enum: [rate_limit, suspicious_location, cheat_detection, data_breach]
+          description: Type of security alert
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+          description: Alert severity level
+        message:
+          type: string
+          description: Human-readable alert message
+        affectedResource:
+          type: string
+          description: Resource affected by the alert
+        timestamp:
+          type: string
+          format: date-time
+          description: When the alert was triggered
+        resolved:
+          type: boolean
+          default: false
+          description: Whether the alert has been resolved
+
+    ThreatIP:
+      type: object
+      required:
+        - ipAddress
+        - threatScore
+        - requestCount
+      properties:
+        ipAddress:
+          type: string
+          format: ipv4
+          description: IP address identified as threat
+        threatScore:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          description: Threat score (0-100)
+        requestCount:
+          type: integer
+          minimum: 0
+          description: Number of requests from this IP
+        lastSeen:
+          type: string
+          format: date-time
+          description: When this IP was last seen
+        actions:
+          type: array
+          items:
+            type: string
+            enum: [blocked, rate_limited, flagged]
+          description: Actions taken against this IP
+
+    # WebSocket Objects
+    WebSocketMessage:
+      type: object
+      required:
+        - type
+        - payload
+        - timestamp
+      properties:
+        type:
+          type: string
+          enum: [
+            player_update, game_update, kill_reported, kill_verified,
+            zone_update, safe_zone_update, notification, ping, pong,
+            error, connection_established, player_joined, player_left
+          ]
+          description: Type of WebSocket message
+        payload:
+          type: object
+          description: Message payload (varies by type)
+        timestamp:
+          type: integer
+          format: int64
+          description: Message timestamp in epoch milliseconds
+        requestId:
+          type: string
+          description: Optional request ID for tracking responses
+
+    WebSocketConnection:
+      type: object
+      properties:
+        connectionId:
+          type: string
+          description: Unique connection identifier
+        playerId:
+          type: string
+          description: ID of the connected player
+        gameId:
+          type: string
+          description: ID of the game the player is connected to
+        connectedAt:
+          type: string
+          format: date-time
+          description: When the connection was established
+        lastPingAt:
+          type: string
+          format: date-time
+          description: When the last ping was received
+
+    # Shrinking Zone Objects
+    ShrinkingZoneConfiguration:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          default: false
+          description: Whether shrinking zone is enabled for this game
+        stages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShrinkingZoneStage'
+        initialRadiusMeters:
+          type: number
+          format: float
+          description: Initial radius of the shrinking zone
+
+    ShrinkingZoneState:
+      type: object
+      required:
+        - gameId
+        - currentStage
+        - currentRadiusMeters
+        - centerLatitude
+        - centerLongitude
+      properties:
+        gameId:
+          type: string
+          description: Game identifier
+        currentStage:
+          type: integer
+          description: Current stage index
         currentRadiusMeters:
           type: number
-          description: Current radius of the safe zone in meters
+          description: Current radius of the shrinking zone in meters
+        centerLatitude:
+          type: number
+          description: Center latitude of the zone
+        centerLongitude:
+          type: number
+          description: Center longitude of the zone
         nextRadiusMeters:
           type: number
           description: Target radius for the next shrinking phase in meters
@@ -556,6 +924,46 @@ components:
           type: string
           description: Human-readable description of this stage
 
+    # Statistics Objects
+    PlayerGameStats:
+      type: object
+      properties:
+        gamesPlayed:
+          type: integer
+          minimum: 0
+          description: Total number of games played
+        gamesWon:
+          type: integer
+          minimum: 0
+          description: Total number of games won
+        totalKills:
+          type: integer
+          minimum: 0
+          description: Total number of kills made
+        totalDeaths:
+          type: integer
+          minimum: 0
+          description: Total number of times eliminated
+        longestWinStreak:
+          type: integer
+          minimum: 0
+          description: Longest consecutive wins
+        averageSurvivalTime:
+          type: number
+          format: float
+          description: Average survival time in minutes
+        winRate:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          description: Win rate percentage
+        killDeathRatio:
+          type: number
+          format: float
+          description: Ratio of kills to deaths
+
+    # Payment and Transaction Objects
     Transaction:
       type: object
       required:
@@ -598,6 +1006,26 @@ components:
           type: string
           format: date-time
 
+    PaymentIntent:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Stripe payment intent ID
+        clientSecret:
+          type: string
+          description: Client secret for completing payment
+        amount:
+          type: integer
+          description: Amount in cents
+        currency:
+          type: string
+          description: Currency code
+        status:
+          type: string
+          description: Payment intent status
+
+    # Common Objects
     Error:
       type: object
       required:
@@ -606,10 +1034,114 @@ components:
       properties:
         code:
           type: string
+          description: Error code
         message:
           type: string
+          description: Human-readable error message
         details:
           type: object
+          description: Additional error details
+        timestamp:
+          type: string
+          format: date-time
+          description: When the error occurred
+
+    # Request/Response Objects
+    CreateGameRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          description: Name of the game
+        description:
+          type: string
+          maxLength: 500
+          description: Description of the game
+        maxPlayers:
+          type: integer
+          minimum: 2
+          maximum: 10000
+          description: Maximum number of players
+        entryFee:
+          type: object
+          properties:
+            amount:
+              type: number
+              format: float
+              minimum: 0
+            currency:
+              type: string
+              default: USD
+        boundary:
+          $ref: '#/components/schemas/GameBoundary'
+        shrinkingZoneEnabled:
+          type: boolean
+          default: false
+
+    UpdateLocationRequest:
+      type: object
+      required:
+        - latitude
+        - longitude
+      properties:
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+        accuracy:
+          type: number
+          format: float
+          minimum: 0
+          description: Location accuracy in meters
+
+    CreateSafeZoneRequest:
+      type: object
+      required:
+        - gameId
+        - type
+        - location
+        - radiusMeters
+      properties:
+        gameId:
+          type: string
+          description: ID of the game
+        type:
+          type: string
+          enum: [public, private, timed, relocatable]
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        location:
+          $ref: '#/components/schemas/Location'
+        radiusMeters:
+          type: number
+          format: float
+          minimum: 1
+          maximum: 1000
+        activationTime:
+          type: string
+          format: date-time
+          description: When to activate (for timed zones)
+        duration:
+          type: integer
+          minimum: 1
+          description: Duration in minutes (for timed zones)
+        maxRelocations:
+          type: integer
+          minimum: 0
+          description: Maximum relocations allowed (for relocatable zones)
 
   responses:
     Unauthorized:
@@ -621,6 +1153,8 @@ components:
           example:
             code: UNAUTHORIZED
             message: Authentication required to access this resource
+            timestamp: "2024-01-15T10:30:00Z"
+
     Forbidden:
       description: Insufficient permissions
       content:
@@ -630,6 +1164,8 @@ components:
           example:
             code: FORBIDDEN
             message: You do not have permission to access this resource
+            timestamp: "2024-01-15T10:30:00Z"
+
     NotFound:
       description: Resource not found
       content:
@@ -639,6 +1175,8 @@ components:
           example:
             code: NOT_FOUND
             message: The requested resource was not found
+            timestamp: "2024-01-15T10:30:00Z"
+
     ValidationError:
       description: Validation error
       content:
@@ -651,8 +1189,22 @@ components:
             details:
               field: name
               error: Field is required
+            timestamp: "2024-01-15T10:30:00Z"
 
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: INTERNAL_ERROR
+            message: An unexpected error occurred
+            timestamp: "2024-01-15T10:30:00Z"
+
+# API Paths will continue in part 2...
 paths:
+  # Authentication Endpoints
   /auth/signup:
     post:
       tags:
@@ -679,13 +1231,27 @@ paths:
                   minLength: 8
                 name:
                   type: string
+                  maxLength: 50
       responses:
         '201':
           description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  playerId:
+                    type: string
         '400':
           $ref: '#/components/responses/ValidationError'
         '409':
           description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /auth/signin:
     post:
@@ -711,7 +1277,7 @@ paths:
                   format: password
       responses:
         '200':
-          description: Authentication successful
+          description: Successful authentication
           content:
             application/json:
               schema:
@@ -719,59 +1285,22 @@ paths:
                 properties:
                   token:
                     type: string
+                    description: JWT authentication token
                   refreshToken:
                     type: string
+                    description: Refresh token for obtaining new JWT
                   expiresIn:
                     type: integer
+                    description: Token expiration time in seconds
+                  player:
+                    $ref: '#/components/schemas/Player'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '400':
+          $ref: '#/components/responses/ValidationError'
 
+  # Game Management Endpoints
   /games:
-    get:
-      tags:
-        - Games
-      summary: List all games
-      operationId: listGames
-      parameters:
-        - name: status
-          in: query
-          description: Filter by game status
-          schema:
-            type: string
-            enum: [pending, active, paused, completed]
-        - name: limit
-          in: query
-          description: Maximum number of games to return
-          schema:
-            type: integer
-            default: 20
-            minimum: 1
-            maximum: 100
-        - name: offset
-          in: query
-          description: Number of games to skip
-          schema:
-            type: integer
-            default: 0
-            minimum: 0
-      responses:
-        '200':
-          description: List of games
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Game'
-                  total:
-                    type: integer
-                  limit:
-                    type: integer
-                  offset:
-                    type: integer
     post:
       tags:
         - Games
@@ -784,42 +1313,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - name
-              properties:
-                name:
-                  type: string
-                description:
-                  type: string
-                entryFee:
-                  type: object
-                  properties:
-                    amount:
-                      type: number
-                    currency:
-                      type: string
-                      default: USD
-                startTime:
-                  type: string
-                  format: date-time
-                endTime:
-                  type: string
-                  format: date-time
-                boundaries:
-                  type: object
-                  properties:
-                    type:
-                      type: string
-                      enum: [polygon]
-                    coordinates:
-                      type: array
-                      items:
-                        type: array
-                        items:
-                          type: number
-                rules:
-                  type: object
+              $ref: '#/components/schemas/CreateGameRequest'
       responses:
         '201':
           description: Game created successfully
@@ -831,19 +1325,75 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    get:
+      tags:
+        - Games
+      summary: List games with filtering and pagination
+      operationId: listGames
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: Filter by game status
+          schema:
+            type: string
+            enum: [pending, active, paused, completed]
+        - name: limit
+          in: query
+          description: Maximum number of games to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Number of games to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of games
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  games:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Game'
+                  total:
+                    type: integer
+                    description: Total number of games matching filter
+                  hasMore:
+                    type: boolean
+                    description: Whether there are more games to retrieve
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /games/{gameId}:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
     get:
       tags:
         - Games
       summary: Get game details
       operationId: getGame
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: Unique identifier of the game
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
           description: Game details
@@ -853,824 +1403,99 @@ paths:
                 $ref: '#/components/schemas/Game'
         '404':
           $ref: '#/components/responses/NotFound'
-    put:
-      tags:
-        - Games
-      summary: Update game details
-      operationId: updateGame
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                description:
-                  type: string
-                startTime:
-                  type: string
-                  format: date-time
-                endTime:
-                  type: string
-                  format: date-time
-                boundaries:
-                  type: object
-                rules:
-                  type: object
-      responses:
-        '200':
-          description: Game updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Game'
-        '400':
-          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-    delete:
-      tags:
-        - Games
-      summary: Delete a game
-      operationId: deleteGame
-      security:
-        - bearerAuth: []
-      responses:
-        '204':
-          description: Game deleted successfully
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
 
   /games/{gameId}/start:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
     post:
       tags:
         - Games
-      summary: Start a game
+      summary: Start game and assign targets
       operationId: startGame
       security:
         - bearerAuth: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
           description: Game started successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Game'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /games/{gameId}/pause:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-    post:
-      tags:
-        - Games
-      summary: Pause a game
-      operationId: pauseGame
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Game paused successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Game'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /games/{gameId}/end:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-    post:
-      tags:
-        - Games
-      summary: End a game
-      operationId: endGame
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Game ended successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Game'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /games/{gameId}/players:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      tags:
-        - Players
-      summary: List players in a game
-      operationId: listPlayersInGame
-      parameters:
-        - name: status
-          in: query
-          description: Filter by player status
-          schema:
-            type: string
-            enum: [alive, eliminated, winner]
-        - name: limit
-          in: query
-          description: Maximum number of players to return
-          schema:
-            type: integer
-            default: 100
-            minimum: 1
-            maximum: 1000
-        - name: offset
-          in: query
-          description: Number of players to skip
-          schema:
-            type: integer
-            default: 0
-            minimum: 0
-      responses:
-        '200':
-          description: List of players
-          content:
-            application/json:
-              schema:
                 type: object
                 properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Player'
-                  total:
-                    type: integer
-                  limit:
-                    type: integer
-                  offset:
-                    type: integer
+                  message:
+                    type: string
+                  game:
+                    $ref: '#/components/schemas/Game'
+        '400':
+          description: Game cannot be started
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+
+  /games/{gameId}/join:
     post:
       tags:
-        - Players
+        - Games
       summary: Join a game
       operationId: joinGame
       security:
         - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                paymentMethodId:
-                  type: string
-                  description: ID of the payment method (for pay-to-play games)
-      responses:
-        '201':
-          description: Successfully joined the game
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Player'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '402':
-          description: Payment required
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Already joined this game
-
-  /games/{gameId}/players/{playerId}:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: playerId
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      tags:
-        - Players
-      summary: Get player details
-      operationId: getPlayerInGame
-      responses:
-        '200':
-          description: Player details
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Player'
-        '404':
-          $ref: '#/components/responses/NotFound'
-    delete:
-      tags:
-        - Players
-      summary: Leave a game
-      operationId: leaveGame
-      security:
-        - bearerAuth: []
-      responses:
-        '204':
-          description: Successfully left the game
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /games/{gameId}/players/me/target:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      tags:
-        - Players
-      summary: Get current target
-      operationId: getCurrentTarget
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Current target details
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Player'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /games/{gameId}/kills:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      tags:
-        - Kills
-      summary: List all kills in a game
-      operationId: listKillsInGame
       parameters:
-        - name: limit
-          in: query
-          description: Maximum number of kills to return
-          schema:
-            type: integer
-            default: 50
-            minimum: 1
-            maximum: 100
-        - name: offset
-          in: query
-          description: Number of kills to skip
-          schema:
-            type: integer
-            default: 0
-            minimum: 0
-      responses:
-        '200':
-          description: List of kills
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Kill'
-                  total:
-                    type: integer
-                  limit:
-                    type: integer
-                  offset:
-                    type: integer
-        '404':
-          $ref: '#/components/responses/NotFound'
-    post:
-      tags:
-        - Kills
-      summary: Report a kill
-      operationId: reportKill
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - victimId
-              properties:
-                victimId:
-                  type: string
-                location:
-                  type: object
-                  properties:
-                    coordinates:
-                      type: array
-                      items:
-                        type: number
-                    accuracy:
-                      type: number
-                proofType:
-                  type: string
-                  enum: [photo, video, location, code]
-                proofData:
-                  type: string
-      responses:
-        '201':
-          description: Kill reported successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Kill'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Invalid kill (e.g., target is already eliminated)
-
-  /games/{gameId}/kills/{killId}:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: killId
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      tags:
-        - Kills
-      summary: Get kill details
-      operationId: getKill
-      responses:
-        '200':
-          description: Kill details
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Kill'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /games/{gameId}/kills/recent:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      tags:
-        - Kills
-      summary: Get recent kills
-      operationId: getRecentKills
-      parameters:
-        - name: limit
-          in: query
-          description: Maximum number of kills to return
-          schema:
-            type: integer
-            default: 10
-            minimum: 1
-            maximum: 50
-      responses:
-        '200':
-          description: List of recent kills
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Kill'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /games/{gameId}/kills/killer/{killerId}:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: killerId
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      tags:
-        - Kills
-      summary: Get kills by killer
-      operationId: getKillsByKiller
-      parameters:
-        - name: limit
-          in: query
-          description: Maximum number of kills to return
-          schema:
-            type: integer
-            default: 10
-            minimum: 1
-            maximum: 50
-      responses:
-        '200':
-          description: List of kills by killer
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Kill'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /games/{gameId}/kills/victim/{victimId}:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: victimId
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      tags:
-        - Kills
-      summary: Get kills by victim
-      operationId: getKillsByVictim
-      parameters:
-        - name: limit
-          in: query
-          description: Maximum number of kills to return
-          schema:
-            type: integer
-            default: 10
-            minimum: 1
-            maximum: 50
-      responses:
-        '200':
-          description: List of kills by victim
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Kill'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /store/items:
-    get:
-      tags:
-        - Store
-      summary: List available items
-      operationId: listItems
-      parameters:
-        - name: type
-          in: query
-          description: Filter by item type
+        - name: gameId
+          in: path
+          required: true
           schema:
             type: string
-            enum: [boost, defense, utility]
-        - name: limit
-          in: query
-          description: Maximum number of items to return
-          schema:
-            type: integer
-            default: 20
-            minimum: 1
-            maximum: 100
-        - name: offset
-          in: query
-          description: Number of items to skip
-          schema:
-            type: integer
-            default: 0
-            minimum: 0
+            format: uuid
       responses:
         '200':
-          description: List of items
+          description: Successfully joined game
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Item'
-                  total:
-                    type: integer
-                  limit:
-                    type: integer
-                  offset:
-                    type: integer
-
-  /purchases:
-    get:
-      tags:
-        - Store
-      summary: List user purchases
-      operationId: listPurchases
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: limit
-          in: query
-          description: Maximum number of purchases to return
-          schema:
-            type: integer
-            default: 20
-            minimum: 1
-            maximum: 100
-        - name: offset
-          in: query
-          description: Number of purchases to skip
-          schema:
-            type: integer
-            default: 0
-            minimum: 0
-      responses:
-        '200':
-          description: List of purchases
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Purchase'
-                  total:
-                    type: integer
-                  limit:
-                    type: integer
-                  offset:
-                    type: integer
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-    post:
-      tags:
-        - Store
-      summary: Purchase an item
-      operationId: purchaseItem
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - itemId
-              properties:
-                itemId:
-                  type: string
-                quantity:
-                  type: integer
-                  minimum: 1
-                  default: 1
-                paymentMethodId:
-                  type: string
-      responses:
-        '201':
-          description: Purchase completed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Purchase'
+                  message:
+                    type: string
+                  game:
+                    $ref: '#/components/schemas/Game'
         '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '402':
-          description: Payment failed
-
-  /items/activate:
-    post:
-      tags:
-        - Store
-      summary: Activate an item
-      operationId: activateItem
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - purchaseId
-                - gameId
-              properties:
-                purchaseId:
-                  type: string
-                gameId:
-                  type: string
-      responses:
-        '200':
-          description: Item activated successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  itemId:
-                    type: string
-                  gameId:
-                    type: string
-                  activatedAt:
-                    type: string
-                    format: date-time
-                  expiresAt:
-                    type: string
-                    format: date-time
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Cannot join game (game full, already joined, etc.)
         '404':
           $ref: '#/components/responses/NotFound'
-        '409':
-          description: Item already activated or cooldown period
-
-  /players/{playerId}/location:
-    parameters:
-      - name: playerId
-        in: path
-        required: true
-        schema:
-          type: string
-    post:
-      tags:
-        - Location
-      summary: Update player location
-      operationId: updatePlayerLocation
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - coordinates
-              properties:
-                coordinates:
-                  type: array
-                  items:
-                    type: number
-                  minItems: 2
-                  maxItems: 2
-                accuracy:
-                  type: number
-                  description: Accuracy in meters
-      responses:
-        '200':
-          description: Location updated successfully
-        '400':
-          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
 
+  # Safe Zone Endpoints
   /games/{gameId}/safezones:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      tags:
-        - Location
-      summary: List safe zones
-      operationId: listSafeZones
-      responses:
-        '200':
-          description: List of safe zones
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/SafeZone'
-        '404':
-          $ref: '#/components/responses/NotFound'
     post:
       tags:
-        - Location
+        - Safe Zones
       summary: Create a safe zone
       operationId: createSafeZone
       security:
         - bearerAuth: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - radius
-                - center
-              properties:
-                radius:
-                  type: number
-                  description: Radius in meters
-                center:
-                  type: object
-                  properties:
-                    lat:
-                      type: number
-                    lng:
-                      type: number
-                name:
-                  type: string
-                description:
-                  type: string
-                startTime:
-                  type: string
-                  format: date-time
-                endTime:
-                  type: string
-                  format: date-time
+              $ref: '#/components/schemas/CreateSafeZoneRequest'
       responses:
         '201':
           description: Safe zone created successfully
@@ -1684,985 +1509,90 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
 
-  /stats/game/{gameId}:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
     get:
       tags:
-        - Statistics
-      summary: Get game statistics
-      operationId: getGameStats
-      responses:
-        '200':
-          description: Game statistics
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  totalPlayers:
-                    type: integer
-                  activePlayers:
-                    type: integer
-                  eliminatedPlayers:
-                    type: integer
-                  totalKills:
-                    type: integer
-                  averageKillsPerPlayer:
-                    type: number
-                  mostKills:
-                    type: object
-                    properties:
-                      playerId:
-                        type: string
-                      playerName:
-                        type: string
-                      kills:
-                        type: integer
-                  longestSurvival:
-                    type: object
-                    properties:
-                      playerId:
-                        type: string
-                      playerName:
-                        type: string
-                      duration:
-                        type: integer
-                        description: Duration in seconds
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /stats/player/{playerId}:
-    parameters:
-      - name: playerId
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      tags:
-        - Statistics
-      summary: Get player statistics
-      operationId: getPlayerStats
-      responses:
-        '200':
-          description: Player statistics
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  totalGames:
-                    type: integer
-                  gamesWon:
-                    type: integer
-                  winRate:
-                    type: number
-                  totalKills:
-                    type: integer
-                  killsPerGame:
-                    type: number
-                  totalDeaths:
-                    type: integer
-                  averageSurvivalTime:
-                    type: number
-                    description: Average survival time in seconds
-                  itemsPurchased:
-                    type: integer
-                  itemsActivated:
-                    type: integer
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /leaderboard/kills:
-    get:
-      tags:
-        - Statistics
-      summary: Get kill leaderboard
-      operationId: getKillLeaderboard
+        - Safe Zones
+      summary: Get safe zones for a game
+      operationId: getGameSafeZones
+      security:
+        - bearerAuth: []
       parameters:
         - name: gameId
-          in: query
-          description: Filter by game ID
-          schema:
-            type: string
-        - name: timeframe
-          in: query
-          description: Timeframe for leaderboard
-          schema:
-            type: string
-            enum: [all, day, week, month]
-            default: all
-        - name: limit
-          in: query
-          description: Maximum number of entries to return
-          schema:
-            type: integer
-            default: 10
-            minimum: 1
-            maximum: 100
-      responses:
-        '200':
-          description: Kill leaderboard
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    playerId:
-                      type: string
-                    playerName:
-                      type: string
-                    kills:
-                      type: integer
-                    rank:
-                      type: integer
-
-  # WebSocket API paths
-  /ws:
-    get:
-      tags:
-        - WebSocket
-      summary: Establish WebSocket connection for real-time notifications
-      description: |
-        Upgrades the connection to WebSocket for real-time notifications. 
-        Requires authentication token in the query parameter.
-      operationId: connectWebSocket
-      security:
-        - websocketAuth: []
-      responses:
-        '101':
-          description: Connection upgraded to WebSocket
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-  # Notifications paths
-  /notifications:
-    get:
-      tags:
-        - Notifications
-      summary: Get notifications for the current player
-      operationId: getNotifications
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: limit
-          in: query
-          description: Maximum number of notifications to return
-          schema:
-            type: integer
-            default: 20
-            minimum: 1
-            maximum: 100
-        - name: unreadOnly
-          in: query
-          description: Filter to unread notifications only
-          schema:
-            type: boolean
-            default: false
-      responses:
-        '200':
-          description: Notifications list
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Notification'
-                  total:
-                    type: integer
-                  unread:
-                    type: integer
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-  /notifications/{notificationId}/read:
-    parameters:
-      - name: notificationId
-        in: path
-        required: true
-        schema:
-          type: string
-    put:
-      tags:
-        - Notifications
-      summary: Mark a notification as read
-      operationId: markNotificationRead
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Notification marked as read
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Notification'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  # Updated kill verification path
-  /kills/{killerId}/{killTime}/verify:
-    parameters:
-      - name: killerId
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: killTime
-        in: path
-        required: true
-        schema:
-          type: string
-    post:
-      tags:
-        - Kills
-      summary: Verify a kill using specified verification method
-      operationId: verifyKill
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                # GPS verification
-                victimLatitude:
-                  type: string
-                  description: Victim's latitude for GPS verification
-                victimLongitude:
-                  type: string
-                  description: Victim's longitude for GPS verification
-                # NFC verification
-                scannedNfcTagId:
-                  type: string
-                  description: Scanned NFC tag ID for NFC verification
-                # Photo verification
-                photoUrl:
-                  type: string
-                  description: URL to photo for PHOTO verification
-                timestamp:
-                  type: string
-                  format: date-time
-                  description: Time when the photo was taken
-                description:
-                  type: string
-                  description: Description of the photo
-                # Moderator actions
-                moderatorAction:
-                  type: string
-                  enum: [APPROVE, REJECT]
-                  description: Moderator action for PHOTO verification
-                moderatorNotes:
-                  type: string
-                  description: Notes from moderator explaining decision
-      responses:
-        '200':
-          description: Kill verification result
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Kill'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  # Nationwide game specific endpoints
-  /games/nationwide:
-    get:
-      tags:
-        - Games
-      summary: Get active nationwide games
-      operationId: getNationwideGames
-      responses:
-        '200':
-          description: List of active nationwide games
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Game'
-
-  /games/{gameId}/heatmap:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      tags:
-        - Games
-        - Statistics
-      summary: Get activity heatmap for nationwide game
-      operationId: getGameHeatmap
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: resolution
-          in: query
-          description: Heatmap resolution (high, medium, low)
-          schema:
-            type: string
-            enum: [high, medium, low]
-            default: medium
-        - name: timeframe
-          in: query
-          description: Timeframe for heatmap data
-          schema:
-            type: string
-            enum: [hour, day, week, all]
-            default: day
-      responses:
-        '200':
-          description: Heatmap data by region
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  regions:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        regionId:
-                          type: string
-                        regionName:
-                          type: string
-                        activityLevel:
-                          type: integer
-                          minimum: 0
-                          maximum: 100
-                        killCount:
-                          type: integer
-                        playerCount:
-                          type: integer
-                        coordinates:
-                          type: object
-                          properties:
-                            center:
-                              type: array
-                              items:
-                                type: number
-                              minItems: 2
-                              maxItems: 2
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /games/{gameId}/purge:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      tags:
-        - Games
-      summary: Get purge schedule for a nationwide game
-      operationId: getPurgeSchedule
-      responses:
-        '200':
-          description: Purge schedule information
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  nextPurgeStart:
-                    type: string
-                    format: date-time
-                  nextPurgeEnd:
-                    type: string
-                    format: date-time
-                  isActive:
-                    type: boolean
-                  affectedSafeZones:
-                    type: array
-                    items:
-                      type: string
-                  purgeHistoryUrl:
-                    type: string
-                    format: uri
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  # Premium intel endpoints
-  /games/{gameId}/intel/prey:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      tags:
-        - Games
-        - Store
-      summary: Reveal prey identity (premium intel)
-      operationId: revealPreyIdentity
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Prey identity information
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Player'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '402':
-          description: Payment required (premium intel perk needed)
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /games/{gameId}/intel/hunter:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      tags:
-        - Games
-        - Store
-      summary: Reveal hunter identity (premium intel)
-      operationId: revealHunterIdentity
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Hunter identity information
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Player'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '402':
-          description: Payment required (premium intel perk needed)
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  # Game timeline endpoint
-  /games/{gameId}/timeline:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      tags:
-        - Games
-        - Kills
-      summary: Get game timeline of events
-      operationId: getGameTimeline
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: limit
-          in: query
-          description: Maximum number of events to return
-          schema:
-            type: integer
-            default: 20
-            minimum: 1
-            maximum: 100
-        - name: offset
-          in: query
-          description: Number of events to skip
-          schema:
-            type: integer
-            default: 0
-            minimum: 0
-      responses:
-        '200':
-          description: Game timeline events
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    eventType:
-                      type: string
-                      enum: [KILL, GAME_START, GAME_END, PURGE_START, PURGE_END]
-                    timestamp:
-                      type: string
-                      format: date-time
-                    killerID:
-                      type: string
-                    victimID:
-                      type: string
-                    description:
-                      type: string
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  # Shrinking Zone endpoints
-  /games/{gameId}/zone-state:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      tags:
-        - Shrinking Zone
-      summary: Get current shrinking zone state for a game
-      operationId: getZoneState
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Current zone state
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GameZoneState'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-
-  /games/{gameId}/zone-stages:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      tags:
-        - Shrinking Zone
-      summary: Get shrinking zone configuration stages for a game
-      operationId: getZoneStages
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Zone configuration stages
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ShrinkingZoneStage'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-
-  /games/{gameId}/zone-damage:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-    get:
-      tags:
-        - Shrinking Zone
-      summary: Check if player is taking zone damage
-      operationId: checkZoneDamage
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: playerId
-          in: query
+          in: path
           required: true
           schema:
             type: string
-          description: ID of the player to check
+            format: uuid
+        - name: type
+          in: query
+          description: Filter by safe zone type
+          schema:
+            type: string
+            enum: [public, private, timed, relocatable]
+        - name: active
+          in: query
+          description: Filter by active status
+          schema:
+            type: boolean
       responses:
         '200':
-          description: Zone damage status
+          description: List of safe zones
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  isOutsideZone:
-                    type: boolean
-                    description: Whether player is outside safe zone
-                  damagePerSecond:
-                    type: number
-                    description: Current damage rate if outside zone
-                  timeUntilNextDamage:
-                    type: integer
-                    description: Seconds until next damage application
-                  currentHealth:
-                    type: number
-                    description: Player's current health
-                  distanceFromZoneEdge:
-                    type: number
-                    description: Distance in meters from zone edge (negative if inside)
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-
-  # Payment endpoints
-  /games/{gameId}/pay-entry-fee:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-    post:
-      tags:
-        - Payments
-      summary: Pay entry fee for a game
-      operationId: payEntryFee
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - paymentMethodId
-              properties:
-                paymentMethodId:
-                  type: string
-                  description: Stripe payment method ID
-                amount:
-                  type: number
-                  format: decimal
-                  description: Amount to pay (if different from game default)
-      responses:
-        '200':
-          description: Payment processed successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Transaction'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '402':
-          description: Payment failed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Entry fee already paid
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /games/{gameId}/create-payment-intent:
-    parameters:
-      - name: gameId
-        in: path
-        required: true
-        schema:
-          type: string
-    post:
-      tags:
-        - Payments
-      summary: Create payment intent for client-side completion
-      description: |
-        Creates a Stripe PaymentIntent that supports multiple payment methods including 
-        Apple Pay, Google Pay, and bank transfers. This enables client-side payment 
-        completion for a seamless in-app experience.
-      operationId: createPaymentIntent
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                amount:
-                  type: number
-                  format: decimal
-                  description: Payment amount (uses game entry fee if not specified)
-                currency:
-                  type: string
-                  description: Currency code (default: USD)
-                  default: USD
-                paymentMethodTypes:
-                  type: array
-                  items:
-                    type: string
-                  description: Specific payment method types to enable
-                  example: ["card", "apple_pay", "google_pay"]
-      responses:
-        '200':
-          description: Payment intent created successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  paymentIntentId:
-                    type: string
-                    description: Stripe PaymentIntent ID
-                  clientSecret:
-                    type: string
-                    description: Client secret for completing payment on client side
-                  amount:
-                    type: number
-                    format: decimal
-                  currency:
-                    type: string
-                  status:
-                    type: string
-                    enum: [requires_payment_method, requires_confirmation, requires_action]
-                  paymentMethodTypes:
+                  safeZones:
                     type: array
                     items:
-                      type: string
-                    description: Available payment method types
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+                      $ref: '#/components/schemas/SafeZone'
         '404':
           $ref: '#/components/responses/NotFound'
-        '402':
-          description: Payment processing error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /payments/{paymentIntentId}/confirm:
-    parameters:
-      - name: paymentIntentId
-        in: path
-        required: true
-        schema:
-          type: string
-        description: Stripe PaymentIntent ID
-    post:
-      tags:
-        - Payments
-      summary: Confirm payment completion and update transaction status
-      description: |
-        Confirms that a payment has been completed client-side and updates the 
-        corresponding transaction status. Used after client-side payment completion 
-        with Apple Pay, Google Pay, or other payment methods.
-      operationId: confirmPayment
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Payment confirmed successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Payment confirmed successfully"
-                  transactionId:
-                    type: string
-                    description: Internal transaction ID
-                  status:
-                    type: string
-                    enum: [completed]
-                  paymentMethod:
-                    type: object
-                    description: Details about the payment method used
-                    properties:
-                      type:
-                        type: string
-                        example: "card"
-                      brand:
-                        type: string
-                        example: "visa"
-                      last4:
-                        type: string
-                        example: "4242"
-        '400':
-          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '404':
-          description: Payment intent not found or no associated transaction
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '409':
-          description: Payment requires additional action or failed
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                  status:
-                    type: string
-                    enum: [requires_action, failed, canceled]
-                  nextAction:
-                    type: object
-                    description: Additional action required (e.g., 3D Secure)
 
-  # Security endpoints
-  /security/reports:
+  /safezones/{safeZoneId}:
     get:
       tags:
-        - Security
-      summary: Get security reports and metrics
-      operationId: getSecurityReports
+        - Safe Zones
+      summary: Get safe zone details
+      operationId: getSafeZone
       security:
         - bearerAuth: []
       parameters:
-        - name: timeframe
-          in: query
-          description: Timeframe for security data
+        - name: safeZoneId
+          in: path
+          required: true
           schema:
             type: string
-            enum: [hour, day, week, month]
-            default: day
-        - name: reportType
-          in: query
-          description: Type of security report
-          schema:
-            type: string
-            enum: [threats, rate_limiting, authentication, all]
-            default: all
+            format: uuid
       responses:
         '200':
-          description: Security reports and metrics
+          description: Safe zone details
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  threatDetection:
-                    type: object
-                    properties:
-                      suspiciousIPs:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            ip:
-                              type: string
-                            threatScore:
-                              type: number
-                            lastActivity:
-                              type: string
-                              format: date-time
-                      blockedRequests:
-                        type: integer
-                      totalThreats:
-                        type: integer
-                  rateLimiting:
-                    type: object
-                    properties:
-                      throttledRequests:
-                        type: integer
-                      topThrottledEndpoints:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            endpoint:
-                              type: string
-                            count:
-                              type: integer
-                  authentication:
-                    type: object
-                    properties:
-                      failedLogins:
-                        type: integer
-                      suspiciousLoginAttempts:
-                        type: integer
-                      uniqueUsers:
-                        type: integer
-                  alerts:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        severity:
-                          type: string
-                          enum: [low, medium, high, critical]
-                        message:
-                          type: string
-                        timestamp:
-                          type: string
-                          format: date-time
-                        resolved:
-                          type: boolean
+                $ref: '#/components/schemas/SafeZone'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
 
-  /security/ip/{ipAddress}/block:
-    parameters:
-      - name: ipAddress
-        in: path
-        required: true
-        schema:
-          type: string
-        description: IP address to block
-    post:
+    put:
       tags:
-        - Security
-      summary: Block an IP address
-      operationId: blockIPAddress
+        - Safe Zones
+      summary: Update safe zone
+      operationId: updateSafeZone
       security:
         - bearerAuth: []
+      parameters:
+        - name: safeZoneId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -2670,43 +1600,276 @@ paths:
             schema:
               type: object
               properties:
-                reason:
+                name:
                   type: string
-                  description: Reason for blocking the IP
-                duration:
-                  type: integer
-                  description: Block duration in seconds (0 for permanent)
-                  default: 0
+                  maxLength: 100
+                description:
+                  type: string
+                  maxLength: 500
+                radiusMeters:
+                  type: number
+                  format: float
+                  minimum: 1
+                  maximum: 1000
+                isActive:
+                  type: boolean
       responses:
         '200':
-          description: IP address blocked successfully
+          description: Safe zone updated successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  blockedIp:
-                    type: string
-                  blockedUntil:
-                    type: string
-                    format: date-time
+                $ref: '#/components/schemas/SafeZone'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Safe Zones
+      summary: Delete safe zone
+      operationId: deleteSafeZone
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: safeZoneId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Safe zone deleted successfully
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Map and Geospatial Endpoints
+  /games/{gameId}/map/config:
+    get:
+      tags:
+        - Map
+      summary: Get map configuration
+      operationId: getMapConfig
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Map configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MapConfiguration'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /games/{gameId}/map/heatmap:
+    get:
+      tags:
+        - Map
+      summary: Get activity heatmap data
+      operationId: getHeatmapData
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: cellSize
+          in: query
+          description: Size of heatmap cells in meters
+          schema:
+            type: number
+            format: float
+            minimum: 10
+            maximum: 1000
+            default: 100
+      responses:
+        '200':
+          description: Heatmap data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeatmapData'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Data Export Endpoints
+  /export/games:
+    get:
+      tags:
+        - Data Export
+      summary: Export game statistics
+      operationId: exportGameStatistics
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: format
+          in: query
+          description: Export format
+          schema:
+            type: string
+            enum: [json, csv]
+            default: json
+        - name: gameId
+          in: query
+          description: Specific game ID to export
+          schema:
+            type: string
+            format: uuid
+        - name: start_date
+          in: query
+          description: Start date for filtering (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          description: End date for filtering (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          description: Maximum number of records to export
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10000
+            default: 1000
+      responses:
+        '200':
+          description: Exported game statistics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GameStatisticsExport'
+            text/csv:
+              schema:
+                type: string
+                description: CSV format game statistics
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
 
-  /security/alerts:
+  /export/players:
+    get:
+      tags:
+        - Data Export
+      summary: Export player performance data
+      operationId: exportPlayerPerformance
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: format
+          in: query
+          description: Export format
+          schema:
+            type: string
+            enum: [json, csv]
+            default: json
+        - name: playerId
+          in: query
+          description: Specific player ID to export
+          schema:
+            type: string
+            format: uuid
+        - name: gameId
+          in: query
+          description: Filter by specific game
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          description: Maximum number of records to export
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10000
+            default: 1000
+      responses:
+        '200':
+          description: Exported player performance data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlayerPerformanceExport'
+            text/csv:
+              schema:
+                type: string
+                description: CSV format player performance data
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Security Monitoring Endpoints
+  /security-monitoring/report:
+    get:
+      tags:
+        - Security
+      summary: Generate security monitoring report
+      operationId: getSecurityReport
+      security:
+        - adminAuth: []
+      parameters:
+        - name: start_time
+          in: query
+          description: Report start time (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          description: Report end time (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Security monitoring report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityMonitoringReport'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /security-monitoring/alerts:
     get:
       tags:
         - Security
       summary: Get security alerts
       operationId: getSecurityAlerts
       security:
-        - bearerAuth: []
+        - adminAuth: []
       parameters:
         - name: severity
           in: query
@@ -2721,43 +1884,268 @@ paths:
             type: boolean
         - name: limit
           in: query
-          description: Maximum number of alerts to return
           schema:
             type: integer
-            default: 50
             minimum: 1
             maximum: 100
+            default: 50
       responses:
         '200':
-          description: Security alerts
+          description: List of security alerts
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    id:
-                      type: string
-                    severity:
-                      type: string
-                      enum: [low, medium, high, critical]
-                    type:
-                      type: string
-                      enum: [rate_limit_exceeded, suspicious_activity, authentication_failure, threat_detected]
-                    message:
-                      type: string
-                    details:
-                      type: object
-                    timestamp:
-                      type: string
-                      format: date-time
-                    resolved:
-                      type: boolean
-                    resolvedAt:
-                      type: string
-                      format: date-time
+                type: object
+                properties:
+                  alerts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SecurityAlert'
+                  total:
+                    type: integer
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden' 
+          $ref: '#/components/responses/Forbidden'
+
+  # Subscription Management Endpoints
+  /subscriptions/tiers:
+    get:
+      tags:
+        - Subscriptions
+      summary: Get available subscription tiers
+      operationId: getSubscriptionTiers
+      responses:
+        '200':
+          description: List of subscription tiers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tiers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SubscriptionTier'
+
+  /players/me/subscription:
+    get:
+      tags:
+        - Subscriptions
+      summary: Get current player's subscription
+      operationId: getPlayerSubscription
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Player's current subscription
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Subscriptions
+      summary: Subscribe to a tier
+      operationId: createSubscription
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tierId
+                - paymentMethodId
+              properties:
+                tierId:
+                  type: string
+                  description: ID of the subscription tier
+                paymentMethodId:
+                  type: string
+                  description: Stripe payment method ID
+      responses:
+        '201':
+          description: Subscription created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionInfo'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    delete:
+      tags:
+        - Subscriptions
+      summary: Cancel subscription
+      operationId: cancelSubscription
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Subscription cancelled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  cancellationDate:
+                    type: string
+                    format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Privacy Management Endpoints
+  /players/{playerId}/privacy:
+    get:
+      tags:
+        - Privacy
+      summary: Get privacy settings
+      operationId: getPrivacySettings
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Privacy settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivacySettings'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Privacy
+      summary: Update privacy settings
+      operationId: updatePrivacySettings
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrivacySettings'
+      responses:
+        '200':
+          description: Privacy settings updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivacySettings'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Location Tracking Endpoints
+  /location:
+    post:
+      tags:
+        - Location
+      summary: Update player location
+      operationId: updateLocation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLocationRequest'
+      responses:
+        '200':
+          description: Location updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  location:
+                    $ref: '#/components/schemas/Location'
+                  inSafeZone:
+                    type: boolean
+                    description: Whether player is currently in a safe zone
+                  nearbyPlayers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        playerId:
+                          type: string
+                        distance:
+                          type: number
+                          description: Distance in meters
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # WebSocket Connection Management
+  /websocket/connect:
+    get:
+      tags:
+        - WebSocket
+      summary: Establish WebSocket connection
+      operationId: connectWebSocket
+      description: |
+        WebSocket connection endpoint. Use the `token` query parameter for authentication.
+        
+        **Connection URL**: `wss://api.assassingame.com/websocket?token={jwt_token}`
+        
+        **Message Types**:
+        - `player_update`: Real-time location updates
+        - `kill_reported`: Kill report notifications
+        - `kill_verified`: Kill verification notifications
+        - `zone_update`: Shrinking zone updates
+        - `safe_zone_update`: Safe zone status changes
+        - `game_update`: Game state changes
+        - `notification`: General notifications
+        - `ping/pong`: Connection health checks
+      security:
+        - websocketAuth: []
+      responses:
+        '101':
+          description: WebSocket connection established
+        '401':
+          description: Invalid or missing authentication token
+        '403':
+          description: Connection not allowed
+
+# Additional endpoints for Player management, Kill reporting, Statistics, etc.
+# would continue here following the same pattern...
+
+security:
+  - bearerAuth: []

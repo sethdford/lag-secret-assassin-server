@@ -119,40 +119,62 @@ aws-sam-assassin/
 
 ## 📡 API Documentation
 
-### Core Endpoints
+### Comprehensive API Reference
 
-#### Game Management
+**📋 Full API Specification**: [OpenAPI 3.1.0 Documentation](docs/openapi.yaml)
+- Complete REST API with 40+ endpoints
+- WebSocket API documentation
+- Request/response schemas
+- Authentication requirements
+- Error handling
+
+**🔌 WebSocket API**: [Real-time Communication Guide](docs/WEBSOCKET_API.md)
+- Connection management
+- Message types and formats
+- Event broadcasting
+- Client implementation examples
+
+### Quick Reference - Core Endpoints
+
+#### 🎮 Game Management
 - `POST /games` - Create a new game
 - `GET /games/{gameId}` - Get game details
 - `POST /games/{gameId}/start` - Start game and assign targets
-- `PUT /games/{gameId}/end` - End game (admin only)
 - `POST /games/{gameId}/join` - Join a game
-- `PUT /games/{gameId}/boundary` - Update game boundaries
 
-#### Player & Location
+#### 👤 Player & Location
 - `GET /players/{playerId}` - Get player profile
-- `PUT /players/{playerId}/location` - Update player location
-- `GET /players/{playerId}/games` - Get player's games
+- `POST /location` - Update player location
+- `GET /players/{playerId}/privacy` - Get privacy settings
 
-#### Elimination System
+#### ⚔️ Elimination System
 - `POST /eliminations` - Report an elimination
 - `PUT /eliminations/{eliminationId}/verify` - Verify elimination
 - `GET /games/{gameId}/eliminations` - Get game eliminations
 
-#### Safe Zones
-- `GET /games/{gameId}/safe-zones` - Get safe zones for game
-- `POST /safe-zones` - Create a safe zone
-- `PUT /safe-zones/{zoneId}` - Update safe zone
+#### 🛡️ Safe Zones
+- `GET /games/{gameId}/safezones` - Get safe zones for game
+- `POST /games/{gameId}/safezones` - Create a safe zone
+- `PUT /safezones/{safeZoneId}` - Update safe zone
 
-#### Shrinking Zone System
-- `GET /games/{gameId}/zone-state` - Get current zone state
-- `GET /games/{gameId}/zone-stages` - Get zone configuration
-- `GET /games/{gameId}/zone-damage` - Get player damage status
+#### 🗺️ Interactive Map
+- `GET /games/{gameId}/map/config` - Get map configuration
+- `GET /games/{gameId}/map/heatmap` - Get activity heatmap data
+- `GET /games/{gameId}/map/zones` - Get zone overlays
 
-#### Payments
+#### 📊 Data Export & Analytics
+- `GET /export/games` - Export game statistics
+- `GET /export/players` - Export player performance data
+- `GET /export/locations` - Export location heatmap data
+
+#### 🔐 Security & Monitoring
+- `GET /security-monitoring/report` - Generate security report
+- `GET /security-monitoring/alerts` - Get security alerts
+
+#### 💳 Payments & Subscriptions
 - `POST /games/{gameId}/pay-entry-fee` - Process entry fee payment
-
-**Full API Documentation**: See [OpenAPI Specification](docs/openapi.yaml)
+- `GET /subscriptions/tiers` - Get subscription options
+- `POST /players/me/subscription` - Subscribe to tier
 
 ## 🛠️ Development Workflow
 
@@ -179,7 +201,30 @@ task-master set-status --id=<task-id> --status=done
 - **⚡ Real-time Features**: WebSocket implementation for live game updates
 - **🔐 Security Hardening**: Advanced anti-cheat and location verification
 
-**Progress**: 19/58 tasks completed (33% done) with 62/123 subtasks completed (50% done)
+**Progress**: 22/58 tasks completed (38% done) with 67/123 subtasks completed (54% done)
+
+## 📚 Documentation
+
+### Core Documentation
+- **🏗️ [System Architecture](docs/ARCHITECTURE.md)** - Comprehensive system design, AWS services, and scalability patterns
+- **🎯 [Game Mechanics](docs/GAME_MECHANICS.md)** - Complete game rules, elimination system, and gameplay features
+- **🔌 [WebSocket API](docs/WEBSOCKET_API.md)** - Real-time communication protocol and message types
+- **📋 [API Specification](docs/openapi-updated.yaml)** - OpenAPI 3.1.0 complete API documentation
+
+### Deployment & Infrastructure
+- **🚀 [Deployment Guide](DEPLOYMENT.md)** - Step-by-step deployment instructions
+- **📊 [X-Ray Tracing](XRAY_TRACING.md)** - Distributed tracing implementation and monitoring
+
+### Development Resources
+- **💾 [Memory & State Management](memory/)** - Claude-Flow orchestration and session data
+- **🎯 [User Stories](.memory/12-user-stories.md)** - Complete user journey documentation (300+ stories)
+- **⚙️ [Development Standards](.memory/51-development-standards.md)** - Code quality and best practices
+- **🏛️ [Domain Model](.memory/11-domain-model.md)** - Business logic and data relationships
+
+### Project Management
+- **📋 [Task Management](.taskmaster/)** - Development tasks and progress tracking
+- **🧠 [Project Memory](memory-bank.md)** - AI-assisted development knowledge base
+- **🤝 [Agent Coordination](coordination.md)** - Multi-agent development workflows
 
 ## 🧪 Testing
 
